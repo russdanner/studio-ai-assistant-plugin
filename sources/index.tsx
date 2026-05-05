@@ -1,0 +1,48 @@
+import { PluginDescriptor } from '@craftercms/studio-ui';
+import AiAssistantPopover from './src/AiAssistantPopover';
+import AiAssistantDialogContent from './src/AiAssistantDialogContent';
+import {
+  autonomousAgentsMarkWidgetId,
+  autonomousAssistantsWidgetId,
+  aiAssistantStudioPluginId,
+  dialogContentWidgetId,
+  formControlWidgetId,
+  helperWidgetId,
+  logoWidgetId,
+  popoverWidgetId
+} from './src/consts.ts';
+import AiAssistantLogo from './src/AiAssistantLogo.tsx';
+import AutonomousAgentsMarkIcon from './src/autonomousAgentsMarkIcon.tsx';
+import AiAssistantHelper from './src/AiAssistantHelper.tsx';
+import AiAssistantAutonomousAssistants from './src/AiAssistantAutonomousAssistants.tsx';
+import AiAssistantFormControl from './src/AiAssistantFormControl';
+import { installAiAssistantContentTypesHighlightPatch } from './src/aiAssistantContentTypesHighlightPatch';
+import { installRemoteImageDropImportBridge } from './src/aiAssistantRemoteImageDropBridge';
+
+installRemoteImageDropImportBridge();
+installAiAssistantContentTypesHighlightPatch();
+
+const plugin: PluginDescriptor = {
+  locales: undefined,
+  scripts: undefined,
+  stylesheets: undefined,
+  /**
+   * Must match `craftercms-plugin.yaml` → `plugin.id`. Studio `registerPlugin` dedupes on this string; using a
+   * different id than `craftercms-plugin.yaml` can cause a prior/empty registration to skip this bundle so
+   * `craftercms.components.aiassistant.Helper` never reaches the component registry.
+   */
+  id: aiAssistantStudioPluginId,
+  widgets: {
+    [helperWidgetId]: AiAssistantHelper,
+    [autonomousAssistantsWidgetId]: AiAssistantAutonomousAssistants,
+    [autonomousAgentsMarkWidgetId]: AutonomousAgentsMarkIcon,
+    [formControlWidgetId]: AiAssistantFormControl,
+    [logoWidgetId]: AiAssistantLogo,
+    [popoverWidgetId]: AiAssistantPopover,
+    [dialogContentWidgetId]: AiAssistantDialogContent
+  }
+};
+
+export default plugin;
+/** Named exports for `import()` interop: Studio uses `module.plugin ?? module.default`. */
+export { AiAssistantPopover, plugin };
