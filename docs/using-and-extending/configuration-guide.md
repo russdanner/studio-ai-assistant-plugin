@@ -2,7 +2,7 @@
 
 **Audience:** Studio admins and site builders who need the assistant to **appear**, **authenticate**, and **behave** as intended—without reading the full implementation spec first.
 
-**Related docs:** [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. [spec.md](../internals/spec.md) for **`ui.xml`** and widget contracts, macros, form vs preview, and autonomous REST. Optional hosted SaaS HTTP (bearer, chat audit tools) is covered in [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when you opt in on a tool-capable agent.
+**Related docs:** [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. [spec.md](../internals/spec.md) for **`ui.xml`** and widget contracts, macros, form vs preview, and autonomous REST. Optional hosted SaaS HTTP (bearer, chat audit tools) is covered in [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when you opt in on a tool-capable agent. **Site overrides** for prompts, built‑in tool policy, scripted tools, image backends, and MCP: **§9** below.
 
 ---
 
@@ -241,7 +241,103 @@ Full toolbar list and keys: [tinymce-integration.md](tinymce-integration.md).
 
 ---
 
-## 9. Where to go next
+## 9. Advanced configuration (prompts, tools, scripts, MCP)
+
+All paths below are under the **site** Git sandbox (`config/studio/scripts/aiassistant/…`). Commit changes and refresh Studio configuration as you do for other site scripts.
+
+### 9.1 Override tool / system prompt text
+
+**Put Markdown here:**
+
+```text
+config/studio/scripts/aiassistant/prompts/<KEY>.md
+```
+
+**`<KEY>`** is the exact **constant name** from the plugin’s `ToolPrompts` class (same spelling as the Groovy property), e.g. **`OPENAI_AUTHORING_INSTRUCTIONS.md`**, **`DESC_GET_CONTENT.md`**, **`OPENAI_CHAT_ONLY_SYSTEM.md`**.
+
+| Rule | Detail |
+|------|--------|
+| **Replace vs merge** | The file **replaces the entire** built‑in string for that key. There is no partial patch. |
+| **Blank file** | Treated like **missing** — the shipped default stays. |
+| **Order** | Site file is read **before** classpath defaults when a chat request runs (`ToolPromptsLoader`). |
+
+**Finding keys:** Search **`ToolPrompts.groovy`** in this plugin repo for `p('SOME_KEY',` — the first argument is the filename stem (`SOME_KEY.md`). Large keys include authoring instructions, per‑tool **`DESC_*`** strings, and CrafterQ transcript snippets.
+
+---
+
+### 9.2 Enable / disable stock (built‑in) tools
+
+**Put JSON here:**
+
+```text
+config/studio/scripts/aiassistant/config/tools.json
+```
+
+| Field | Effect |
+|-------|--------|
+| **`disabledBuiltInTools`** | JSON array of **tool names to hide** (compared case‑insensitively). Example: `["GenerateImage", "FetchHttpUrl"]` removes those tools from the catalog. |
+| **`enabledBuiltInTools`** | If this array is **non‑empty**, it is a **whitelist** of **built‑in CMS** tool names to **keep**; every other built‑in is removed **except** **`InvokeSiteUserTool`** and any **`mcp_*`** tools (unless those appear in **`disabledBuiltInTools`** / **`disabledMcpTools`**). Names must match the registered tool string **exactly** (case‑sensitive), e.g. **`GetContent`**, **`update_content`**. If **omitted** or **empty**, all built‑ins are available minus **`disabledBuiltInTools`**. |
+
+**Wire names** must match registration (examples): **`GetContent`**, **`WriteContent`**, **`GenerateImage`**, **`ListContentTranslationScope`**, **`ListStudioContentTypes`**, **`GetContentTypeFormDefinition`**, **`GetPreviewHtml`**, **`FetchHttpUrl`**, **`QueryExpertGuidance`**, **`ListPagesAndComponents`**, **`update_content`**, **`update_template`**, **`analyze_template`**, **`publish_content`**, **`revert_change`**, **`ConsultCrafterQExpert`**, **`ListCrafterQAgentChats`**, **`GetCrafterQAgentChat`**, **`TranslateContentItem`**, **`TranslateContentBatch`**, … (see **`AiOrchestrationTools.groovy`** `FunctionToolCallback.builder('…')` for the canonical list).
+
+Per-request **`omitTools`** / agent **`<enableTools>false</enableTools>`** still apply on top of this file.
+
+**Example — hide image + outbound fetch, keep the rest:**
+
+```json
+{
+  "disabledBuiltInTools": ["GenerateImage", "FetchHttpUrl"]
+}
+```
+
+---
+
+### 9.3 Scripted tools, script LLMs, and image generators
+
+| What | Where you put it | How the model uses it |
+|------|------------------|------------------------|
+| **Site user tools** (Groovy) | **`config/studio/scripts/aiassistant/user-tools/`** + **`registry.json`** | Model calls **`InvokeSiteUserTool`** with **`toolId`** matching an entry in **`registry.json`**; script name on disk must match **`script`** / **`file`**. |
+| **Script LLM** | **`config/studio/scripts/aiassistant/llm/{id}/runtime.groovy`** (or `llm.groovy`) | Agent **`<llm>script:{id}</llm>`** — see [llm-configuration.md](llm-configuration.md) and [studio-plugins-guide.md](studio-plugins-guide.md). |
+| **Script image backend** | **`config/studio/scripts/aiassistant/imagegen/{id}/generate.groovy`** | Agent or POST **`imageGenerator`** = **`script:{id}`**. **`none`** / **`off`** / **`disabled`** removes **GenerateImage**. Blank + keys + **`imageModel`** uses the default OpenAI‑compatible Images wire. |
+
+Copy‑paste starter: **`docs/examples/aiassistant-user-tools/`**. Image pipeline details: [image-generation.md](image-generation.md). Build / classpath / security notes: [studio-plugins-guide.md](studio-plugins-guide.md) (**user-tools**, **imagegen**, **tools.json**).
+
+---
+
+### 9.4 MCP servers (optional remote tools)
+
+Same file: **`config/studio/scripts/aiassistant/config/tools.json`**.
+
+| Field | Purpose |
+|-------|---------|
+| **`mcpEnabled`** | Must be JSON **`true`** or **`mcpServers`** is **ignored** (default off). |
+| **`mcpServers`** | Array of `{ "id": "…", "url": "https://host/…/mcp", "headers": { }, "readTimeoutMs": 120000 }` — **Streamable HTTP** MCP endpoint (`POST` on **`url`**). |
+| **`disabledMcpTools`** | Optional array of **wire** tool names to hide, e.g. **`mcp_docs_search`**. You can also list MCP wire names under **`disabledBuiltInTools`**. |
+
+Each MCP tool becomes a function named roughly **`mcp_<serverId>_<toolName>`** (sanitized, length‑capped). SSRF rules match **`FetchHttpUrl`**.
+
+**Example:**
+
+```json
+{
+  "mcpEnabled": true,
+  "mcpServers": [
+    {
+      "id": "docs",
+      "url": "https://mcp.example.com/mcp",
+      "headers": { "Authorization": "Bearer YOUR_TOKEN" },
+      "readTimeoutMs": 120000
+    }
+  ],
+  "disabledMcpTools": ["mcp_docs_search"]
+}
+```
+
+Full behavior, lifecycle, and limits: [chat-and-tools-runtime.md § MCP client tools](../internals/chat-and-tools-runtime.md#mcp-client-tools-streamable-http). JVM caps / host allowlists: [studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md).
+
+---
+
+## 10. Where to go next
 
 | Topic | Document |
 |-------|-----------|
