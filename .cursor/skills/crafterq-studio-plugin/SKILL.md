@@ -10,6 +10,7 @@ Use this skill when editing **this repo**: `plugin-studio-crafterq` — Studio p
 ## Product language (do not conflate)
 
 - **Studio AI assistant** — The product-facing assistant in Studio (Helper, form control, optional autonomous runs). Prefer this in **author-facing** copy and docs.
+- **Two delivery modes** — **(1) Interactive chat** — authors drive each turn (Helper, form-engine control, TinyMCE, preview/XB). **(2) Autonomous assistants (experimental)** — the **`AutonomousAssistants`** Tools Panel widget runs **scheduled** server-side steps; see **`docs/internals/spec.md`**.
 - **CrafterQ** — The **CrafterQ API / SaaS integration** when an agent uses **`llm: crafterQ`**. It is a **tool/backend**, not the name of the whole assistant. **`openAI`** is another tool on the same assistant.
 
 ## Canonical local policy (read first)
@@ -22,17 +23,16 @@ Use this skill when editing **this repo**: `plugin-studio-crafterq` — Studio p
 
 ## Documentation map
 
-- **`docs/SPEC.md`** — Product behavior, macros, form vs preview, `ui.xml` shapes; **Helper** (`agents`) and **autonomous** widget (`autonomousAgents`, REST, human tasks). See SPEC **Terminology** (Studio AI assistant vs CrafterQ tool).
-- **`docs/DEVELOPERS_GUIDE_CRAFTER_STUDIO_PLUGINS.md`** — Build paths, install, `craftercms-plugin.yaml`, Studio integration (includes second widget id for Autonomous Assistants).
-- **`docs/LLM_CONFIGURATION.md`** — Agent and LLM configuration.
-- **`docs/DESIGN_AI_STREAM.md`** — Streaming design notes.
+- **`docs/README.md`** — Index: **using & extending** vs **internals**.
+- **`docs/using-and-extending/`** — Site operators & extension authors: **`docs/using-and-extending/README.md`**, **`docs/using-and-extending/llm-configuration.md`**, **`docs/using-and-extending/studio-plugins-guide.md`** (install, `user-tools/`, script LLM paths).
+- **`docs/internals/`** — Maintainers: **`docs/internals/README.md`**, **`docs/internals/spec.md`**, **`docs/internals/stream-endpoint-design.md`**.
 
 ## Mechanical checklist (non-UI changes)
 
 - **Form control `main.js`:** Edit **`sources/control/ai-assistant/main.js` only**. Rollup **`yarn package`** copies it into **`authoring/static-assets/plugins/.../studio/control/ai-assistant/main.js`**. Editing only the `authoring/...` copy is overwritten on the next package — that pattern makes fixes “disappear.”
 - After TS/React changes: run **`yarn package`** from **`sources/`**; do not hand-edit **`authoring/.../aiassistant/components/index.js`** (generated bundle).
 - After edits to `sources/src` form or chat bundle: run **`yarn package`** from `sources/`.
-- If behavior or API visible to authors changes: update **`docs/SPEC.md`** (and **`README.md`** / **`docs/DEVELOPERS_GUIDE_…`** when install or `ui.xml` contracts change; **`docs/CURSOR_PROJECT_POLICY.md`** or this skill if policy or rules changed).
+- If behavior or API visible to authors changes: update **`docs/internals/spec.md`** (and **`README.md`** / **`docs/using-and-extending/studio-plugins-guide.md`** when install or `ui.xml` contracts change; **`docs/CURSOR_PROJECT_POLICY.md`** or this skill if policy or rules changed).
 
 ## Do not
 

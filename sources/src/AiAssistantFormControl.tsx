@@ -22,7 +22,7 @@ function normalizeAgentsProp(raw: AgentConfig[] | Record<string, unknown> | null
 
 /**
  * Shell only: portal, body inset, props. Agent list + expand/collapse chat UI is **AiAssistantFormControlPanel.tsx** —
- * do not replace with a single shared chat strip (product contract; see docs/SPEC.md and cursor rule).
+ * do not replace with a single shared chat strip (product contract; see docs/internals/spec.md and cursor rule).
  */
 export type { AuthoringFormContextSnapshot } from './aiAssistantFormAuthoringTypes';
 

@@ -21,8 +21,10 @@ Rules are the **strictest** layer: follow them even if generic advice conflicts.
 
 ## Related documentation (keep aligned with policy)
 
-- **`docs/DEVELOPERS_GUIDE_CRAFTER_STUDIO_PLUGINS.md`** — Includes the locked **form assistant panel** paragraph; keep it consistent with `crafterq-form-panel-contract.mdc`. See **§ AI Assistant plugin repo: canonical sources vs generated files** for which paths under `authoring/static-assets/` are overwritten by `yarn package`.
-- **`docs/SPEC.md`** — Product specification; update when author-facing behavior, macros, or configuration contracts change (includes **Helper** `agents` and **autonomous** widget `autonomousAgents` / REST / human tasks). **Terminology:** Studio AI assistant (product); CrafterQ = `crafterQ` tool path.
+- **`docs/using-and-extending/studio-plugins-guide.md`** — Includes the locked **form assistant panel** paragraph; keep it consistent with `crafterq-form-panel-contract.mdc`. See **§ AI Assistant plugin repo: canonical sources vs generated files** for which paths under `authoring/static-assets/` are overwritten by `yarn package`.
+- **`docs/internals/spec.md`** — As-is behavior specification; update when author-facing behavior, macros, or configuration contracts change (includes **Helper** `agents` and **autonomous** widget `autonomousAgents` / REST / human tasks). **Terminology:** Studio AI assistant (product); CrafterQ = `crafterQ` tool path.
+
+Full doc layout: **`docs/README.md`** (using & extending vs internals).
 
 ## Maintenance checklist (for contributors and agents)
 
@@ -30,5 +32,5 @@ When you change **local** Cursor artifacts or policies:
 
 1. Edit the **`.mdc` rule** or **`SKILL.md`** as needed.
 2. Update **this file** (`docs/CURSOR_PROJECT_POLICY.md`) — table rows and summaries.
-3. If the change affects author-visible behavior or install/build flow, update **`docs/SPEC.md`** and/or **`docs/DEVELOPERS_GUIDE_CRAFTER_STUDIO_PLUGINS.md`**.
+3. If the change affects author-visible behavior or install/build flow, update **`docs/internals/spec.md`** and/or **`docs/using-and-extending/studio-plugins-guide.md`**.
 4. If you only add a **new** rule file, add a row to the table above and mention it in **`SKILL.md`** under “Canonical local policy.”

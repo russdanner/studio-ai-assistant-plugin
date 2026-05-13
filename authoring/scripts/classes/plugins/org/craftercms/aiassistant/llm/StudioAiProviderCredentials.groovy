@@ -181,7 +181,7 @@ final class StudioAiProviderCredentials {
   static String missingApiKeyMessage(String llmNormalized) {
     String n = (llmNormalized ?: '').toString()
     if (StudioAiLlmKind.XAI_NATIVE == n) {
-      return 'LLM is xAI but no API key was found. Set XAI_API_KEY or JVM crafter.xai.apiKey on Studio. For local testing only, optional agent <openAiApiKey> in ui.xml (see LLM_CONFIGURATION.md).'
+      return 'LLM is xAI but no API key was found. Set XAI_API_KEY or JVM crafter.xai.apiKey on Studio. For local testing only, optional agent <openAiApiKey> in ui.xml (see docs/using-and-extending/llm-configuration.md).'
     }
     if (StudioAiLlmKind.DEEPSEEK_NATIVE == n) {
       return 'LLM is DeepSeek but no API key was found. Set DEEPSEEK_API_KEY or JVM crafter.deepseek.apiKey on Studio. For local testing only, optional agent <openAiApiKey> in ui.xml.'

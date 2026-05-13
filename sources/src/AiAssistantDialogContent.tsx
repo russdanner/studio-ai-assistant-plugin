@@ -79,7 +79,7 @@ export interface AiAssistantDialogContentProps {
   llm?: 'crafterQ' | 'openAI';
   llmModel?: string;
   imageModel?: string;
-  /** Testing only — prefer server env. See LLM_CONFIGURATION.md */
+  /** Testing only — prefer server env. See docs/using-and-extending/llm-configuration.md */
   openAiApiKey?: string;
   prompts?: Array<{ userText: string; additionalContext?: string }>;
   enableTools?: boolean;

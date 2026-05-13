@@ -1,8 +1,20 @@
 ## AI Assistant for Crafter Studio
 
-This repository contains a Crafter Studio plugin that delivers the **Studio AI assistant** in authoring (TinyMCE/RTE and Studio UI), with **OpenAI** (tools) as the primary orchestrator and an optional **CrafterQ**-hosted RAG chat path per agent when `llm` is set to `crafterQ`.
+This repository is a **Crafter Studio** plugin that brings AI into authoring. Think of it as two related products in one install:
 
-**Developers:** For a detailed guide on building and installing Crafter Studio plugins (plugin ID, paths, ui.xml, auth, Rollup, and troubleshooting 404s), see [docs/DEVELOPERS_GUIDE_CRAFTER_STUDIO_PLUGINS.md](docs/DEVELOPERS_GUIDE_CRAFTER_STUDIO_PLUGINS.md). It can be used as a reference when creating or debugging plugins.
+1. **Chat agent (interactive)** — The **Studio AI assistant** authors use from **TinyMCE**, the **form-engine control**, **Experience Builder / preview**, and the optional **Helper** widget (Tools Panel / preview toolbar). You define **agents** in `ui.xml` (or widget JSON); each agent picks an **LLM** and optional **tools**. The model can call **built-in tools** (see below) and return text for insert or review.
+
+2. **Experimental autonomous agent framework** — An optional **Tools Panel** widget (**`AutonomousAssistants`**) runs **scheduled, server-side** steps per configured agent (supervisor + in-memory state). It reuses the same **tool catalog** as interactive chat for supported LLMs; see [docs/internals/spec.md](docs/internals/spec.md) *Autonomous assistants widget* for behavior, limits, and configuration.
+
+**LLMs (per agent, `<llm>` in config):** First-party and compatible backends include **OpenAI** (native tool loop on the OpenAI wire), **Anthropic Claude** (Spring AI), **Google Gemini** (OpenAI-compatible Generative Language endpoint), **DeepSeek**, **xAI (Grok)**, **OpenAI-compatible Llama** hosts (e.g. **Ollama**), the hosted **CrafterQ** chat API when you want remote RAG-style chat without wiring your own model, and **site Groovy LLMs** via **`script:{id}`** so you can plug in your own transport while still optionally exposing Studio tools. Details, keys, and defaults: [docs/using-and-extending/llm-configuration.md](docs/using-and-extending/llm-configuration.md).
+
+**Built-in tools (high level):** The server registers a **function-tool** catalog for repository-aware agents — including **Crafter Studio / CMS** operations (content read/write, types, translations scope, etc.), **HTTP helpers** (e.g. safe URL fetch for research), **CrafterQ** integration tools where applicable (expert consult, hosted chat listing), **image generation** (OpenAI Images API when configured), and other helpers documented in [docs/using-and-extending/llm-configuration.md](docs/using-and-extending/llm-configuration.md) and [docs/internals/spec.md](docs/internals/spec.md). Tool availability depends on the chosen **LLM** (e.g. hosted **CrafterQ** chat does not run the full CMS tool loop; OpenAI-wire and Claude paths do).
+
+**Your own tools:** Add Groovy-backed tools under the site’s **`config/studio/scripts/aiassistant/user-tools/`** with a **`registry.json`** manifest. Same security model as other Studio scripts — see [docs/using-and-extending/studio-plugins-guide.md](docs/using-and-extending/studio-plugins-guide.md) (AI Assistant — custom tools / `user-tools`).
+
+**Developers:** For a detailed guide on building and installing Crafter Studio plugins (plugin ID, paths, ui.xml, auth, Rollup, and troubleshooting 404s), see [docs/using-and-extending/studio-plugins-guide.md](docs/using-and-extending/studio-plugins-guide.md). It can be used as a reference when creating or debugging plugins.
+
+**Documentation map:** [All documentation](docs/README.md) — [Using & extending](docs/using-and-extending/README.md) (configuration, LLMs, custom tools) · [Plugin internals](docs/internals/README.md) (behavior spec, streaming design, reference).
 
 **Cursor / AI:** In-repo rules and the project skill are indexed in [docs/CURSOR_PROJECT_POLICY.md](docs/CURSOR_PROJECT_POLICY.md). Update that file whenever you add or change `.cursor/rules/` or `.cursor/skills/`.
 
@@ -109,7 +121,7 @@ Tooltip strings: **`strings.openAiAssistant`** and **`strings.aiAssistantShortcu
 
 ### Helper widget
 
-The Helper widget can be embedded in Studio UI to open the **Studio AI assistant** on demand (agents may use **CrafterQ** or **OpenAI** per `llm`).
+The Helper widget can be embedded in Studio UI to open the **Studio AI assistant** on demand (each agent’s **`llm`** selects the backend; see [docs/using-and-extending/llm-configuration.md](docs/using-and-extending/llm-configuration.md)).
 
 Example snippet (adjust location to your needs). The **`plugin id` must be the full descriptor id** (`org.craftercms.aiassistant.studio`); a shortened id loads the wrong path and you get **“Component craftercms.components.aiassistant.Helper not found”** in Studio.
 
@@ -134,7 +146,7 @@ Studio shows this when `ui.xml` references the Helper widget but the **component
 2. **Install the plugin for this site** — From `sources/`: `yarn package`, then `./scripts/install-plugin.sh` (defaults to **`new-demo`**) or `./scripts/install-plugin.sh qtest` (or Marketplace install) so `authoring/static-assets/plugins/org/craftercms/aiassistant/studio/aiassistant/components/index.js` exists in the site sandbox.
 3. **Hard refresh** Studio after deploy (cached `index.js`).
 
-See [docs/SPEC.md](docs/SPEC.md) (plugin id / Helper wiring) and [docs/DEVELOPERS_GUIDE_CRAFTER_STUDIO_PLUGINS.md](docs/DEVELOPERS_GUIDE_CRAFTER_STUDIO_PLUGINS.md) (descriptor vs path). For a **current merged fragment** (Tools Panel + Preview Toolbar + Autonomous widget), copy from **[docs/examples/studio-ui-aiassistant-fragments.xml](docs/examples/studio-ui-aiassistant-fragments.xml)** or reinstall so **`craftercms-plugin.yaml`** installation rules re-apply.
+See [docs/internals/spec.md](docs/internals/spec.md) (plugin id / Helper wiring) and [docs/using-and-extending/studio-plugins-guide.md](docs/using-and-extending/studio-plugins-guide.md) (descriptor vs path). For a **current merged fragment** (Tools Panel + Preview Toolbar + Autonomous widget), copy from **[docs/examples/studio-ui-aiassistant-fragments.xml](docs/examples/studio-ui-aiassistant-fragments.xml)** or reinstall so **`craftercms-plugin.yaml`** installation rules re-apply.
 
 ### Studio AI assistant — autonomous (optional widget)
 
@@ -144,7 +156,7 @@ If the widget **never appears** after install, your site’s `ui.xml` may have b
 
 **Common pitfall:** `AutonomousAssistants` (and `Helper` for the left rail) must be **inside** `//widget[@id='craftercms.components.ToolsPanel']/configuration/widgets` as sibling `<widget>` rows. If either block sits **after** `</configuration>` as a direct child of `ToolsPanel`, Studio will not show it in the sidebar; the merge rule may also have updated that dead node only. Fix placement and use a real `<![CDATA[...]]>` SVG for `<icon>` (not HTML-escaped `&lt;svg` text), then commit.
 
-Full **`autonomousAgents`** / **`agent`** fields, REST paths, **`control`** actions (including human-task actions), and limitations are documented in **[docs/SPEC.md](docs/SPEC.md)** under *Autonomous assistants widget (Tools Panel)*.
+Full **`autonomousAgents`** / **`agent`** fields, REST paths, **`control`** actions (including human-task actions), and limitations are documented in **[docs/internals/spec.md](docs/internals/spec.md)** under *Autonomous assistants widget (Tools Panel)*.
 
 ## Contributing
 
@@ -154,6 +166,7 @@ Full **`autonomousAgents`** / **`agent`** fields, REST paths, **`control`** acti
 - Run `yarn start` for a dev server. Navigate to `http://localhost:3000/`. The app will automatically reload if you change any of the source files.
 - Run `yarn package` to create the CrafterCMS plugin build. See local installation instructions above for instructions on continually deploying and testing locally.
 - If you change **`.cursor/rules/`** or **`.cursor/skills/`**, update **[docs/CURSOR_PROJECT_POLICY.md](docs/CURSOR_PROJECT_POLICY.md)** so documentation matches local Cursor policy.
+- If you change **author-visible behavior**, **`ui.xml` contracts**, or **install paths**, update **[docs/internals/spec.md](docs/internals/spec.md)** and/or **[docs/using-and-extending/studio-plugins-guide.md](docs/using-and-extending/studio-plugins-guide.md)**; see **[docs/README.md](docs/README.md)** for where each topic lives.
 - Fork and create a pull request to contribute.
 
 ## Questions
