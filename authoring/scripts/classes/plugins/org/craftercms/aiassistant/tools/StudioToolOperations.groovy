@@ -1832,6 +1832,8 @@ class StudioToolOperations {
   /**
    * Reads Studio module configuration text (same API family as browser {@code get_configuration}, module {@code studio}).
    * Returns {@code null} or blank when the path does not exist or is empty.
+   * <p>When the target is absent, uses {@code cstudioContentService.contentExists} first so Studio does not log
+   * {@code ContentNotFoundException} at ERROR from {@code getConfigurationAsString} (e.g. optional {@code user-tools/registry.json}).</p>
    */
   String readStudioConfigurationUtf8(String siteId, String relativePath) {
     withStudioRequestSecurity {
@@ -1839,6 +1841,25 @@ class StudioToolOperations {
       def path = (relativePath ?: '').toString().trim()
       if (!path.startsWith('/')) {
         path = "/${path}"
+      }
+      String sandboxRepoPath = toSandboxConfigStudioRepoPath(path)
+      try {
+        Object v1 = cstudioContentServiceBean
+        if (v1 != null && v1.metaClass.respondsTo(v1, 'contentExists', String, String)) {
+          Object exists = v1.contentExists(siteId, sandboxRepoPath)
+          if (!(exists instanceof Boolean ? ((Boolean) exists).booleanValue() : Boolean.TRUE.equals(exists))) {
+            log.trace('readStudioConfigurationUtf8: skip read (missing) siteId={} modulePath={} repoPath={}', siteId, path, sandboxRepoPath)
+            return null
+          }
+        } else if (v1 != null && v1.metaClass.respondsTo(v1, 'shallowContentExists', String, String)) {
+          Object exists = v1.shallowContentExists(siteId, sandboxRepoPath)
+          if (!(exists instanceof Boolean ? ((Boolean) exists).booleanValue() : Boolean.TRUE.equals(exists))) {
+            log.trace('readStudioConfigurationUtf8: skip read (shallow missing) siteId={} modulePath={} repoPath={}', siteId, path, sandboxRepoPath)
+            return null
+          }
+        }
+      } catch (Throwable probeIgnored) {
+        // If exists probe fails, fall through to configuration read (legacy behavior).
       }
       try {
         String xml = configurationServiceBean.getConfigurationAsString(siteId, 'studio', path, '')
@@ -1848,6 +1869,15 @@ class StudioToolOperations {
         return null
       }
     }
+  }
+
+  /** Site sandbox path for a Studio {@code studio} module path (e.g. {@code /scripts/...} → {@code /config/studio/scripts/...}). */
+  private static String toSandboxConfigStudioRepoPath(String studioModuleRelativePath) {
+    String p = (studioModuleRelativePath ?: '').toString().trim()
+    if (!p.startsWith('/')) {
+      p = "/${p}"
+    }
+    return "/config/studio${p}"
   }
 
   /**
