@@ -8,6 +8,7 @@ High-level map; deep dives live in linked files.
 
 | Audience | Start here |
 |----------|------------|
+| **Anyone** — what the plugin does in plain English (no setup detail) | [What the plugin does](using-and-extending/what-the-plugin-does.md) |
 | **Operators** — install, `ui.xml`, agents, keys, surfaces | [Configuration guide](using-and-extending/configuration-guide.md) |
 | **Integrators** — install paths, CLI/API, TinyMCE, Helper, autonomous widget shell, **`user-tools/`**, **`imagegen/`** script contracts | [Installation](using-and-extending/installation.md) · [TinyMCE](using-and-extending/tinymce-integration.md) · [Helper](using-and-extending/helper-widget.md) · [Autonomous widget](using-and-extending/autonomous-assistants-widget.md) · [Scripted tools & imagegen](using-and-extending/scripted-tools-and-imagegen.md) |
 | **LLM & image backends** — wire ids, secrets, **`script:`** LLM, **pluggable `GenerateImage`** | [LLM configuration](using-and-extending/llm-configuration.md) · [Image generation](using-and-extending/image-generation.md) · JVM tuning: [studio-aiassistant-jvm-parameters.md](using-and-extending/studio-aiassistant-jvm-parameters.md) |
@@ -19,6 +20,7 @@ High-level map; deep dives live in linked files.
 
 | Topic | Document |
 |-------|----------|
+| Capabilities in plain English (not technical) | [what-the-plugin-does.md](using-and-extending/what-the-plugin-does.md) |
 | Agents, keys, `ui.xml`, surfaces | [configuration-guide.md](using-and-extending/configuration-guide.md) |
 | Product requirements, surfaces, `ui.xml` / stream / form contracts | [internals/spec.md](internals/spec.md) |
 | Install / copy-plugin / `install-plugin.sh` | [installation.md](using-and-extending/installation.md) |

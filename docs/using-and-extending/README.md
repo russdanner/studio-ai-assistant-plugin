@@ -1,11 +1,12 @@
 # Using the AI Assistant & developing extensions
 
-Configure or extend the plugin **without** changing core sources unless you are developing the plugin itself. **Official product requirements & mechanics** for implementers: **[`../internals/spec.md`](../internals/spec.md)** (with **[`studio-plugins-guide.md`](studio-plugins-guide.md)** for build invariants).
+Configure or extend the plugin **without** changing core sources unless you are developing the plugin itself. **What the product does** (plain English, not technical): **[`what-the-plugin-does.md`](what-the-plugin-does.md)**. **Official product requirements & mechanics** for implementers: **[`../internals/spec.md`](../internals/spec.md)** (with **[`studio-plugins-guide.md`](studio-plugins-guide.md)** for build invariants).
 
 ## Guides (table)
 
 | Document | What it covers |
 |----------|----------------|
+| [what-the-plugin-does.md](what-the-plugin-does.md) | **Everyone** — capabilities for authors, admins, and integrators in everyday language (points to detailed guides for setup and contracts) |
 | [configuration-guide.md](configuration-guide.md) | **Operators — start here** — **Basic:** `ui.xml`, plugin id, agents, keys, TinyMCE, form, autonomous checklist (§1–§8). **Advanced:** [site scripts](configuration-guide.md#cg-adv) — prompts, `tools.json`, MCP, user tools, script LLM. |
 | [installation.md](installation.md) | Install from Studio UI, CLI, Marketplace API, **`install-plugin.sh`**, build-before-install |
 | [tinymce-integration.md](tinymce-integration.md) | TinyMCE **`tinymceOptions`**, toolbar ids, **`craftercms_aiassistant`** config |

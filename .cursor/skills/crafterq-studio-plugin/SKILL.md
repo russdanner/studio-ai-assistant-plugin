@@ -26,6 +26,7 @@ Use this skill when editing **this repo**: `plugin-studio-crafterq` — Studio p
 - **`docs/internals/spec.md`** — **Official** product requirements & mechanics; update when behavior or contracts change.
 - **`docs/README.md`** — Index: **using & extending** vs **internals**.
 - **`docs/using-and-extending/configuration-guide.md`** — Operators: `ui.xml` surfaces, plugin id, agents, keys checklist.
+- **`docs/using-and-extending/what-the-plugin-does.md`** — Plain-language capabilities (authors, admins, integrators); not technical contracts.
 - **`docs/using-and-extending/`** — **`llm-configuration.md`**, **`studio-plugins-guide.md`**, **`README.md`** (install, `user-tools/`, script LLM paths).
 - **`docs/internals/`** — Maintainers: **`docs/internals/README.md`**, **`docs/internals/spec.md`**, **`docs/internals/stream-endpoint-design.md`**, MCP client notes in **`chat-and-tools-runtime.md`**.
 
