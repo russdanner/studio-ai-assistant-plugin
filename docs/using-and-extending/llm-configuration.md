@@ -16,7 +16,7 @@ This document lists **which LLM backends the Studio AI assistant supports**, the
 | **Hosted chat** | Remote **`api.crafterq.ai`** conversational chat (`ExpertChatModel`). **No** CMS function tools on this adapter. |
 | **CMS tools** | Native Studio tool catalog (`GetContent`, `WriteContent`, `ListPagesAndComponents`, …) on the chat/stream path. |
 | **CrafterQ API tools** | **`ConsultCrafterQExpert`**, **`ListCrafterQAgentChats`**, **`GetCrafterQAgentChat`** — calls into hosted CrafterQ **as tools** from a tool-capable session. Requires non-empty **`<crafterQAgentId>`** on the agent. See [chat-and-tools-runtime.md § CrafterQ API tools](../internals/chat-and-tools-runtime.md#crafterq-api-tools-openai-wire). |
-| **GenerateImage** | OpenAI **Images** API; requires **`OPENAI_API_KEY`** (or JVM / testing key resolution used for OpenAI features) and agent/body **`imageModel`** — not implied by every `<llm>`. |
+| **GenerateImage** | OpenAI **`POST /v1/images/generations`** using the same key material as OpenAI chat features; requires agent/body **`imageModel`**. Prefer **GPT Image** ids (e.g. **`gpt-image-1`**, **`gpt-image-1-mini`**); OpenAI **retired DALL·E 2 / DALL·E 3** on that Images endpoint **2026-05-12**. Not implied by every `<llm>`. |
 | **Expert skills** | Optional **`<expertSkill>`** markdown URLs → **`QueryExpertGuidance`** when tools are enabled (same sessions that support CMS tools + Spring vector store). |
 
 ---
@@ -53,6 +53,7 @@ The React client **does not** send **`llm`** on the stream/chat JSON when the ag
 
 - **Transport:** Spring AI **`OpenAiChatModel`** + **RestClient** **`/v1/chat/completions`** native tool loop (`AiOrchestrationTools`).
 - **Shared behavior:** same **CMS tool** catalog; **GenerateImage** and **expert skills** follow the rules in the summary table and [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md).
+- **Image generation:** configure **`<imageModel>`** to a **GPT Image** model id supported for your OpenAI account (for example **`gpt-image-1`**). OpenAI retired **dall-e-2** / **dall-e-3** on **`POST /v1/images/generations`** effective **2026-05-12**.
 
 ### `claude`
 
@@ -73,7 +74,7 @@ The React client **does not** send **`llm`** on the stream/chat JSON when the ag
 |-------|------------|---------|
 | **`<llm>`** | All | Selects backend; see table above. |
 | **`<llmModel>`** | Tool-capable + hosted | Provider chat model id; JVM defaults per provider when omitted (**`crafterQ`** path ignores chat model id the same way other hosted constraints apply). |
-| **`<imageModel>`** | **GenerateImage** | Required when the model should call **GenerateImage**; no JVM fallback. |
+| **`<imageModel>`** | **GenerateImage** | Required when the model should call **GenerateImage**; no JVM fallback. Use a **GPT Image** model id supported on your OpenAI account (legacy **`dall-e-2`** / **`dall-e-3`** were removed from the Images API **2026-05-12**). |
 | **`<crafterQAgentId>`** | **`crafterQ`** + CrafterQ API tools | **Required** for **`crafterQ`** hosted **`agentId`**. On OpenAI-wire / **Claude**, enables **CrafterQ API tools** when non-empty. |
 | **`<crafterQBearerTokenEnv>`** / **`<crafterQBearerToken>`** | CrafterQ HTTP | Server **`Authorization: Bearer`** to `api.crafterq.ai` for hosted calls and tools — see [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md). |
 | **`<openAiApiKey>`** | Testing | Per-agent key when no server env/JVM key for the **target** provider; discouraged in production. |

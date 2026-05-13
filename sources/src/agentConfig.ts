@@ -36,7 +36,7 @@ export interface AgentConfig {
   enableTools?: boolean;
   /** Optional provider model id when `llm` is `openAI` (e.g. `gpt-4o-mini`). ui.xml **`<llmModel>`** / JSON **`llmModel`**. */
   llmModel?: string;
-  /** OpenAI Images API model when llm is openAI (e.g. dall-e-3). ui.xml **`<imageModel>`** / JSON **`imageModel`** — no JVM fallback. */
+  /** OpenAI Images API model when llm is openAI (e.g. gpt-image-1). ui.xml **`<imageModel>`** / JSON **`imageModel`** — no JVM fallback. */
   imageModel?: string;
   /**
    * Optional OpenAI API key from ui.xml — **not recommended** (exposed in Studio config / sent on requests).

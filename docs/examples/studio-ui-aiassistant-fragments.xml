@@ -54,7 +54,7 @@
         <label>OpenAI tools</label>
         <llm>openAI</llm>
         <llmModel>gpt-4o-mini</llmModel>
-        <imageModel>dall-e-3</imageModel>
+        <imageModel>gpt-image-1</imageModel>
         <enableTools>true</enableTools>
         <icon id="@mui/icons-material/AutoAwesomeRounded"/>
         <prompts>
@@ -94,7 +94,7 @@
         <scope>project</scope>
         <llm>openAI</llm>
         <llmModel>gpt-4o-mini</llmModel>
-        <imageModel>dall-e-3</imageModel>
+        <imageModel>gpt-image-1</imageModel>
         <manageOtherAgentsHumanTasks>false</manageOtherAgentsHumanTasks>
       </agent>
     </autonomousAgents>

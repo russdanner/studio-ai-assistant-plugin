@@ -43,7 +43,7 @@ Each **agent** is one row in the Helper menu (or one accordion row on the form a
 - **`label`** — Display name.
 - **`llm`** — Backend for this agent’s chat. **Set `<llm>` explicitly** in `ui.xml`. If omitted, the client may omit `llm` from the POST and the server **normalizes** missing/blank/unknown values to **`crafterQ`**, which is hosted chat only and does not run the CMS tool loop. Allowed values and aliases: [llm-configuration.md § Summary table](llm-configuration.md#summary-table).
 - **`llmModel`** — Provider chat model id (optional; JVM defaults apply when omitted for many providers).
-- **`imageModel`** — OpenAI **Images** model id when you use **`GenerateImage`** (no server fallback if blank)—see [llm-configuration.md](llm-configuration.md).
+- **`imageModel`** — OpenAI **Images** model id for **`GenerateImage`** (no server fallback if blank). Use a **GPT Image** family id (e.g. **`gpt-image-1`**) per OpenAI; legacy DALL·E image models were retired **2026-05-12**. See [llm-configuration.md](llm-configuration.md).
 - **`prompts`** — Optional quick chips (`<prompt>` plain or structured with `<userText>` / `<additionalContext>` / `<omitTools>`).
 
 Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concurrency, etc.) are documented field‑by‑field under [spec.md — Agent configuration (ui.xml)](../internals/spec.md#agent-configuration-uixml).

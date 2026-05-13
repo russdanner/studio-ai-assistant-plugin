@@ -24,7 +24,7 @@ import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
  *   "enableTools": optional boolean — when false, OpenAI chat omits CMS function tools (matches ui.xml enableTools false). Absent defaults true.
  *   "omitTools": optional boolean — when true, CMS function tools are omitted for this request only (copy/image-style LLM steps); overrides enableTools. Same for XB/ICE preview chat, dialog, and form-engine (`authoringSurface`). Absent/false keeps normal tool registration from enableTools/agent defaults.
  *   "llmModel": optional string — OpenAI chat model id (e.g. gpt-4o-mini).
- *   "imageModel": optional string — OpenAI Images API model for GenerateImage (e.g. dall-e-3); agent ui.xml **imageModel**; no JVM fallback.
+ *   "imageModel": optional string — OpenAI Images API model for GenerateImage (e.g. gpt-image-1); agent ui.xml **imageModel**; no JVM fallback. Legacy dall-e-* image models were retired by OpenAI on the Images API effective 2026-05-12.
  *   "expertSkills": optional JSON array of { name, url, description } — per-agent markdown URLs for {@code QueryExpertGuidance} (Spring AI vector store); normalized server-side.
  *   "translateBatchConcurrency": optional integer 1–64 — parallel {@code TranslateContentBatch} workers when the model omits {@code maxConcurrency}; from agent ui.xml; server default 25 when omitted.
  *   "crafterQBearerTokenEnv": optional string — name of a **Studio host environment variable** holding the CrafterQ JWT; server sets {@code Authorization: Bearer} on outbound api.crafterq.ai calls when {@code System.getenv} returns a non-blank value (preferred over literal token in config).

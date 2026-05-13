@@ -939,7 +939,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
   }
 
   /**
-   * OpenAI Images API model (e.g. dall-e-3). Source: agent **{@code <imageModel>}** or POST **{@code imageModel}** only.
+   * OpenAI Images API model id (e.g. {@code gpt-image-1}). Source: agent **{@code <imageModel>}** or POST **{@code imageModel}** only.
    */
   static String resolveOpenAiImageModel(String fromRequest) {
     String base = (fromRequest ?: '').toString().trim()

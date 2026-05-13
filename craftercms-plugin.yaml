@@ -121,7 +121,7 @@ plugin:
                             value: IconButton
                         children:
                           # Optional: multiple agents. <llm>crafterQ</llm> = remote hosted chat (api.crafterq.ai); <llm>openAI</llm> = Spring AI + CMS tools.
-                          # OpenAI: prefer OPENAI_API_KEY or JVM crafter.openai.apiKey on Studio. Optional <llmModel>; optional <imageModel> for GenerateImage (e.g. dall-e-3) — no server default.
+                          # OpenAI: prefer OPENAI_API_KEY or JVM crafter.openai.apiKey on Studio. Optional <llmModel>; optional <imageModel> for GenerateImage (e.g. gpt-image-1; legacy dall-e-* Images API retired 2026-05-12 per OpenAI) — no server default.
                           # Testing only (not recommended): <openAiApiKey> on the agent — used only if env/JVM key unset. See docs/using-and-extending/llm-configuration.md.
                           # <openAsPopup>true</openAsPopup> = floating dialog; omitted or false = Experience Builder right (ICE) panel + edit mode on.
                           # Full fragment reference: docs/examples/studio-ui-aiassistant-fragments.xml
@@ -198,7 +198,7 @@ plugin:
                               - name: llmModel
                                 value: gpt-4o-mini
                               - name: imageModel
-                                value: dall-e-3
+                                value: gpt-image-1
                               # When false (default), human tasks stay owned by this agent only (max 10); the model cannot dismiss other agents’ tasks.
                               - name: manageOtherAgentsHumanTasks
                                 value: false
