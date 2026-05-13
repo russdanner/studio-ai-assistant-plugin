@@ -10,27 +10,16 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 | **Form engine control** | Per–content-type AI panel on forms |
 | **Helper widget** | Tools Panel or preview toolbar entry |
 | **TinyMCE** | Toolbar actions + RTE config → chat / shortcuts |
-| **Autonomous assistants** (optional and expermintental) | Scheduled server-side runs + human tasks |
+| **Autonomous assistants** (optional and experimental) | Scheduled server-side runs + human tasks |
 
 ## Capabilities (at a glance)
 
 | Area | Highlights | Notes |
-|------|------------|--------| 
-| **LLMs** |   * OpenAI, 
-               * Anthropic, 
-               * XAI, 
-               * Ollama, 
-               * Deepseek, 
-               * Scriptable  (**`script:{id}`**)
-| See [LLM configuration](docs/using-and-extending/llm-configuration.md) |
-| **Image generation** | * OpenAI, 
-                         * Scribtable (**`script:{id}`**) |
-| See [Image generation](docs/using-and-extending/image-generation.md) |
-| **Tools** | * General tools (HTTP GET, POST)
-              * Built-in Studio/CMS tools
-              * CrafterQ tools (Get Chats, Get Chat) 
-              * Scriptable tools |   |
-| **Core Config overrides** | **`tools.json`** (built-in allow/deny), **`prompts/*.md`**, same sandbox layout as script LLMs — [Studio plugins guide](docs/using-and-extending/studio-plugins-guide.md) | |
+|------|------------|-------|
+| **LLMs** | OpenAI, Anthropic, XAI, Ollama, Deepseek, scriptable (**`script:{id}`**) | [LLM configuration](docs/using-and-extending/llm-configuration.md) |
+| **Image generation** | OpenAI, scriptable (**`script:{id}`**) | [Image generation](docs/using-and-extending/image-generation.md) |
+| **Tools** | General tools (HTTP GET, POST); built-in Studio/CMS tools; CrafterQ (Get Chats, Get Chat); scriptable tools | |
+| **Core Config overrides** | **`tools.json`** (built-in allow/deny), **`prompts/*.md`**, same sandbox layout as script LLMs | [Studio plugins guide](docs/using-and-extending/studio-plugins-guide.md) |
 
 ## Documentation
 
