@@ -1,4 +1,4 @@
-# Helper widget (Tools Panel / preview toolbar)
+# Helper widget (Experience Builder & Tools Panel)
 
 Embeds the **Studio AI assistant** so authors open chat on demand. Each agent’s **`<llm>`** selects the backend; see [llm-configuration.md](llm-configuration.md).
 
@@ -27,4 +27,4 @@ The **`plugin` id must be the full descriptor id** `org.craftercms.aiassistant.s
 | **Install** | From `sources/`: `yarn package`, then `./scripts/install-plugin.sh` (or Marketplace) so **`…/studio/aiassistant/components/index.js`** exists in the site sandbox |
 | **Cache** | Hard refresh Studio after deploy |
 
-Deeper wiring: [spec.md](../internals/spec.md), paths: [studio-plugins-guide.md](studio-plugins-guide.md). For a merged **Tools Panel + Preview Toolbar + Autonomous** fragment, see [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).
+Deeper wiring: [spec.md](../internals/spec.md), paths: [studio-plugins-guide.md](studio-plugins-guide.md). For a merged **Experience Builder preview toolbar + Tools Panel + Autonomous** fragment, see [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).

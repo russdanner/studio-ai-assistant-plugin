@@ -6,9 +6,9 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 
 | Surface | Role |
 |---------|------|
-| **Experience Builder / preview** | In-context chat where configured |
+| **Experience Builder** | AI assistant is part of **preview authoring**: toolbar control opens chat in the XB tools panel (or a popup when configured) |
 | **Form engine control** | Per–content-type AI panel on forms |
-| **Helper widget** | Tools Panel or preview toolbar entry |
+| **Helper widget** | `ui.xml` registration for the Experience Builder toolbar and, if you add it, the Studio **Tools Panel** list |
 | **TinyMCE** | Toolbar actions + RTE config → chat / shortcuts |
 | **Autonomous assistants** (optional and experimental) | Scheduled server-side runs + human tasks |
 
@@ -16,7 +16,7 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 
 | Area | Highlights | Notes |
 |------|------------|-------|
-| **Site setup** | Agents, `ui.xml`, keys, surfaces (Helper, forms, TinyMCE) | [Configuration guide](docs/using-and-extending/configuration-guide.md) |
+| **Site setup** | Agents, `ui.xml`, keys, Experience Builder, forms, TinyMCE | [Configuration guide](docs/using-and-extending/configuration-guide.md) |
 | **LLMs** | OpenAI, Anthropic, XAI, Ollama, Deepseek, scriptable (**`script:{id}`**) | [LLM configuration](docs/using-and-extending/llm-configuration.md) |
 | **Image generation** | OpenAI, scriptable (**`script:{id}`**) | [Image generation](docs/using-and-extending/image-generation.md) |
 | **Tools** | CMS / HTTP / optional hosted SaaS API tools / scriptable user tools; optional **MCP** (`mcpEnabled` + `mcpServers` in `tools.json`) | [Chat & tools runtime](docs/internals/chat-and-tools-runtime.md#mcp-client-tools-streamable-http) |

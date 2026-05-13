@@ -10,7 +10,7 @@
 
 | Goal | Typical touchpoints |
 |------|---------------------|
-| Authors use AI from **Studio chrome** (Tools Panel / preview toolbar) | `ui.xml` → **`craftercms.components.aiassistant.Helper`** widget + `<agents>` |
+| Authors use AI **in Experience Builder** while authoring in **preview** | `ui.xml` → **`craftercms.components.aiassistant.Helper`** registers the agent in the **Experience Builder** workflow (preview toolbar control opens the assistant in the XB tools panel by default) + `<agents>` |
 | Authors use AI on a **content type form** | Content type **form definition** → **AI Assistant** control + `config/studio/ui.xml` **`<agents>`** (merged by stable agent id) |
 | **Scheduled** server-side runs (experimental) | `ui.xml` → **`craftercms.components.aiassistant.AutonomousAssistants`** + `<autonomousAgents>` — see [spec.md — Autonomous assistants widget](../internals/spec.md#autonomous-assistants-widget-tools-panel) |
 | Authors use AI from the **rich text editor** | `config/studio/ui.xml` → **TinyMCE** widget → `tinymceOptions` (external plugin URL + `craftercms_aiassistant` JSON) — details at the end of this guide (**§8**) and in [tinymce-integration.md](tinymce-integration.md) |
@@ -21,7 +21,7 @@ Commit **`config/studio/ui.xml`** (and any content-type changes) to the site san
 
 ## 2. Helper, Autonomous, and toolbar widgets: `plugin` element
 
-Studio resolves the **JavaScript bundle** from the **`plugin`** child on each widget that mounts this plugin (Helper, AutonomousAssistants, and any Preview Toolbar entry that uses the same pattern). Use the same values everywhere so Studio loads **`index.js`** from the installed plugin.
+Studio resolves the **JavaScript bundle** from the **`plugin`** child on each widget that mounts this plugin (Helper, AutonomousAssistants, and any **Experience Builder preview toolbar** entry that uses the same pattern). Use the same values everywhere so Studio loads **`index.js`** from the installed plugin.
 
 | Attribute / concept | Use this value |
 |------------------------|----------------|
@@ -36,7 +36,7 @@ Example **`plugin`** line (copy into your `ui.xml` or start from the full fragme
 <plugin id="org.craftercms.aiassistant.studio" type="aiassistant" name="components" file="index.js"/>
 ```
 
-Full **Tools Panel + Preview + Autonomous** sample: [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).
+Full **Experience Builder (preview toolbar) + Tools Panel + Autonomous** sample: [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).
 
 If the id or `file` path is wrong, Studio shows **component not found** or **404** on `index.js`. Install path, classpath, and toolbar wiring are covered in [studio-plugins-guide.md](studio-plugins-guide.md); widget XML contract in [spec.md § Helper widget](../internals/spec.md#helper-widget-studio-ui).
 
