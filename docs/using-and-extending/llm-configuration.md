@@ -5,6 +5,7 @@ This document lists **which LLM backends the Studio AI assistant supports**, the
 **For site operators:** [configuration-guide.md](configuration-guide.md)  
 **For CMS tools, CrafterQ auth, SSE, and troubleshooting:** [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md)  
 **For script LLMs and `user-tools/`:** [studio-plugins-guide.md](studio-plugins-guide.md)  
+**For pluggable image backends (`imageGenerator`, `imagegen/` scripts, site overrides):** [image-generation.md](image-generation.md)  
 **For `ui.xml` contracts, macros, and REST:** [spec.md](../internals/spec.md) · **Doc index:** [README.md](../README.md)
 
 ---

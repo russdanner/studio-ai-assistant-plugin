@@ -1,15 +1,20 @@
 # Using the AI Assistant & developing extensions
 
-Use this section when you **configure or use** the plugin in Crafter Studio, or when you **extend** it without changing the core plugin sources.
+Configure or extend the plugin **without** changing core sources unless you are developing the plugin itself.
 
-## Guides
+## Guides (table)
 
 | Document | What it covers |
 |----------|----------------|
-| [**configuration-guide.md**](configuration-guide.md) | **Start here for operators** — where to edit `ui.xml`, plugin id, agents, keys, TinyMCE vs Helper vs form vs autonomous; checklist and links to deeper docs |
-| [**llm-configuration.md**](llm-configuration.md) | Supported **`<llm>`** wire ids and aliases, required configuration per provider, capability matrix, and **`script:{id}`** rules |
-| [**studio-plugins-guide.md**](studio-plugins-guide.md) | Installing and building Studio plugins: descriptor, paths, **`ui.xml`**, Rollup, auth; custom **`user-tools/`** Groovy tools and **`registry.json`**; script LLM paths under **`config/studio/scripts/aiassistant/`** |
+| [configuration-guide.md](configuration-guide.md) | **Operators — start here** — `ui.xml`, plugin id, agents, keys, TinyMCE vs Helper vs form vs autonomous |
+| [installation.md](installation.md) | Install from Studio UI, CLI, Marketplace API, **`install-plugin.sh`**, build-before-install |
+| [tinymce-integration.md](tinymce-integration.md) | TinyMCE **`tinymceOptions`**, toolbar ids, **`craftercms_aiassistant`** config |
+| [helper-widget.md](helper-widget.md) | Helper **`ui.xml`** snippet and “component not found” checklist |
+| [autonomous-assistants-widget.md](autonomous-assistants-widget.md) | Optional autonomous widget — placement and links to spec |
+| [llm-configuration.md](llm-configuration.md) | **`<llm>`** ids, secrets, capability matrix, **`script:{id}`** |
+| [image-generation.md](image-generation.md) | **Pluggable `GenerateImage`** — wire vs **`script:{id}`**, **`imageGenerator`** / **`imageModel`**, site overrides |
+| [studio-plugins-guide.md](studio-plugins-guide.md) | Descriptor, paths, Rollup, auth; **`user-tools/`**; **`imagegen/`**; **`tools.json`**; **`prompts/`**; script LLM paths |
 
-## Where “internals” live
+## Internals
 
-Implementation details, the full **as-is behavior spec**, and **streaming endpoint design** live under **[`docs/internals/`](../internals/README.md)**. Use **Using and extending** for routine configuration; use **Internals** for contracts, script paths, and orchestration.
+Contracts, streaming design, and server behavior: **[`docs/internals/`](../internals/README.md)**.

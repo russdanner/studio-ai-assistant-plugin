@@ -62,7 +62,7 @@ Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concu
 
 You must register the external plugin and toolbar buttons under the **TinyMCE** widget in `ui.xml`. The **`siteId`** in the plugin URL must be real.
 
-Step‑by‑step and JSON shape: root [README.md](../../README.md) § **Adding to your RTE (TinyMCE)**.
+Step‑by‑step and JSON shape: [tinymce-integration.md](tinymce-integration.md).
 
 ---
 
