@@ -6,20 +6,31 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 
 | Surface | Role |
 |---------|------|
-| **TinyMCE** | Toolbar actions + RTE config → chat / shortcuts |
-| **Form engine control** | Per–content-type AI panel on forms |
 | **Experience Builder / preview** | In-context chat where configured |
+| **Form engine control** | Per–content-type AI panel on forms |
 | **Helper widget** | Tools Panel or preview toolbar entry |
-| **Autonomous assistants** (optional) | Scheduled server-side runs + human tasks |
+| **TinyMCE** | Toolbar actions + RTE config → chat / shortcuts |
+| **Autonomous assistants** (optional and expermintental) | Scheduled server-side runs + human tasks |
 
 ## Capabilities (at a glance)
 
-| Area | Highlights |
-|------|------------|
-| **LLMs** | Hosted CrafterQ, OpenAI-wire providers, Anthropic, site **`script:{id}`** runtimes — see [LLM configuration](docs/using-and-extending/llm-configuration.md) |
-| **Image generation** | **Pluggable**: default OpenAI-compatible Images wire, or **`script:{id}`** under `/scripts/aiassistant/imagegen/`; disable with **`none`** / **`off`** / **`disabled`** — see [Image generation](docs/using-and-extending/image-generation.md) |
-| **Tools** | Built-in Studio/CMS tool catalog when the session supports it; optional **site Groovy** tools + **`registry.json`** |
-| **Site overrides** | **`tools.json`** (built-in allow/deny), **`prompts/*.md`**, same sandbox layout as script LLMs — [Studio plugins guide](docs/using-and-extending/studio-plugins-guide.md) |
+| Area | Highlights | Notes |
+|------|------------|--------| 
+| **LLMs** |   * OpenAI, 
+               * Anthropic, 
+               * XAI, 
+               * Ollama, 
+               * Deepseek, 
+               * Scriptable  (**`script:{id}`**)
+| See [LLM configuration](docs/using-and-extending/llm-configuration.md) |
+| **Image generation** | * OpenAI, 
+                         * Scribtable (**`script:{id}`**) |
+| See [Image generation](docs/using-and-extending/image-generation.md) |
+| **Tools** | * General tools (HTTP GET, POST)
+              * Built-in Studio/CMS tools
+              * CrafterQ tools (Get Chats, Get Chat) 
+              * Scriptable tools |   |
+| **Core Config overrides** | **`tools.json`** (built-in allow/deny), **`prompts/*.md`**, same sandbox layout as script LLMs — [Studio plugins guide](docs/using-and-extending/studio-plugins-guide.md) | |
 
 ## Documentation
 
@@ -36,18 +47,6 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 | **Behavior spec, streaming, runtime** | [Internals index](docs/internals/README.md) |
 | **Full doc index** | [docs/README.md](docs/README.md) |
 
-## Upgrading from older “CrafterQ” builds
-
-| Item | Current convention |
-|------|---------------------|
-| Plugin id | `org.craftercms.aiassistant.studio` |
-| Static assets | `type=aiassistant`, path `…/studio/aiassistant/…` |
-| Form control | Registration name **`ai-assistant`** |
-| Image datasource | **`aiassistant-img-from-url`** |
-| TinyMCE external plugin | Key **`craftercms_aiassistant`**, bundle **`craftercms_aiassistant.js`** |
-| Optional RAG index | `/config/studio/plugins/org/craftercms/aiassistant/aiassistant-plugin-rag-index.json` |
-
-Update site **`ui.xml`**, content types, and RTE config accordingly.
 
 ## Logging (debug)
 
