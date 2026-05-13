@@ -10,7 +10,7 @@ import plugins.org.craftercms.aiassistant.rag.ExpertSkillVectorRegistry
 /**
  * Minimal proxy for assistant chat (non-streaming).
  *
- * Routes through {@link AiOrchestration}: remote hosted chat when {@code llm} resolves to the default adapter,
+ * Routes through {@link AiOrchestration}: remote hosted chat when {@code llm} resolves to {@link StudioAiLlmKind#CRAFTERRQ_REMOTE_API},
  * or Spring AI (OpenAI-wire, Claude, site script LLM, etc.) when configured.
  *
  * Body:

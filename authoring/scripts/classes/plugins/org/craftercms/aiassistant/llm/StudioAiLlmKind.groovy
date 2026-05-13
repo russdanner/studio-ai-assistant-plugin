@@ -7,8 +7,9 @@ import java.util.regex.Pattern
 /**
  * Normalized LLM <strong>transport</strong> identifiers for the Studio AI Assistant plugin (this codebase).
  * <p>
- * <strong>{@link #CRAFTERRQ_REMOTE_API}</strong> ({@code llm=crafterQ} and unknown defaults) is the
- * <strong>remote hosted chat</strong> adapter (HTTP to {@code api.crafterq.ai}); it is not the name of the plugin.
+ * <strong>{@link #CRAFTERRQ_REMOTE_API}</strong> ({@code llm=crafterQ}) is the <strong>remote hosted chat</strong> adapter
+ * (HTTP to {@code api.crafterq.ai}); it is not the name of the plugin. Missing, blank, or unrecognized {@code llm}
+ * strings from the client normalize to this kind for backwards compatibility—see {@link #normalize(String)}.
  * The <strong>ConsultCrafterQExpert</strong> CMS tool calls that same hosted stack for SME/RAG consults.
  * <strong>OpenAI</strong>-wire and compatible hosts use the {@code /v1/chat/completions} native-tool loop in
  * {@code AiOrchestration}. <strong>Claude</strong> uses Spring AI Anthropic with Spring-managed tool execution.
@@ -109,8 +110,9 @@ final class StudioAiLlmKind {
   }
 
   /**
-   * Maps agent / POST {@code llm} strings to a normalized kind. Unknown values default to {@link #CRAFTERRQ_REMOTE_API}
-   * (historical default). Use {@code script:yourId} for site Groovy ({@link #SCRIPT_LLM_PREFIX}).
+   * Maps agent / POST {@code llm} strings to a normalized kind. Empty, blank, {@code crafterq}, and unrecognized
+   * values map to {@link #CRAFTERRQ_REMOTE_API} for backwards compatibility when the client omits {@code llm}.
+   * Use {@code script:yourId} for site Groovy ({@link #SCRIPT_LLM_PREFIX}).
    */
   static String normalize(String raw) {
     String trimmed = (raw ?: '').toString().trim()

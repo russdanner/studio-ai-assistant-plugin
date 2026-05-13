@@ -4,14 +4,14 @@
 
 ### Terminology (product vs integrations)
 
-- **Studio AI assistant** — The authoring-facing assistant in Crafter Studio that this plugin provides (Preview / Tools **Helper**, form-engine control, optional **autonomous** scheduled runs). Use this name for the product experience authors see.
+- **Studio AI assistant** — The authoring-facing assistant in Crafter Studio that this plugin provides: TinyMCE, the form-engine control, the Helper widget on the Tools Panel or preview toolbar, and optional autonomous scheduled runs. Use this name for the product experience authors see.
 - **CrafterQ** — A **backend integration** (CrafterQ API / SaaS chat) selected per agent when **`llm` is `crafterQ`**. It is **not** a synonym for the whole Studio assistant; **`openAI`** and other options are separate tools on the same assistant.
 
 ### Overview
 
 This repository is a Crafter Studio plugin with **two main surfaces**:
 
-- **Interactive chat agent** — **Studio AI assistant** in **TinyMCE**, the **form-engine control**, **XB/preview**, and the optional **Helper** widget. Agents are configured per site; each agent selects an **LLM** (OpenAI-wire family, **Claude**, **CrafterQ** remote chat, **`script:{id}`** custom LLM, etc.; see [llm-configuration.md](../using-and-extending/llm-configuration.md)) and may enable **function tools** (CMS operations, HTTP helpers, CrafterQ tools where applicable, user-defined Groovy tools, and more).
+- **Interactive chat agent** — The Studio AI assistant surfaces above. Agents are configured per site; each agent selects an **LLM** and may enable **function tools**. Supported **`<llm>`** values, keys, and capabilities are listed in [llm-configuration.md](../using-and-extending/llm-configuration.md). Tools may include CMS operations, HTTP helpers, CrafterQ APIs where configured, and site-defined Groovy tools.
 - **Experimental autonomous agent framework** — Optional **AutonomousAssistants** widget in the Tools Panel: **scheduled**, **server-side**, **in-memory** runs that reuse the interactive tool catalog for supported LLMs; see § [Autonomous assistants widget](#autonomous-assistants-widget-tools-panel).
 
 It currently focuses on:
@@ -272,7 +272,7 @@ The plugin expects this XML shape in `config/studio/ui.xml`. The `<configuration
 - **agent.label** — Display name in the dropdown and in the popover header.
 - **agent.icon** — Optional. Use **`id`** the same way as elsewhere in Studio `ui.xml`: Studio resolves icons through **`SystemIcon`** (registered UI components). Examples: **`@mui/icons-material/ChatRounded`**, built-in SVG ids like **`craftercms.icons.Component`**, or a **plugin-registered widget id** that renders your glyph — **`craftercms.components.aiassistant.OpenAILogo`** (same SVG as **`AiAssistantLogo.tsx`**, from `logoWidgetId` in `sources/src/consts.ts`). Legacy ids **`craftercms.components.aiassistant.AiAssistantLogo`** and **`craftercms.components.aiassistant.CrafterQLogo`** are registered as the same component for older configs. Alternatively, put an **inline SVG** as the **body** of `<icon>` with CDATA; size with CSS in the SVG or rely on the plugin’s small icon box; use `fill="currentColor"` on paths to follow toolbar color.
 - **agent.prompts** — Optional; list of **prompt** elements; each becomes a quick message button above the chat.
-- **agent.llm** — Optional: **`crafterQ`** (default) or **`openAI`**. CrafterQ = content/RAG chat only (no CMS tools on that adapter). OpenAI = Spring AI tool orchestration (requires server `OPENAI_API_KEY` or JVM `crafter.openai.apiKey`). See **[llm-configuration.md](../using-and-extending/llm-configuration.md)**.
+- **agent.llm** — Optional in `ui.xml`, but **should be set explicitly** (`crafterQ`, `openAI`, `claude`, …). If omitted, the client may omit `llm` from the stream/chat POST; the server then **normalizes** missing/blank/unknown values to **`crafterQ`** for backwards compatibility (hosted chat only—no CMS tools on that adapter). See **[llm-configuration.md](../using-and-extending/llm-configuration.md)**.
 - **agent.llmModel** — Optional model id when `llm` is `openAI` (e.g. `gpt-4o-mini`); server default applies if omitted. ui.xml **`<llmModel>`**; stream/chat JSON **`llmModel`**.
 - **agent.imageModel** — Optional OpenAI **Images** model for the **GenerateImage** tool (e.g. `dall-e-3`). ui.xml **`<imageModel>`**; stream/chat JSON **`imageModel`**. If omitted or blank, **`GenerateImage`** fails until configured — **no** server or JVM fallback.
 - **agent.openAiApiKey** — Optional; **testing only** — OpenAI key in ui.xml when server `OPENAI_API_KEY` / JVM key is unset. See **[llm-configuration.md](../using-and-extending/llm-configuration.md)**.
@@ -283,7 +283,7 @@ The plugin expects this XML shape in `config/studio/ui.xml`. The `<configuration
 
 When the plugin’s **REST** chat or stream endpoints are used (`ai/agent/chat` or `ai/stream`), the server uses **`AiOrchestration`**, which selects the backend from **`llm`** in the JSON body (mirrors widget `<llm>`).
 
-- **`crafterQ` (default)**: **`ExpertChatModel`** POSTs a **single string `prompt`** (and optional `chatId`) to CrafterQ’s `/v1/chats` API. **No CMS tools** on this path.
+- **`crafterQ`** (including when **`llm`** is omitted from the POST and normalizes to CrafterQ): **`ExpertChatModel`** POSTs a **single string `prompt`** (and optional `chatId`) to CrafterQ’s `/v1/chats` API. **No CMS tools** on this path.
 - **`openAI`**: **`OpenAiChatModel`** with **`AiOrchestrationTools`** (GetContent, **ListContentTranslationScope** (reference tree + suggested chunks — default one path per chunk, no XML bodies), WriteContent, ListPagesAndComponents, **GenerateImage**, ConsultCrafterQExpert, **ListCrafterQAgentChats**, **GetCrafterQAgentChat** when **`crafterQAgentId`** is set, etc.) and native tool calling.
 - **`WriteContent` (site `*.xml`):** For **required** top-level **image-picker** fields that are still **empty**, **`StudioToolOperations`** may set the field text to a **`data:image/png;base64,...`** placeholder generated in-process (same pattern as studio-ui **`generatePlaceholderImageDataUrl`** / Experience Builder). No fixed repository path and no copying of arbitrary form **defaultValue** text into the item. For **required** or **`minSize`‑constrained** top-level **`checkbox-group`** fields backed by a **taxonomy** datasource (datasource **`type`** contains `taxonomy`, e.g. simple taxonomy), **`WriteContent`** may append **`item`** rows (`key` + typed value element such as **`value_smv`**) from the taxonomy list XML under **`/site/...`** until the constraint is satisfied (deterministic order: first unused keys from the taxonomy file).
 
@@ -294,7 +294,7 @@ When the plugin’s **REST** chat or stream endpoints are used (`ai/agent/chat` 
 
 - **Non-streaming** (`ai/agent/chat`): `AiOrchestration.chatProxy()`.
 - **Streaming** (`ai/stream`): `AiOrchestration.chatStreamWithSpringAi()` — SSE shape unchanged for the UI.
-- **Tools**: Defined in `AiOrchestrationTools.groovy`; **attached only when `llm=openAI`**. See **[stream-endpoint-design.md](stream-endpoint-design.md)** and **[llm-configuration.md](../using-and-extending/llm-configuration.md)**.
+- **Tools**: Defined in `AiOrchestrationTools.groovy`; attached when the session supports **native Studio tools** (OpenAI-wire **`llm`** values, **Claude**, and **script** bundles that opt into the OpenAI-wire or Anthropic tool transports)—**not** on hosted **`crafterQ`** (`ExpertChatModel`). See **[stream-endpoint-design.md](stream-endpoint-design.md)**, **[llm-configuration.md](../using-and-extending/llm-configuration.md)**, and **[chat-and-tools-runtime.md](chat-and-tools-runtime.md)**.
   - Backward-compatible: `<prompt>Text</prompt>`
   - Structured (recommended):
     - `<prompt><userText>...</userText><additionalContext>...</additionalContext><omitTools>true</omitTools></prompt>` — optional **`omitTools`** omits CMS tools for that chip’s request only (XB, ICE, dialog, or form-engine).
@@ -376,7 +376,7 @@ Defined in `sources/package.json`:
 - **Helper message bus open**: The code to open the assistant via `openCrafterQMessageId` in `AiAssistantHelper.tsx` is commented out, so “open from message” is not active.
 - **Popover content**: The hosted chat surface may load in an **iframe**; a separate native React chat for that hosted URL is not implemented in this repository.
 - **Terminology in docs**: **Studio AI assistant** is the product name; **CrafterQ** refers to the optional hosted API when **`llm` is `crafterQ`**. Older doc phrasing may still mention legacy branding in wire names (`openCrafterQMessageId`, `crafterqFormFieldUpdates`) for compatibility.
-- **CrafterQ path**: No CMS tool loop — use **`openAI`** (or another **`AiOrchestrationTools`** `llm`) for repository tools. Tool-capable agents with **`crafterQAgentId`** may call **`ConsultCrafterQExpert`**, **`ListCrafterQAgentChats`**, and **`GetCrafterQAgentChat`** for hosted CrafterQ API access. See **[llm-configuration.md](../using-and-extending/llm-configuration.md)** (section *CrafterQ API tools on the OpenAI path*).
+- **CrafterQ path**: No CMS tool loop — use **`openAI`** (or another OpenAI-wire **`llm`**) for repository tools. Tool-capable agents with **`crafterQAgentId`** may call **`ConsultCrafterQExpert`**, **`ListCrafterQAgentChats`**, and **`GetCrafterQAgentChat`** for hosted CrafterQ API access. See **[chat-and-tools-runtime.md](chat-and-tools-runtime.md#crafterq-api-tools-openai-wire)** and **[llm-configuration.md](../using-and-extending/llm-configuration.md)**.
 - **Studio AI assistant — autonomous**: Prototype only — in-memory state, no persistence across JVM restarts; not a replacement for scheduled jobs in production. See § Autonomous assistants above.
 
 **CrafterQ prompt size**: The hosted API often limits `prompt` to on the order of **~1000 characters**. The plugin defaults to `maxPromptChars=1000` and **compacts** long transcripts (short system text + first author `Human:` + newest turns). Increase via JVM `-Dcrafterq.maxPromptChars=…` on Studio if your environment allows a larger payload.
@@ -389,7 +389,8 @@ A single **streaming** endpoint accepts `agentId`, `prompt`, optional `llm` / `l
 
 ### Related docs
 
-- **[llm-configuration.md](../using-and-extending/llm-configuration.md)** — `crafterQ` vs `openAI`, API keys, examples; autonomous widget OpenAI key precedence.
+- **[llm-configuration.md](../using-and-extending/llm-configuration.md)** — Supported `<llm>` ids, required configuration, capability matrix; autonomous widget allowed `llm` values.
+- **[chat-and-tools-runtime.md](chat-and-tools-runtime.md)** — CrafterQ bearer/auth, API tools, SSE, REST body fields, key precedence, troubleshooting.
 - **[stream-endpoint-design.md](stream-endpoint-design.md)** — SSE contract; dual-LLM behavior.
 - **[studio-plugins-guide.md](../using-and-extending/studio-plugins-guide.md)** — Build and install guide for Crafter Studio plugins (plugin ID, paths, ui.xml, auth, Rollup, checklist). Use when creating or debugging plugins.
 - **Crafter Studio UI (reference):** [craftercms/studio-ui @ `support/4.x`](https://github.com/craftercms/studio-ui/tree/support/4.x) — Use this branch to see how Studio implements widgets, hooks (e.g. `useActiveSiteId`, `useCurrentPreviewItem`, `useActiveUser`), and config; build features and code consistently with Studio.

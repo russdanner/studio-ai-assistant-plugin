@@ -1,6 +1,6 @@
 # Crafter Studio Plugin Build & Install — Developer's Guide
 
-**Using & extending** — build, install, and site extensions (`user-tools/`, script LLM). **Behavior spec / autonomous REST:** [spec.md](../internals/spec.md). **Doc index:** [README.md](../README.md).
+**Scope:** Build, install, and site-level extensions such as **`user-tools/`** and script LLMs. For behavior contracts and autonomous REST, see [spec.md](../internals/spec.md). Doc index: [README.md](../README.md).
 
 This guide captures what you need to build, package, and install Crafter Studio (site) plugins so they load correctly in Studio and in the preview toolbar. Use it as a reference when creating or debugging plugins. For **Crafter Studio 4.x**-specific UI integration (preview **`reloadRequest`**, host/guest buses) and **in-process services** (v1 vs v2 content APIs, **`DeploymentService.deploy`**, **`revertContentItem`**, security context on async threads), see **§7** and **§8**.
 
@@ -155,7 +155,7 @@ Each reference to your plugin’s JS must look like:
 
 ### Second widget: Studio AI assistant — autonomous
 
-This plugin also registers **`craftercms.components.aiassistant.AutonomousAssistants`** on the **same** `components/index.js` bundle. Use it for **scheduled, in-memory** assistant runs and **human tasks** (same **Studio AI assistant** product; not a separate “CrafterQ app”). The **`plugin`** child must match the Helper exactly (`org.craftercms.aiassistant.studio` / `aiassistant` / `components` / `index.js`).
+This plugin also registers **`craftercms.components.aiassistant.AutonomousAssistants`** on the **same** `components/index.js` bundle. Use it for scheduled, in-memory assistant runs and human-in-the-loop tasks. It is part of the same Studio AI assistant product as interactive chat. The **`plugin`** child must match the Helper exactly (`org.craftercms.aiassistant.studio` / `aiassistant` / `components` / `index.js`).
 
 ```xml
 <widget id="craftercms.components.aiassistant.AutonomousAssistants">

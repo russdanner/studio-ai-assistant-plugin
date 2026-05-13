@@ -1149,7 +1149,7 @@ function buildPriorTurnsContextBlock(prior: UiMessage[]): string {
 
 export interface AiAssistantChatProps {
   agentId: string;
-  /** Widget agent `<llm>`: crafterQ (default) or openAI */
+  /** Widget agent `<llm>` when set in ui.xml (`crafterQ` | `openAI`). Omitted from POST if unset—server then normalizes to hosted CrafterQ; set explicitly for predictable routing. */
   llm?: 'crafterQ' | 'openAI';
   llmModel?: string;
   /** OpenAI Images API model for GenerateImage; from agent ui.xml **imageModel** or request body only (no default). */
