@@ -2,7 +2,7 @@
 
 Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents**, multiple **LLM** backends, optional **CMS tools**, **pluggable image generation**, and optional **autonomous** scheduled runs.
 
-**Plain-language “what it does”** (authors, admins, integrators—no technical contracts): [What the plugin does](docs/using-and-extending/what-the-plugin-does.md).
+**Plain-language product requirements** (mandatory “must” outcomes—no technical contracts): [Product requirements](docs/using-and-extending/product-requirements.md).
 
 ## Where it shows up
 
@@ -28,7 +28,7 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 
 | If you want… | Open |
 |--------------|--------|
-| **What the plugin does (non-technical)** | [What the plugin does](docs/using-and-extending/what-the-plugin-does.md) |
+| **Product requirements (plain English)** | [Product requirements](docs/using-and-extending/product-requirements.md) |
 | **Configure agents, keys, `ui.xml`** | [Configuration guide](docs/using-and-extending/configuration-guide.md) |
 | **Install or deploy the plugin** | [Installation](docs/using-and-extending/installation.md) |
 | **LLM ids, secrets, env + `ui.xml`** | [LLM configuration](docs/using-and-extending/llm-configuration.md) |

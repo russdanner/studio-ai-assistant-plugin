@@ -6,7 +6,7 @@ Documentation here is aimed at **maintainers**, **integrators**, and anyone debu
 
 | Document | What it covers |
 |----------|----------------|
-| [**spec.md**](spec.md) | **Official requirements & mechanics specification** — product surfaces, `ui.xml` / agent contracts, form engine, macros, autonomous widget, REST contracts; must stay aligned with code. Non-technical overview: [**what-the-plugin-does.md**](../using-and-extending/what-the-plugin-does.md) |
+| [**spec.md**](spec.md) | **Official requirements & mechanics specification** — product surfaces, `ui.xml` / agent contracts, form engine, macros, autonomous widget, REST contracts; must stay aligned with code. Plain-language product requirements: [**product-requirements.md**](../using-and-extending/product-requirements.md) |
 | [**stream-endpoint-design.md**](stream-endpoint-design.md) | SSE stream (and related) contract, CrafterQ vs tool-capable LLMs on the wire, classpath notes |
 | [**chat-and-tools-runtime.md**](chat-and-tools-runtime.md) | CMS tool wiring, CrafterQ bearer/auth, API tools, expert skills, SSE/stream behavior, REST body fields, troubleshooting, **MCP Streamable HTTP client** |
 | [**studio-aiassistant-jvm-parameters.md**](../using-and-extending/studio-aiassistant-jvm-parameters.md) | JVM **`-D`** / `System.getProperty` tuning (timeouts, HTTP/MCP caps, optional key/model defaults) |
