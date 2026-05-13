@@ -17,6 +17,106 @@
 
 Commit **`config/studio/ui.xml`** (and any content-type changes) to the site sandbox so Studio and other authors load the same configuration.
 
+### Where to put XML (file + parent elements)
+
+| What | File on disk (site Git sandbox) | Where inside the file |
+|------|-----------------------------------|------------------------|
+| **Helper** (Experience Builder toolbar, optional Tools Panel) | **`config/studio/ui.xml`** | **A** (Preview toolbar) and/or **B** (Tools Panel) — the `<widget id="craftercms.components.aiassistant.Helper">` block is a **child of an existing `widgets` list**, not a loose sibling of `ToolsPanel`. |
+| **Autonomous** (optional) | **`config/studio/ui.xml`** | **D** — under **`craftercms.components.ToolsPanel`** → **`configuration`** → **`widgets`** (same list as Helper when both are used). |
+| **Form assistant** | **`config/studio/content-types/<your-type>/form-definition.xml`** | New **field** inside the right **`<section>`** / **`<fields>`** — prefer adding the **Studio AI Assistant** control from the Content Types UI after install (see **C**). |
+| **TinyMCE** | **`config/studio/ui.xml`** | Under **`craftercms.components.TinyMCE`** → **`configuration`** → **`setups`** → **`setup`** → **`tinymceOptions`** (JSON). See **§8**. |
+
+---
+
+#### A) Experience Builder — Preview Toolbar
+
+**Locate in `config/studio/ui.xml`:** the widget **`craftercms.components.PreviewToolbar`** → **`configuration`** → **`middleSection`** → **`widgets`**.
+
+**Add** the block below as **another** `<widget>` sibling next to the other toolbar widgets (indentation may differ in your file):
+
+```xml
+        <!-- config/studio/ui.xml — PreviewToolbar / configuration / middleSection / widgets -->
+        <widget id="craftercms.components.aiassistant.Helper">
+          <plugin id="org.craftercms.aiassistant.studio" type="aiassistant" name="components" file="index.js"/>
+          <configuration ui="IconButton">
+            <agents>
+              <agent>
+                <label>Authoring Assistant</label>
+                <llm>openAI</llm>
+                <llmModel>gpt-4o-mini</llmModel>
+                <imageModel>gpt-image-1-mini</imageModel>
+              </agent>
+            </agents>
+          </configuration>
+        </widget>
+```
+
+Longer copy-paste blocks (Tools Panel + Preview + Autonomous together): [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).
+
+---
+
+#### B) Studio Tools Panel (left rail)
+
+**Locate:** **`craftercms.components.ToolsPanel`** → **`configuration`** → **`widgets`**.
+
+**Add** the Helper (and optionally **Autonomous**) as `<widget>` children **inside that `widgets` element** — not after `</configuration>` at the wrong level.
+
+```xml
+        <!-- config/studio/ui.xml — ToolsPanel / configuration / widgets -->
+        <widget id="craftercms.components.aiassistant.Helper">
+          <plugin id="org.craftercms.aiassistant.studio" type="aiassistant" name="components" file="index.js"/>
+          <configuration>
+            <agents>
+              <agent>
+                <label>Authoring Assistant</label>
+                <llm>openAI</llm>
+                <llmModel>gpt-4o-mini</llmModel>
+              </agent>
+            </agents>
+          </configuration>
+        </widget>
+```
+
+---
+
+#### C) Content type form (AI Assistant field)
+
+**Locate:** `config/studio/content-types/<content-type-id>/form-definition.xml` — inside the **`<fields>`** collection for the section where you want the accordion.
+
+**Recommended:** In Studio, **Project Tools → Content Types →** open the type → **Add field** → choose **Studio AI Assistant** from the palette (the plugin registers that control in **`config/studio/administration/site-config-tools.xml`** on install). That writes the correct control wiring; hand-editing is easy to get wrong.
+
+Agent rows still come from **`config/studio/ui.xml`** **`<agents>`** (same stable ids as the Helper). Do not define agents only in the form field.
+
+---
+
+#### D) Autonomous assistants (Tools Panel only)
+
+**Locate:** same parent as **B** — **`craftercms.components.ToolsPanel`** → **`configuration`** → **`widgets`**.
+
+**Add** a **second** widget sibling (after or before Helper). Minimal shape:
+
+```xml
+        <!-- config/studio/ui.xml — ToolsPanel / configuration / widgets -->
+        <widget id="craftercms.components.aiassistant.AutonomousAssistants">
+          <plugin id="org.craftercms.aiassistant.studio" type="aiassistant" name="components" file="index.js"/>
+          <configuration>
+            <title>Autonomous Agents</title>
+            <autonomousAgents>
+              <agent>
+                <name>Example agent</name>
+                <schedule>0 * * * * ?</schedule>
+                <prompt>You are an autonomous assistant. Reply with JSON only as instructed by the server.</prompt>
+                <scope>project</scope>
+                <llm>openAI</llm>
+                <llmModel>gpt-4o-mini</llmModel>
+              </agent>
+            </autonomousAgents>
+          </configuration>
+        </widget>
+```
+
+Full sample (including optional SVG icon): [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).
+
 ---
 
 ## 2. Helper, Autonomous, and toolbar widgets: `plugin` element
@@ -30,13 +130,13 @@ Studio resolves the **JavaScript bundle** from the **`plugin`** child on each wi
 | **`name`** | `components` |
 | **`file`** | `index.js` |
 
-Example **`plugin`** line (copy into your `ui.xml` or start from the full fragment below):
+Example **`plugin`** line (use **inside** every Helper / Autonomous / toolbar widget — see **§1** for parent paths):
 
 ```xml
 <plugin id="org.craftercms.aiassistant.studio" type="aiassistant" name="components" file="index.js"/>
 ```
 
-Full **Experience Builder (preview toolbar) + Tools Panel + Autonomous** sample: [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).
+Full **Experience Builder + Tools Panel + Autonomous** examples: [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).
 
 If the id or `file` path is wrong, Studio shows **component not found** or **404** on `index.js`. Install path, classpath, and toolbar wiring are covered in [studio-plugins-guide.md](studio-plugins-guide.md); widget XML contract in [spec.md § Helper widget](../internals/spec.md#helper-widget-studio-ui).
 
@@ -54,6 +154,24 @@ Each **agent** is one row in the Helper menu (or one accordion row on the form a
 - **`prompts`** — Optional quick chips (`<prompt>` plain or structured with `<userText>` / `<additionalContext>` / `<omitTools>`).
 
 Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concurrency, etc.) are documented field‑by‑field under [spec.md — Agent configuration (ui.xml)](../internals/spec.md#agent-configuration-uixml).
+
+**Example — multiple `<agent>` rows** (replace or extend the **`<agents>`** block **inside** the Helper `<configuration>` from **§1**; each `<agent>` is one picker row):
+
+```xml
+            <agents>
+              <agent>
+                <label>OpenAI authoring</label>
+                <llm>openAI</llm>
+                <llmModel>gpt-4o-mini</llmModel>
+                <imageModel>gpt-image-1-mini</imageModel>
+              </agent>
+              <agent>
+                <label>Claude</label>
+                <llm>claude</llm>
+                <llmModel>claude-3-5-sonnet-20241022</llmModel>
+              </agent>
+            </agents>
+```
 
 ---
 
@@ -83,7 +201,7 @@ Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑
 
 - [ ] Plugin installed for the **site** (Marketplace or `copy-plugin` / `install-plugin.sh`); **`org.craftercms.aiassistant.studio`** appears in Plugin Management.
 - [ ] **`ui.xml`** committed; Studio **Sync** performed if you rely on git‑backed sandbox.
-- [ ] Helper / Autonomous / toolbar **`plugin`** element uses **`id`**, **`type`**, **`name`**, and **`file`** as in **§2** (same as the example fragment).
+- [ ] Helper / Autonomous / toolbar widgets are **nested under the correct parents** in **`config/studio/ui.xml`** (**§1** A / B / D), and the **`plugin`** line matches **§2**.
 - [ ] For **OpenAI‑wire / Claude / …**: host **env** API keys set (per [llm-configuration.md](llm-configuration.md)), or you accept testing‑only keys in `ui.xml`.
 - [ ] For **GenerateImage**: **`imageModel`** set on the agent (or body) when that tool is used.
 - [ ] If you use **`llm` `crafterQ`**: valid **`crafterQAgentId`** and (if needed) identity / bearer as in [llm-configuration.md](llm-configuration.md).
@@ -92,9 +210,34 @@ Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑
 
 ## 8. TinyMCE (rich text editor)
 
-Register the external plugin and toolbar actions on the **TinyMCE** widget in `ui.xml`. The **`siteId`** in the plugin script URL must match a real site.
+**File:** **`config/studio/ui.xml`**
 
-Step‑by‑step and JSON: [tinymce-integration.md](tinymce-integration.md).
+**Locate:** widget **`craftercms.components.TinyMCE`** → **`configuration`** → **`setups`** → **`setup`** (the setup your site uses) → **`tinymceOptions`**. That node holds JSON (often as text); merge the plugin URL and toolbar ids there.
+
+Path in the tree (names may differ):
+
+```text
+config/studio/ui.xml
+  └── widget[@id='craftercms.components.TinyMCE']
+        └── configuration
+              └── setups
+                    └── setup
+                          └── tinymceOptions   ← merge here (JSON)
+```
+
+**Example JSON** (replace **`YOUR_SITE_ID`**; use **`&amp;`** for `&` when this JSON is inlined inside an XML attribute):
+
+```json
+{
+  "toolbar1": "... | aiAssistantOpen crafterqshortcuts crafterq",
+  "external_plugins": {
+    "craftercms_aiassistant": "/studio/1/plugin/file?siteId=YOUR_SITE_ID&pluginId=org.craftercms.aiassistant.studio&type=aiassistant&name=tinymce&file=craftercms_aiassistant.js"
+  },
+  "craftercms_aiassistant": {}
+}
+```
+
+Full toolbar list and keys: [tinymce-integration.md](tinymce-integration.md).
 
 ---
 
