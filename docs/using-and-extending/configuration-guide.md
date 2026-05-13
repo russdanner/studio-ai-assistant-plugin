@@ -331,7 +331,13 @@ All paths in this section are under the **site** Git sandbox (`config/studio/scr
 config/studio/scripts/aiassistant/prompts/<KEY>.md
 ```
 
-**`<KEY>`** is the exact **constant name** from the plugin’s `ToolPrompts` class (same spelling as the Groovy property), e.g. **`OPENAI_AUTHORING_INSTRUCTIONS.md`**, **`DESC_GET_CONTENT.md`**, **`OPENAI_CHAT_ONLY_SYSTEM.md`**.
+**`<KEY>`** is the exact **constant name** from the plugin’s `ToolPrompts` class (same spelling as the Groovy property). The file on disk is **`<KEY>.md`**.
+
+| Example `<KEY>.md` |
+|--------------------|
+| `OPENAI_AUTHORING_INSTRUCTIONS.md` |
+| `DESC_GET_CONTENT.md` |
+| `OPENAI_CHAT_ONLY_SYSTEM.md` |
 
 | Rule | Detail |
 |------|--------|
@@ -365,9 +371,42 @@ config/studio/scripts/aiassistant/config/tools.json
 | Field | Effect |
 |-------|--------|
 | **`disabledBuiltInTools`** | JSON array of **tool names to hide** (compared case‑insensitively). Example: `["GenerateImage", "FetchHttpUrl"]` removes those tools from the catalog. |
-| **`enabledBuiltInTools`** | If this array is **non‑empty**, it is a **whitelist** of **built‑in CMS** tool names to **keep**; every other built‑in is removed **except** **`InvokeSiteUserTool`** and any **`mcp_*`** tools (unless those appear in **`disabledBuiltInTools`** / **`disabledMcpTools`**). Names must match the registered tool string **exactly** (case‑sensitive), e.g. **`GetContent`**, **`update_content`**. If **omitted** or **empty**, all built‑ins are available minus **`disabledBuiltInTools`**. |
+| **`enabledBuiltInTools`** | If this array is **non‑empty**, it is a **whitelist** of **built‑in CMS** tool names to **keep**; every other built‑in is removed **except** **`InvokeSiteUserTool`** and any **`mcp_*`** tools (unless those appear in **`disabledBuiltInTools`** / **`disabledMcpTools`**). Names must match the registered tool string **exactly** (case‑sensitive). If **omitted** or **empty**, all built‑ins are available minus **`disabledBuiltInTools`**. |
 
-**Wire names** must match registration (examples): **`GetContent`**, **`WriteContent`**, **`GenerateImage`**, **`ListContentTranslationScope`**, **`ListStudioContentTypes`**, **`GetContentTypeFormDefinition`**, **`GetPreviewHtml`**, **`FetchHttpUrl`**, **`QueryExpertGuidance`**, **`ListPagesAndComponents`**, **`update_content`**, **`update_template`**, **`analyze_template`**, **`publish_content`**, **`revert_change`**, **`ConsultCrafterQExpert`**, **`ListCrafterQAgentChats`**, **`GetCrafterQAgentChat`**, **`TranslateContentItem`**, **`TranslateContentBatch`**, … (see **`AiOrchestrationTools.groovy`** `FunctionToolCallback.builder('…')` for the canonical list).
+**Registered built-in wire names** — use these strings verbatim in **`disabledBuiltInTools`**, **`enabledBuiltInTools`**, and **`omitTools`**. Canonical source: **`AiOrchestrationTools.groovy`**, `FunctionToolCallback.builder('…')`. When MCP is enabled, the server also registers dynamic **`mcp_<serverId>_<toolName>`** tools (sanitized); those are not listed here.
+
+| Wire name (PascalCase) |
+|------------------------|
+| `ConsultCrafterQExpert` |
+| `FetchHttpUrl` |
+| `GenerateImage` |
+| `GenerateTextNoTools` |
+| `GetContent` |
+| `GetContentSubgraph` |
+| `GetContentTypeFormDefinition` |
+| `GetContentVersionHistory` |
+| `GetCrafterQAgentChat` |
+| `GetCrafterizingPlaybook` |
+| `GetPreviewHtml` |
+| `InvokeSiteUserTool` |
+| `ListContentTranslationScope` |
+| `ListCrafterQAgentChats` |
+| `ListPagesAndComponents` |
+| `ListStudioContentTypes` |
+| `QueryExpertGuidance` |
+| `TransformContentSubgraph` |
+| `TranslateContentBatch` |
+| `TranslateContentItem` |
+| `WriteContent` |
+
+| Wire name (snake_case) |
+|------------------------|
+| `analyze_template` |
+| `publish_content` |
+| `revert_change` |
+| `update_content` |
+| `update_content_type` |
+| `update_template` |
 
 Per-request **`omitTools`** / agent **`<enableTools>false</enableTools>`** still apply on top of this file.
 
