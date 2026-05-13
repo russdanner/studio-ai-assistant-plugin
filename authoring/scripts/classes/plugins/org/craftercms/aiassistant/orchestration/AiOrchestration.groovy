@@ -763,10 +763,8 @@ For **content XML** (pages/components): do not invent a new element tree — pre
   }
 
   /**
-   * Normalizes obsolete **dall-e*** / **DALL·E**-style image model strings (often left in older ui.xml) to **{@code gpt-image-1}**
-   * before {@code POST /v1/images/generations}. OpenAI’s current Images API is built around **GPT Image** models; those
-   * legacy ids are not used on the wire. Safe to pass either raw ui.xml text or an already canonical id from
-   * {@link #openAiCanonicalizeApiModelToken(String)}.
+   * Canonical image model id for {@code POST /v1/images/generations}: {@link #openAiCanonicalizeApiModelToken(String)}
+   * on trimmed input. Returns the raw parameter when blank or when canonicalization yields an empty string.
    */
   static String normalizeOpenAiImagesApiModelId(String modelIdRawOrCanonical) {
     if (modelIdRawOrCanonical == null || !modelIdRawOrCanonical.toString().trim()) {
@@ -776,24 +774,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     if (!canon) {
       return modelIdRawOrCanonical
     }
-    String m = openAiNormalizeModelIdForHeuristics(canon)
-    // "DALL·E" branding (U+00B7) and common unicode dashes → ASCII hyphen so substring / regex checks work.
-    m = m.replace('\u00b7', '-')
-    m = m.replace('\u2011', '-').replace('\u2010', '-').replace('\u2212', '-').replace('\u2013', '-').replace('\u2014', '-')
-    m = m.replaceAll(/\s+/, '-')
-    m = m.replace('_', '-')
-    m = m.replaceAll(/-+/, '-')
-    m = m.replaceAll(/^-+/, '').replaceAll(/-+$/, '')
-    m = m.toLowerCase(Locale.US)
-    if (!m) {
-      return canon
-    }
-    boolean legacy =
-      m.startsWith('dall-e') ||
-      m.contains('dall-e') ||
-      m.startsWith('dalle') ||
-      Pattern.compile('(?i)dall[^a-z0-9]*e').matcher(m).find()
-    return legacy ? 'gpt-image-1' : canon
+    return canon
   }
 
   /** Wire JSON body for {@code /v1/chat/completions}: read {@code model} for author-facing errors. */
@@ -992,7 +973,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
 
   /**
    * OpenAI Images API model id (e.g. {@code gpt-image-1}). Source: agent **{@code <imageModel>}** or POST **{@code imageModel}** only.
-   * Obsolete **{@code dall-e-*}** strings from older configs are normalized to **{@code gpt-image-1}** via {@link #normalizeOpenAiImagesApiModelId(String)}.
+   * Canonicalized via {@link #normalizeOpenAiImagesApiModelId(String)}.
    */
   static String resolveOpenAiImageModel(String fromRequest) {
     String base = (fromRequest ?: '').toString().trim()

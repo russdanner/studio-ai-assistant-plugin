@@ -1,6 +1,6 @@
 # Chat, CMS tools, and runtime behavior
 
-**Audience:** Maintainers and advanced operators debugging **tools**, **SSE**, **CrafterQ identity**, or **Studio integration** — not the primary “which `<llm>` do I pick?” reference.
+**Audience:** Maintainers and advanced operators debugging **tools**, **SSE**, **optional hosted SaaS identity**, or **Studio integration** — not the primary “which `<llm>` do I pick?” reference.
 
 **LLM ids, keys, and provider behavior:** [llm-configuration.md](../using-and-extending/llm-configuration.md)  
 **Operator checklist and `ui.xml` surfaces:** [configuration-guide.md](../using-and-extending/configuration-guide.md)  
@@ -19,7 +19,7 @@ OpenAI **tool** calls that read/write repository content (`GetContent`, `WriteCo
 - **`ConsultCrafterQExpert` (OpenAI-wire agents only):** Calls **`api.crafterq.ai/v1/chats`** with the **same `agentId`** as the widget session so the **hosted expert API** can answer as a **subject-matter / RAG** consult (copy, tone, SEO, IA). Does **not** read or write the repository. Prompt length is capped and long transcripts are compacted (default cap **1000** characters; tunable only via JVM — see **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**).
 - **`ListCrafterQAgentChats` / `GetCrafterQAgentChat` (OpenAI-wire agents only, when `<crafterQAgentId>` is set):** Read-only **GET** calls to **`/v1/agents/{agentId}/chats`** (optional **startDate**/**endDate** — omit both for **last 30 days UTC**; session **`agentId`** from config when omitted in args) and **`/v1/agents/{agentId}/chats/{chatId}`** for hosted conversation payloads (e.g. audit dislikes, then **`ConsultCrafterQExpert`** or CMS tools for fixes). Same forwarded-header contract as other CrafterQ calls (**`authorization`** is never forwarded — CrafterQ identity uses headers such as **`X-CrafterQ-Chat-User`** from the widget when the author signed into CrafterQ in Studio).
 - **`GetContentTypeFormDefinition`:** Prefer **`contentPath`** (same repository path as the page/component XML). The server reads **`<content-type>`** from that file so the model must not guess types from filenames (e.g. `/site/website/index.xml` → **`/page/index`** is wrong). If **`contentPath`** and **`contentTypeId`** disagree, **`contentPath`** wins.
-- **`GenerateImage` (OpenAI only):** Calls **`POST /v1/images/generations`** with the same API key as chat. The image model comes only from **`<imageModel>`** / POST **`imageModel`** (no JVM default). OpenAI’s Images API targets **GPT Image** models; obsolete **`dall-e-*`** strings from older configs map server-side to **`gpt-image-1`**. The request does not send **`response_format`** (rejected for GPT image); the tool adds **`output_format`** where appropriate and sets **`url`** to a **`data:`** URL when the API returns **`b64_json`** only (the raw tool map omits **`b64_json`** once **`url`** is populated so the payload is not doubled). Configure **`size`** / **`quality`** per OpenAI’s GPT Image docs; persist assets under **`/static-assets/`** for production. In the **native OpenAI tool loop**, **`GenerateImage`** results with a **`data:`** bitmap are **not** sent in full on the **`role:tool` wire** (that would exceed the chat context limit). The server stores the bitmap keyed by **`tool_call_id`**, sends the model a **compact** JSON (**`crafterqInlineImageRef`** + instructions), and expands **`crafterq-tool-image://…`** placeholders into the real **`data:`** URL in the **final** assistant text delivered to Studio.
+- **`GenerateImage` (OpenAI only):** Calls **`POST /v1/images/generations`** with the same API key as chat. The image model comes only from **`<imageModel>`** / POST **`imageModel`** (no JVM default). OpenAI’s Images API targets **GPT Image** models. The request does not send **`response_format`** (rejected for GPT image); the tool adds **`output_format`** where appropriate and sets **`url`** to a **`data:`** URL when the API returns **`b64_json`** only (the raw tool map omits **`b64_json`** once **`url`** is populated so the payload is not doubled). Configure **`size`** / **`quality`** per OpenAI’s GPT Image docs; persist assets under **`/static-assets/`** for production. In the **native OpenAI tool loop**, **`GenerateImage`** results with a **`data:`** bitmap are **not** sent in full on the **`role:tool` wire** (that would exceed the chat context limit). The server stores the bitmap keyed by **`tool_call_id`**, sends the model a **compact** JSON (**`crafterqInlineImageRef`** + instructions), and expands **`crafterq-tool-image://…`** placeholders into the real **`data:`** URL in the **final** assistant text delivered to Studio.
 
 **Conversation vs focused generation (OpenAI only — all AI panel surfaces):** The same rules apply whether the author opens the assistant from **Experience Builder / ICE** (preview sidebar), the **floating dialog**, or the **content-type form assistant** (`authoringSurface: formEngine`). Normal chat turns register CMS **function tools** when the agent / request enables them. **`AiAssistantChat`** prepends an **abbreviated prior-turn block** (last several user/assistant messages, capped in size) on every send so each HTTP request stays single-shot while preserving context. For a **focused copy or generation step**, send **`omitTools: true`** on that POST (or set **`&lt;omitTools&gt;true&lt;/omitTools&gt;`** on a quick **`&lt;prompt&gt;`** in ui.xml); that **one** request omits tool schemas so more context remains for large payloads (e.g. serialized form XML or expanded content macros). **`omitTools`** overrides **`enableTools`** for that round-trip only on **any** surface.
 
@@ -61,22 +61,22 @@ See `craftercms-plugin.yaml` under `installation` → `configuration` → `agent
 
 ```xml
 <agent>
-  <crafterQAgentId>YOUR_CRAFTERQ_AGENT_UUID</crafterQAgentId>
-  <label>CrafterQ content</label>
-  <llm>crafterQ</llm>
-</agent>
-<agent>
   <crafterQAgentId>ANOTHER_AGENT_UUID</crafterQAgentId>
   <label>OpenAI tools</label>
   <llm>openAI</llm>
   <llmModel>gpt-4o</llmModel>
   <imageModel>gpt-image-1</imageModel>
 </agent>
+<agent>
+  <crafterQAgentId>YOUR_CRAFTERQ_AGENT_UUID</crafterQAgentId>
+  <label>Hosted chat only (no repo tools)</label>
+  <llm>crafterQ</llm>
+</agent>
 ```
 
 ---
 
-## CrafterQ API tools on the OpenAI path (`ConsultCrafterQExpert`, `ListCrafterQAgentChats`, `GetCrafterQAgentChat`) {#crafterq-api-tools-openai-wire}
+## Hosted SaaS API tools on the tool-capable path (`ConsultCrafterQExpert`, `ListCrafterQAgentChats`, `GetCrafterQAgentChat`) {#crafterq-api-tools-openai-wire}
 
 These three tools are registered **only** for agents that use the **Spring AI native tool loop** with the shared **`AiOrchestrationTools`** catalog (e.g. **`openAI`**, **`xAI`**, **`deepSeek`**, **`llama`**, **`genesis`/`gemini`**, **`claude`**). They are **not** registered for **`crafterQ`** hosted chat alone (`ExpertChatModel` — no function tools on that adapter).
 
@@ -88,15 +88,15 @@ These three tools are registered **only** for agents that use the **Spring AI na
 
 **Server guard (OpenAI native tool loop):** When the user message matches **hosted CrafterQ chat analytics** (e.g. “number one question in CrafterQ”, “what people ask” in chat) and **`ListCrafterQAgentChats`** is registered, **`AiOrchestration`** may **rewrite** a misrouted first-round **`ListContentTranslationScope`** call to **`ListCrafterQAgentChats`** and **block** **`TranslateContentBatch`** / **`TranslateContentItem`** / **`ListContentTranslationScope`** for that same user turn so the model cannot burn translate inner calls or touch repo XML for a non-translation ask.
 
-**Minimal example (OpenAI orchestrator + CrafterQ agent id for API tools):**
+**Minimal example (OpenAI + optional hosted SaaS API tools):**
 
 ```xml
 <agent>
-  <label>Authoring with CrafterQ chat audit</label>
+  <label>Authoring with optional SaaS chat audit</label>
   <crafterQAgentId>019a4b75-9cb9-7814-a032-14242950d5bc</crafterQAgentId>
   <llm>openAI</llm>
   <llmModel>gpt-4o-mini</llmModel>
-  <!-- Optional: CrafterQ admin JWT via Studio host env (recommended). Literal <crafterQBearerToken> is also supported. -->
+  <!-- Optional: admin JWT via Studio host env (recommended). Literal <crafterQBearerToken> is also supported. -->
   <crafterQBearerTokenEnv>CRAFTQ_ADMIN_JWT</crafterQBearerTokenEnv>
 </agent>
 ```
@@ -189,9 +189,9 @@ If a tool throws mid-stream (e.g. Spring AI `MessageAggregator` / `UndeclaredThr
 
 `POST` … `/ai/stream` and `/ai/agent/chat` accept:
 
-- `llm`: `crafterQ` | `openAI` | `xAI` | `deepSeek` | `llama` | `genesis` | `gemini` | `claude` | `script:{id}` (optional on the agent; if omitted from config the client may omit it from the POST—server then normalizes missing/blank/unknown to **`crafterQ`**). Matching aliases are normalized server-side (e.g. `grok` → xAI, `ollama` → llama). **`script:myid`** → **`scriptLlm:myid`** and loads site Groovy from `/scripts/aiassistant/llm/myid/runtime.groovy`.
+- `llm`: `crafterQ` | `openAI` | `xAI` | `deepSeek` | `llama` | `genesis` | `gemini` | `claude` | `script:{id}` — **required** on the wire after merge: missing, blank, invalid **`script:…`** ids, or unknown strings → **400** (`StudioAiLlmKind.normalize`). When **`siteId`** + **`agentId`** are set, the server may copy **`llm`** from the matching **`<agent>`** in **`/ui.xml`** if the POST omitted it. Matching aliases are normalized server-side (e.g. `grok` → xAI, `ollama` → llama). **`script:myid`** → **`scriptLlm:myid`** and loads site Groovy from `/scripts/aiassistant/llm/myid/runtime.groovy`.
 - `llmModel`: optional string
-- `imageModel`: optional string — OpenAI **Images** model id for **GenerateImage**; must be set on the agent and/or this body field when the model should call **GenerateImage** (no server default). Prefer **`gpt-image-1`** or **`gpt-image-1-mini`**; obsolete **`dall-e-*`** strings from older configs map to **`gpt-image-1`** server-side.
+- `imageModel`: optional string — OpenAI **Images** model id for **GenerateImage**; must be set on the agent and/or this body field when the model should call **GenerateImage** (no server default). Prefer **`gpt-image-1`** or **`gpt-image-1-mini`**.
 - `openAiApiKey`: optional string — **testing only**; per-provider precedence (OpenAI, xAI, DeepSeek, etc.): ignored when the matching server-side key is set (host **env** vars per **[llm-configuration.md](../using-and-extending/llm-configuration.md)**, plus JVM fallbacks in **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**). For **`claude`**, the same field can carry the Anthropic key when no **`ANTHROPIC_API_KEY`** is configured.
 - `contentPath`: optional repository path of the item open in Studio preview (e.g. `/site/website/about/index.xml`). When set, the server appends **Studio authoring context** to the user prompt so the model treats phrases like “this page”, “my page”, or “update my content” (with no path) as that item.
 - `contentTypeId`: optional preview content type (e.g. `/page/home`); included in that context when present.

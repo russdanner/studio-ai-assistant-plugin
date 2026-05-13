@@ -121,7 +121,7 @@ plugin:
                             value: IconButton
                         children:
                           # Optional: multiple agents. <llm>crafterQ</llm> = remote hosted chat (api.crafterq.ai); <llm>openAI</llm> = Spring AI + CMS tools.
-                          # OpenAI: prefer OPENAI_API_KEY or JVM crafter.openai.apiKey on Studio. Optional <llmModel>; optional <imageModel> for GenerateImage (e.g. gpt-image-1; obsolete dall-e-* in old configs maps to gpt-image-1) — no server default.
+                          # OpenAI: prefer OPENAI_API_KEY or JVM crafter.openai.apiKey on Studio. Optional <llmModel>; optional <imageModel> for GenerateImage (e.g. gpt-image-1) — no server default.
                           # Testing only (not recommended): <openAiApiKey> on the agent — used only if env/JVM key unset. See docs/using-and-extending/llm-configuration.md.
                           # <openAsPopup>true</openAsPopup> = floating dialog; omitted or false = Experience Builder right (ICE) panel + edit mode on.
                           # Full fragment reference: docs/examples/studio-ui-aiassistant-fragments.xml

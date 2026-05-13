@@ -16,7 +16,7 @@ import java.util.Map
 /**
  * Stream/chat POST bodies often omit fields that exist on the matching {@code <agent>} in site {@code /ui.xml}.
  * Merges missing {@code crafterQBearerTokenEnv} / {@code crafterQBearerToken}, {@code imageModel}, {@code llmModel},
- * and {@code imageGenerator}
+ * {@code llm}, and {@code imageGenerator}
  * from that row onto the POST body (bearer is then applied to the servlet request by {@link AiHttpProxy#installCrafterQBearerFromChatBody}).
  * Same {@code HttpServletRequest} is used by the OpenAI tool worker.
  */
@@ -75,6 +75,7 @@ final class CrafterQBearerUiXmlMerge {
     out.put('imageModel', '')
     out.put('llmModel', '')
     out.put('imageGenerator', '')
+    out.put('llm', '')
     String wanted = (crafterQApiAgentId ?: '').toString().trim()
     if (!wanted || uiXmlUtf8 == null || !uiXmlUtf8.toString().trim()) {
       return out
@@ -95,6 +96,7 @@ final class CrafterQBearerUiXmlMerge {
         out.put('imageModel', findDirectChildByLocalName(agentEl, 'imageModel')?.getTextTrim() ?: '')
         out.put('llmModel', findDirectChildByLocalName(agentEl, 'llmModel')?.getTextTrim() ?: '')
         out.put('imageGenerator', findDirectChildByLocalName(agentEl, 'imageGenerator')?.getTextTrim() ?: '')
+        out.put('llm', findDirectChildByLocalName(agentEl, 'llm')?.getTextTrim() ?: '')
         break
       }
     } catch (Throwable t) {
@@ -160,7 +162,7 @@ final class CrafterQBearerUiXmlMerge {
   }
 
   /**
-   * Fills missing bearer fields, {@code imageModel}, {@code llmModel}, and/or {@code imageGenerator} on {@code body} from site {@code /ui.xml} for {@code crafterQAgentId}.
+   * Fills missing bearer fields, {@code imageModel}, {@code llmModel}, {@code llm}, and/or {@code imageGenerator} on {@code body} from site {@code /ui.xml} for {@code crafterQAgentId}.
    */
   static void mergeStreamAgentFieldsFromSiteUiXmlIfMissing(Object applicationContext, Map body, String siteId, String crafterQApiAgentId) {
     if (!(body instanceof Map) || body == null) {
@@ -171,10 +173,11 @@ final class CrafterQBearerUiXmlMerge {
     String litBody =
       (body.crafterQBearerToken ?: body.get('crafterQ-bearer-token') ?: body.crafter_q_bearer_token)?.toString()?.trim() ?: ''
     String imgBody = (body.imageModel ?: body.get('image-model') ?: body.image_model)?.toString()?.trim() ?: ''
-    String llmBody = (body.llmModel ?: body.get('llm-model') ?: body.llm_model)?.toString()?.trim() ?: ''
+    String llmModelBody = (body.llmModel ?: body.get('llm-model') ?: body.llm_model)?.toString()?.trim() ?: ''
     String imgGenBody =
       (body.imageGenerator ?: body.get('image-generator') ?: body.image_generator)?.toString()?.trim() ?: ''
-    if (envKeyBody && litBody && imgBody && llmBody && imgGenBody) {
+    String llmTransportBody = (body.llm ?: body.get('llm'))?.toString()?.trim() ?: ''
+    if (envKeyBody && litBody && imgBody && llmModelBody && imgGenBody && llmTransportBody) {
       return
     }
     String site = (siteId ?: '').toString().trim()
@@ -191,11 +194,12 @@ final class CrafterQBearerUiXmlMerge {
     String xmlEnv = (extracted.crafterQBearerTokenEnv ?: '').toString().trim()
     String xmlTok = (extracted.crafterQBearerToken ?: '').toString().trim()
     String xmlImg = (extracted.imageModel ?: '').toString().trim()
-    String xmlLlm = (extracted.llmModel ?: '').toString().trim()
+    String xmlLlmModel = (extracted.llmModel ?: '').toString().trim()
     String xmlImgGen = (extracted.imageGenerator ?: '').toString().trim()
-    if (!xmlEnv && !xmlTok && !xmlImg && !xmlLlm && !xmlImgGen) {
+    String xmlLlmTransport = (extracted.llm ?: '').toString().trim()
+    if (!xmlEnv && !xmlTok && !xmlImg && !xmlLlmModel && !xmlImgGen && !xmlLlmTransport) {
       log.info(
-        'Agent ui.xml merge: no crafterQBearerTokenEnv/crafterQBearerToken/imageModel/llmModel/imageGenerator on matching <agent> for crafterQAgentId={} siteId={}',
+        'Agent ui.xml merge: no crafterQBearerTokenEnv/crafterQBearerToken/imageModel/llmModel/imageGenerator/llm on matching <agent> for crafterQAgentId={} siteId={}',
         agent,
         site
       )
@@ -225,15 +229,24 @@ final class CrafterQBearerUiXmlMerge {
         agent
       )
     }
-    if (!llmBody && xmlLlm) {
-      body.put('llmModel', xmlLlm)
-      log.info('Agent ui.xml merge: copied llmModel="{}" into POST body (POST omitted it) siteId={} agent={}', xmlLlm, site, agent)
+    if (!llmModelBody && xmlLlmModel) {
+      body.put('llmModel', xmlLlmModel)
+      log.info('Agent ui.xml merge: copied llmModel="{}" into POST body (POST omitted it) siteId={} agent={}', xmlLlmModel, site, agent)
     }
     if (!imgGenBody && xmlImgGen) {
       body.put('imageGenerator', xmlImgGen)
       log.info(
         'Agent ui.xml merge: copied imageGenerator="{}" into POST body (POST omitted it) siteId={} agent={}',
         xmlImgGen,
+        site,
+        agent
+      )
+    }
+    if (!llmTransportBody && xmlLlmTransport) {
+      body.put('llm', xmlLlmTransport)
+      log.info(
+        'Agent ui.xml merge: copied llm="{}" into POST body (POST omitted it) siteId={} agent={}',
+        xmlLlmTransport,
         site,
         agent
       )

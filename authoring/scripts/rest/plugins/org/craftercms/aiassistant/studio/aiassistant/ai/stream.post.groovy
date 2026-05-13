@@ -25,13 +25,13 @@ import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
  *   "enableTools": optional boolean — when false, OpenAI chat omits CMS function tools (matches ui.xml enableTools false). Absent defaults true.
  *   "omitTools": optional boolean — when true, CMS function tools are omitted for this request only (copy/image-style LLM steps); overrides enableTools. Same for XB/ICE preview chat, dialog, and form-engine (`authoringSurface`). Absent/false keeps normal tool registration from enableTools/agent defaults.
  *   "llmModel": optional string — OpenAI chat model id (e.g. gpt-4o-mini).
- *   "imageModel": optional string — Default image model for OpenAI-compatible **GenerateImage** wire (e.g. gpt-image-1); agent ui.xml **imageModel**; no JVM fallback. Obsolete dall-e-* strings in older configs map to gpt-image-1 server-side. Ignored when **imageGenerator** selects a pure script backend unless the script reads it from context.
+ *   "imageModel": optional string — Default image model for OpenAI-compatible **GenerateImage** wire (e.g. gpt-image-1); agent ui.xml **imageModel**; no JVM fallback. Ignored when **imageGenerator** selects a pure script backend unless the script reads it from context.
  *   "imageGenerator": optional string — **GenerateImage** backend: blank = OpenAI-compatible Images wire when key+imageModel exist; **none** / **off** / **disabled** omits the tool; **script:{id}** runs **`/scripts/aiassistant/imagegen/{id}/generate.groovy`**. Agent ui.xml **imageGenerator**; merged from site ui.xml like **imageModel** when POST omits it.
  *   "expertSkills": optional JSON array of { name, url, description } — per-agent markdown URLs for {@code QueryExpertGuidance} (Spring AI vector store); normalized server-side.
  *   "translateBatchConcurrency": optional integer 1–64 — parallel {@code TranslateContentBatch} workers when the model omits {@code maxConcurrency}; from agent ui.xml; server default 25 when omitted.
  *   "crafterQBearerTokenEnv": optional string — name of a **Studio host environment variable** holding the CrafterQ JWT; server sets {@code Authorization: Bearer} on outbound api.crafterq.ai calls when {@code System.getenv} returns a non-blank value (preferred over literal token in config).
  *   "crafterQBearerToken": optional string — literal CrafterQ JWT (duplicates ui.xml {@code <crafterQBearerToken>}); used when env is unset or empty. **Discouraged** in versioned config.
- *   **Server merge:** when {@code siteId} + {@code agentId} are present, missing {@code crafterQBearerTokenEnv} / {@code crafterQBearerToken} / {@code imageModel} / {@code llmModel} / {@code imageGenerator} on the POST body may be copied from the matching {@code <agent>} row in site {@code /ui.xml} before auth and orchestration (so GenerateImage sees the configured image model/backend even if the client omitted it).
+ *   **Server merge:** when {@code siteId} + {@code agentId} are present, missing {@code crafterQBearerTokenEnv} / {@code crafterQBearerToken} / {@code imageModel} / {@code llmModel} / {@code imageGenerator} / {@code llm} on the POST body may be copied from the matching {@code <agent>} row in site {@code /ui.xml} before auth and orchestration (so GenerateImage sees the configured image model/backend even if the client omitted it).
  *   "previewToken": optional string — Studio {@code crafterPreview} cookie value; enables {@code GetPreviewHtml} without passing the token on every tool call. When omitted, the server still uses {@code crafterPreview} from the **incoming request cookies** (HttpOnly-safe).
  *   Response:  text/event-stream (SSE) on success, or application/json on error
  */
@@ -70,9 +70,6 @@ try {
       promptForOrchestration, request, siteIdBody ?: params?.siteId, contentPathBody, body?.studioPreviewPageUrl)
   }
   def chatId = body?.chatId?.toString()
-  def llm = body?.llm?.toString()
-  def llmNorm = AiOrchestration.normalizeLlmProvider(llm)
-  def openAiApiKey = body?.openAiApiKey?.toString()
   if (siteIdBody) {
     try {
       request.setAttribute('crafterq.siteId', siteIdBody)
@@ -101,6 +98,19 @@ try {
   if (body instanceof Map) {
     AiHttpProxy.installCrafterQBearerFromChatBody(request, (Map) body)
   }
+  def llm = body?.llm?.toString()
+  String llmNorm
+  try {
+    llmNorm = AiOrchestration.normalizeLlmProvider(llm)
+  } catch (IllegalArgumentException iae) {
+    response.setStatus(HttpServletResponse.SC_BAD_REQUEST)
+    response.setContentType('application/json')
+    response.getOutputStream().withWriter('UTF-8') {
+      it.write(JsonOutput.toJson([message: (iae.message ?: 'Invalid llm').toString()]))
+    }
+    return null
+  }
+  def openAiApiKey = body?.openAiApiKey?.toString()
   def openAiModel = body?.llmModel?.toString()
   def imageModelRaw = body?.imageModel?.toString()
   def imageModel = null

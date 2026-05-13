@@ -11,7 +11,7 @@ Configure or extend the plugin **without** changing core sources unless you are 
 | [tinymce-integration.md](tinymce-integration.md) | TinyMCE **`tinymceOptions`**, toolbar ids, **`craftercms_aiassistant`** config |
 | [helper-widget.md](helper-widget.md) | Helper **`ui.xml`** snippet and “component not found” checklist |
 | [autonomous-assistants-widget.md](autonomous-assistants-widget.md) | Optional autonomous widget — placement and links to spec |
-| [llm-configuration.md](llm-configuration.md) | **`<llm>`** ids, env + `ui.xml`, **`script:{id}`**, behavior by provider |
+| [llm-configuration.md](llm-configuration.md) | **`<llm>`** — **OpenAI-wire / Claude / `script:` first**; env + `ui.xml`; optional hosted-only adapter; **`script:{id}`** |
 | [studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md) | **JVM-only** `-D` / `System.getProperty` tuning (timeouts, fetch/MCP caps, key fallbacks) |
 | [image-generation.md](image-generation.md) | **Pluggable `GenerateImage`** — wire vs **`script:{id}`**, **`imageGenerator`** / **`imageModel`**, site overrides |
 | [studio-plugins-guide.md](studio-plugins-guide.md) | Descriptor, paths, Rollup, auth; **`user-tools/`**; **`imagegen/`**; **`tools.json`**; **`prompts/`**; script LLM paths |

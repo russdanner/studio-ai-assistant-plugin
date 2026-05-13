@@ -27,7 +27,7 @@ export interface AgentConfig {
    * (edit mode on). XML: `<openAsPopup>true</openAsPopup>`.
    */
   openAsPopup?: boolean;
-  /** From `<llm>crafterQ</llm>` or `<llm>openAI</llm>` in widget configuration. Omitted unless set in ui.xml; server normalizes missing POST `llm` to hosted CrafterQ—prefer setting explicitly. */
+  /** From `<llm>crafterQ</llm>` or `<llm>openAI</llm>` in widget configuration. Omitted unless set in ui.xml; stream/chat then omit POST `llm` unless the server merges it from `/ui.xml` — missing `llm` after merge is **400**. Prefer setting explicitly. */
   llm?: AgentLlm;
   /**
    * When false (ui.xml `<enableTools>false</enableTools>`), the plugin sends `enableTools: false` so OpenAI

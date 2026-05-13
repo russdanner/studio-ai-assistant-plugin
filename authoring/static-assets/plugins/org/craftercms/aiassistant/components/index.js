@@ -327,7 +327,7 @@ export const CrafterQResultMessageId = 'craftercms.aiassistant.CrafterQResult';
 // Default CrafterQ models
 export const defaultChatModel = 'gpt-4o';
 export const defaultImageModel = 'gpt-image-1';
-export const defaultDallEImageSize = '1024x1024';
+export const defaultOpenAiImageSize = '1024x1024';
 
 // Lanaguge codes for speech to text
 export const languageCodes = [

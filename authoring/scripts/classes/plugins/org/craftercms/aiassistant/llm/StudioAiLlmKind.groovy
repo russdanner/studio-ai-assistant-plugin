@@ -9,7 +9,7 @@ import java.util.regex.Pattern
  * <p>
  * <strong>{@link #CRAFTERRQ_REMOTE_API}</strong> ({@code llm=crafterQ}) is the <strong>remote hosted chat</strong> adapter
  * (HTTP to {@code api.crafterq.ai}); it is not the name of the plugin. Missing, blank, or unrecognized {@code llm}
- * strings from the client normalize to this kind for backwards compatibility—see {@link #normalize(String)}.
+ * values are rejected by {@link #normalize(String)} with {@link IllegalArgumentException} (HTTP 400 on stream/chat).
  * The <strong>ConsultCrafterQExpert</strong> CMS tool calls that same hosted stack for SME/RAG consults.
  * <strong>OpenAI</strong>-wire and compatible hosts use the {@code /v1/chat/completions} native-tool loop in
  * {@code AiOrchestration}. <strong>Claude</strong> uses Spring AI Anthropic with Spring-managed tool execution.
@@ -110,14 +110,19 @@ final class StudioAiLlmKind {
   }
 
   /**
-   * Maps agent / POST {@code llm} strings to a normalized kind. Empty, blank, {@code crafterq}, and unrecognized
-   * values map to {@link #CRAFTERRQ_REMOTE_API} for backwards compatibility when the client omits {@code llm}.
-   * Use {@code script:yourId} for site Groovy ({@link #SCRIPT_LLM_PREFIX}).
+   * Maps agent / POST {@code llm} strings to a normalized kind. Empty or blank throws {@link IllegalArgumentException}.
+   * Unrecognized values and invalid {@code script:…} ids throw. Explicit {@code crafterq} / {@code crafter-q} maps to
+   * {@link #CRAFTERRQ_REMOTE_API}. Use {@code script:yourId} for site Groovy ({@link #SCRIPT_LLM_PREFIX}).
    */
   static String normalize(String raw) {
     String trimmed = (raw ?: '').toString().trim()
+    if (!trimmed) {
+      throw new IllegalArgumentException(
+        'Missing or blank llm: set <llm> on the agent in /config/studio/ui.xml (or ensure the stream/chat POST body includes llm, e.g. openAI, claude, crafterQ, script:myid).'
+      )
+    }
     String s = trimmed.toLowerCase(Locale.US)
-    if (!s || s == 'crafterq' || s == 'crafter-q') {
+    if (s == 'crafterq' || s == 'crafter-q' || s == 'aiassistant') {
       return CRAFTERRQ_REMOTE_API
     }
     if (s.startsWith('script:')) {
@@ -125,12 +130,18 @@ final class StudioAiLlmKind {
       if (SAFE_SCRIPT_LLM_ID.matcher(id).matches()) {
         return SCRIPT_LLM_PREFIX + id
       }
+      throw new IllegalArgumentException(
+        "Invalid script LLM id in llm='${trimmed}': use script:<id> with id matching [a-z0-9_-]{1,64}."
+      )
     }
     if (s.startsWith(SCRIPT_LLM_PREFIX.toLowerCase(Locale.US))) {
       String id2 = s.substring(SCRIPT_LLM_PREFIX.length()).trim()
       if (SAFE_SCRIPT_LLM_ID.matcher(id2).matches()) {
         return SCRIPT_LLM_PREFIX + id2
       }
+      throw new IllegalArgumentException(
+        "Invalid script LLM id in llm='${trimmed}': use scriptLlm:<id> with id matching [a-z0-9_-]{1,64}."
+      )
     }
     if (s == 'openai' || s == 'open-ai') {
       return OPENAI_NATIVE
@@ -150,6 +161,8 @@ final class StudioAiLlmKind {
     if (s == 'claude' || s == 'anthropic') {
       return CLAUDE_NATIVE
     }
-    return CRAFTERRQ_REMOTE_API
+    throw new IllegalArgumentException(
+      "Unrecognized llm='${trimmed}'. Supported: openAI, xAI, deepSeek, llama, gemini, genesis, claude, crafterQ, script:<id>."
+    )
   }
 }

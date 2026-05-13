@@ -18,6 +18,7 @@ import plugins.org.craftercms.aiassistant.rag.ExpertSkillVectorRegistry
  * {
  *   "agentId": "...",
  *   "prompt": "...",
+ *   "llm": "required on the wire (POST body or copied from matching <agent> in /ui.xml when siteId+agentId); missing/blank/unknown → 400",
  *   "chatId": "optional",
  *   "contentPath": "optional Studio preview repo path",
  *   "contentTypeId": "optional",
@@ -102,7 +103,14 @@ if (imageModelRaw?.trim()) {
 
 def imageGenerator = body?.imageGenerator?.toString()?.trim() ?: null
 
-def llmNorm = AiOrchestration.normalizeLlmProvider(llm)
+String llmNorm
+try {
+  llmNorm = AiOrchestration.normalizeLlmProvider(llm)
+} catch (IllegalArgumentException iae) {
+  response.setStatus(HttpServletResponse.SC_BAD_REQUEST)
+  return [ok: false, message: (iae.message ?: 'Invalid llm').toString()]
+}
+
 if ((!agentId && StudioAiLlmKind.isCrafterQRemoteApi(llmNorm)) || !prompt) {
   response.setStatus(HttpServletResponse.SC_BAD_REQUEST)
   return [message: (!agentId && StudioAiLlmKind.isCrafterQRemoteApi(llmNorm))

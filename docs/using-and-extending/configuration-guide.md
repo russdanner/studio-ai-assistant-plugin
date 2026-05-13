@@ -2,7 +2,7 @@
 
 **Audience:** Studio admins and site builders who need the assistant to **appear**, **authenticate**, and **behave** as intended—without reading the full implementation spec first.
 
-**Related docs:** [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, API keys, CrafterQ headers, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. [spec.md](../internals/spec.md) for **`ui.xml`** and widget contracts, macros, form vs preview, and autonomous REST.
+**Related docs:** [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability (OpenAI-wire / Claude first). [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. [spec.md](../internals/spec.md) for **`ui.xml`** and widget contracts, macros, form vs preview, and autonomous REST. Optional hosted SaaS HTTP (bearer, chat audit tools) is covered in [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when you opt in on a tool-capable agent.
 
 ---
 
@@ -39,11 +39,11 @@ Full wiring and troubleshooting: [studio-plugins-guide.md](studio-plugins-guide.
 
 Each **agent** is one row in the Helper menu (or one accordion row on the form assistant). Per agent you normally set:
 
-- **`crafterQAgentId`** — Hosted CrafterQ **agent UUID**; sent as `agentId` on stream/chat. Required for **`llm` `crafterQ`**. For purely OpenAI‑wire / Claude agents that never call CrafterQ APIs, it may be empty when your deployment allows it—see [spec.md](../internals/spec.md).
 - **`label`** — Display name.
-- **`llm`** — Backend for this agent’s chat. **Set `<llm>` explicitly** in `ui.xml`. If omitted, the client may omit `llm` from the POST and the server **normalizes** missing/blank/unknown values to **`crafterQ`**, which is hosted chat only and does not run the CMS tool loop. Allowed values and aliases: [llm-configuration.md § Summary table](llm-configuration.md#summary-table).
+- **`llm`** — Backend for this agent’s chat. **Set `<llm>` explicitly** — for authoring with **GetContent** / **WriteContent** / **GenerateImage**, use **`openAI`**, **`xAI`**, **`deepSeek`**, **`llama`**, **`gemini`/`genesis`**, **`claude`**, or **`script:…`**. **`crafterQ`** is **hosted chat only** (no CMS tool loop on that adapter). If **`<llm>`** is omitted and the POST omits **`llm`**, the stream/chat request **400**s unless **`siteId`** + **`agentId`** allow the server to merge **`llm`** from **`/ui.xml`** — see [llm-configuration.md § Omitted `<llm>` and POST body](llm-configuration.md#omitted-llm-and-post-body). Allowed values: [llm-configuration.md § Summary table](llm-configuration.md#summary-table).
 - **`llmModel`** — Provider chat model id (optional; when omitted, some providers use a server default — see **[llm-configuration.md](llm-configuration.md)** and JVM defaults in **[studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md)** only if you rely on non-XML defaults).
-- **`imageModel`** — OpenAI **Images** model id for **`GenerateImage`** (no server fallback if blank). Use **`gpt-image-1`** or **`gpt-image-1-mini`**; obsolete **`dall-e-*`** strings from older configs map to **`gpt-image-1`** server-side. See [llm-configuration.md](llm-configuration.md).
+- **`imageModel`** — OpenAI **Images** model id for **`GenerateImage`** (no server fallback if blank). Use **`gpt-image-1`** or **`gpt-image-1-mini`**. See [llm-configuration.md](llm-configuration.md).
+- **`crafterQAgentId`** — Hosted SaaS **agent UUID**; sent as `agentId` on stream/chat. **Required** only when **`llm` is `crafterQ`**. On **tool-capable** `llm` values, set it **only** if you want optional **hosted SaaS API tools** on that agent — see [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md#crafterq-api-tools-openai-wire). Otherwise omit or leave empty per [spec.md](../internals/spec.md).
 - **`prompts`** — Optional quick chips (`<prompt>` plain or structured with `<userText>` / `<additionalContext>` / `<omitTools>`).
 
 Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concurrency, etc.) are documented field‑by‑field under [spec.md — Agent configuration (ui.xml)](../internals/spec.md#agent-configuration-uixml).
@@ -56,7 +56,7 @@ Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concu
 2. **Per‑agent `ui.xml` / widget JSON** — e.g. `<openAiApiKey>`: **testing only**; discouraged in Git‑tracked sites. Precedence vs host env is described in [chat-and-tools-runtime.md § OpenAI API key](../internals/chat-and-tools-runtime.md#openai-api-key-server-side).
 3. **JVM system properties** — Advanced tuning and key fallbacks only; see **[studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md)** (not alternatives to `ui.xml` fields for normal operators).
 
-**CrafterQ hosted APIs** — Authors may authenticate in the widget (`X-CrafterQ-Chat-User`), and/or you configure **`crafterQBearerTokenEnv`** / **`crafterQBearerToken`** for server‑to‑CrafterQ `Authorization`. Read **identity / auth** in [llm-configuration.md](llm-configuration.md) before debugging 401s on `ListCrafterQAgentChats` / `GetCrafterQAgentChat`.
+**Optional — hosted SaaS HTTP** — If authors use hosted SaaS in the widget (`X-CrafterQ-Chat-User`) and/or you configure **`crafterQBearerTokenEnv`** / **`crafterQBearerToken`** for server‑to‑SaaS `Authorization`, see [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when debugging 401s on list/get chat tools.
 
 ---
 
@@ -85,9 +85,9 @@ Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑
 - [ ] Plugin installed for the **site** (Marketplace or `copy-plugin` / `install-plugin.sh`); **`org.craftercms.aiassistant.studio`** appears in Plugin Management.
 - [ ] **`ui.xml`** committed; Studio **Sync** performed if you rely on git‑backed sandbox.
 - [ ] Helper / Autonomous **`plugin`** element matches §2 above.
-- [ ] For **CrafterQ** `llm`: valid **`crafterQAgentId`** and (if using hosted chat tools) identity headers / bearer as in [llm-configuration.md](llm-configuration.md).
 - [ ] For **OpenAI‑wire / Claude / …**: host **env** API keys set (per [llm-configuration.md](llm-configuration.md)), or you accept testing‑only keys in `ui.xml`.
 - [ ] For **GenerateImage**: **`imageModel`** set on the agent (or body) when that tool is used.
+- [ ] If you use **`llm` `crafterQ`**: valid **`crafterQAgentId`** and (if needed) identity / bearer as in [llm-configuration.md](llm-configuration.md).
 
 ---
 
@@ -95,7 +95,7 @@ Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑
 
 | Topic | Document |
 |-------|-----------|
-| Full `<llm>` matrix, keys, CrafterQ bearer, tool availability | [llm-configuration.md](llm-configuration.md) |
+| Full `<llm>` matrix, env + XML, tool availability | [llm-configuration.md](llm-configuration.md) |
 | Build, install, classpath, `user-tools/`, script LLM | [studio-plugins-guide.md](studio-plugins-guide.md) |
 | Macros, `omitTools`, ICE vs form engine, REST paths, human tasks | [spec.md](../internals/spec.md) |
 | SSE / stream endpoint design | [stream-endpoint-design.md](../internals/stream-endpoint-design.md) |
