@@ -64,6 +64,24 @@ final class StudioAiProviderCredentials {
     return b + '/v1/chat/completions'
   }
 
+  /**
+   * Absolute POST URL for OpenAI Images-compatible {@code /v1/images/generations}.
+   * Defaults to the same host family as {@link #wireOpenAiRestBaseUrl}{@code (OPENAI_NATIVE)}; override with
+   * {@code OPENAI_IMAGES_OPENAI_BASE_URL} or JVM {@code crafter.openai.imagesOpenAiBaseUrl} when using a compatible proxy.
+   */
+  static String httpOpenAiImagesGenerationsUrl() {
+    String b = firstNonBlank(
+      System.getenv('OPENAI_IMAGES_OPENAI_BASE_URL'),
+      System.getProperty('crafter.openai.imagesOpenAiBaseUrl'),
+      wireOpenAiRestBaseUrl(StudioAiLlmKind.OPENAI_NATIVE)
+    )
+    b = b.replaceAll(/\/+$/, '')
+    if (b.endsWith('/v1')) {
+      return b + '/images/generations'
+    }
+    return b + '/v1/images/generations'
+  }
+
   static String resolveApiKey(String llmNormalized, String fromWidgetOrRequest = null) {
     String n = (llmNormalized ?: '').toString()
     String w = (fromWidgetOrRequest ?: '').toString().trim()

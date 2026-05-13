@@ -389,6 +389,7 @@ function AgentConfigurationDetailsContent(props: { readonly row: AutonomousTable
       {field('LLM', scalarForAgentDetails(d.llm))}
       {field('LLM model', scalarForAgentDetails(d.llmModel))}
       {field('Image model', scalarForAgentDetails(d.imageModel))}
+      {field('Image generator', scalarForAgentDetails(d.imageGenerator))}
       {field('Start automatically', definitionStartAutomatically(d) ? 'Yes' : 'No')}
       {field('Stop on failure', definitionStopOnFailure(d) ? 'Yes' : 'No')}
       {field(

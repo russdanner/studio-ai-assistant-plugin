@@ -39,6 +39,10 @@ export interface AgentConfig {
   /** OpenAI Images API model when llm is openAI (e.g. gpt-image-1). ui.xml **`<imageModel>`** / JSON **`imageModel`** — no JVM fallback. */
   imageModel?: string;
   /**
+   * GenerateImage backend: ui.xml **`<imageGenerator>`** / JSON **`imageGenerator`**. Blank = OpenAI-compatible wire when configured; values **none**, **off**, or **disabled** turn the tool off; **script:{id}** runs `/scripts/aiassistant/imagegen/{id}/generate.groovy`.
+   */
+  imageGenerator?: string;
+  /**
    * Optional OpenAI API key from ui.xml — **not recommended** (exposed in Studio config / sent on requests).
    * Used only when `OPENAI_API_KEY` / JVM keys are unset. For local testing.
    */
@@ -147,6 +151,11 @@ export function mergeAgentsWithSiteUiXmlOverlay(fromWidget: AgentConfig[], fromU
       ui.imageModel.trim() &&
       !(agent.imageModel || '').trim()
         ? { imageModel: ui.imageModel.trim() }
+        : {}),
+      ...(typeof ui.imageGenerator === 'string' &&
+      ui.imageGenerator.trim() &&
+      !(agent.imageGenerator || '').trim()
+        ? { imageGenerator: ui.imageGenerator.trim() }
         : {}),
       ...(ui.openAiApiKey !== undefined && agent.openAiApiKey === undefined ? { openAiApiKey: ui.openAiApiKey } : {}),
       ...(ui.openAsPopup !== undefined && agent.openAsPopup === undefined ? { openAsPopup: ui.openAsPopup } : {}),
@@ -349,6 +358,10 @@ function normalizeAgent(a: unknown): AgentConfig | null {
   else if (llmRaw === 'crafterq' || llmRaw === 'crafter-q') llm = 'crafterQ';
   const llmModel = extractString(o.llmModel);
   const imageModel = extractString(o.imageModel);
+  const imageGenerator =
+    extractString(o.imageGenerator) ??
+    extractString(o['image-generator']) ??
+    extractString(o.image_generator);
   const openAiApiKey =
     extractString(o.openAiApiKey) ??
     extractString(o['open-ai-api-key']) ??
@@ -357,6 +370,7 @@ function normalizeAgent(a: unknown): AgentConfig | null {
   if (llm) out.llm = llm;
   if (llmModel) out.llmModel = llmModel;
   if (imageModel) out.imageModel = imageModel;
+  if (imageGenerator) out.imageGenerator = imageGenerator;
   if (openAiApiKey?.trim()) out.openAiApiKey = openAiApiKey.trim();
   const openAsPopup = extractBooleanFromRecord(o, 'openAsPopup', 'open_as_popup', 'OpenAsPopup');
   if (openAsPopup !== undefined) out.openAsPopup = openAsPopup;

@@ -2147,8 +2147,50 @@ class StudioToolOperations {
   private static final long MAX_REMOTE_IMAGE_BYTES = 25L * 1024 * 1024
 
   /**
-   * Downloads an image from a remote {@code https} URL (SSRF-hardened), writes it under {@code /static-assets/...}
-   * using the same content service as desktop upload, and returns the repository path for image-picker fields.
+   * Parses a raster {@code data:image/...;base64,...} URL into bytes and a normalized MIME type.
+   * SVG and non-image data URLs are rejected.
+   */
+  private static Map parseRasterDataImageUrl(String dataUrl) {
+    int comma = dataUrl.indexOf(',')
+    if (comma < 5 || !dataUrl.regionMatches(true, 0, 'data:', 0, 5)) {
+      throw new IllegalArgumentException('Malformed data URL')
+    }
+    String meta = dataUrl.substring(5, comma).trim()
+    String metaLower = meta.toLowerCase(Locale.ROOT)
+    if (!metaLower.startsWith('image/')) {
+      throw new IllegalArgumentException('data URL must use an image/* mediatype')
+    }
+    if (metaLower.contains('image/svg')) {
+      throw new IllegalArgumentException('SVG data URLs are not supported for import')
+    }
+    if (!metaLower.contains(';base64')) {
+      throw new IllegalArgumentException('data URL must be base64-encoded')
+    }
+    int b64Idx = metaLower.indexOf(';base64')
+    String mime = (b64Idx > 0 ? meta.substring(0, b64Idx) : meta).trim().toLowerCase(Locale.ROOT)
+    if (!mime.startsWith('image/')) {
+      throw new IllegalArgumentException('Invalid image mediatype in data URL')
+    }
+    String b64payload = dataUrl.substring(comma + 1).trim().replaceAll(/\s+/, '')
+    byte[] bytes
+    try {
+      bytes = Base64.decoder.decode(b64payload)
+    } catch (Throwable t) {
+      throw new IllegalArgumentException("Invalid base64 in data URL: ${t.message}")
+    }
+    if (!bytes || bytes.length == 0) {
+      throw new IllegalStateException('data URL image is empty')
+    }
+    if (bytes.length > MAX_REMOTE_IMAGE_BYTES) {
+      throw new IllegalStateException("Image exceeds maximum size (${MAX_REMOTE_IMAGE_BYTES} bytes)")
+    }
+    [bytes: bytes, contentType: mime]
+  }
+
+  /**
+   * Downloads an image from a remote {@code https} URL (SSRF-hardened), or decodes a raster
+   * {@code data:image/...;base64,...} URL, writes bytes under {@code /static-assets/...} using the same
+   * content service as desktop upload, and returns the repository path for image-picker fields.
    * <p>{@code repoPath} supports the same macros as the desktop image datasource: {@code {yyyy}}, {@code {mm}},
    * {@code {dd}}, {@code {objectId}}, {@code {objectGroupId}}.</p>
    */
@@ -2172,25 +2214,7 @@ class StudioToolOperations {
       } catch (Throwable t) {
         throw new IllegalArgumentException("Invalid imageUrl: ${t.message}")
       }
-      String scheme = parsed.scheme?.toLowerCase()
-      if (scheme != 'https' && scheme != 'http') {
-        throw new IllegalArgumentException('imageUrl must use http or https')
-      }
-      String host = parsed.host
-      if (!host) {
-        throw new IllegalArgumentException('imageUrl must include a host')
-      }
-      if (scheme == 'http') {
-        String h = host.toLowerCase()
-        if (!(h == 'localhost' || h == '127.0.0.1' || h == '[::1]')) {
-          throw new IllegalArgumentException('Only https URLs are allowed (http is limited to localhost).')
-        }
-      }
-      InetAddress addr = InetAddress.getByName(host)
-      if (addr.isAnyLocalAddress() || addr.isLoopbackAddress() || addr.isLinkLocalAddress() ||
-        addr.isSiteLocalAddress() || addr.isMulticastAddress()) {
-        throw new IllegalArgumentException('imageUrl host resolves to a non-public address (blocked).')
-      }
+      String scheme = parsed.scheme?.toLowerCase(Locale.ROOT)
 
       String baseDir = expandImageImportRepoMacros(
         (repoPathRaw ?: '/static-assets/item/images/{yyyy}/{mm}/{dd}/').toString().trim(),
@@ -2204,47 +2228,74 @@ class StudioToolOperations {
         baseDir = baseDir + '/'
       }
 
-      URL url = parsed.toURL()
-      HttpURLConnection conn = (HttpURLConnection) url.openConnection()
-      conn.setInstanceFollowRedirects(true)
-      conn.setConnectTimeout(15_000)
-      conn.setReadTimeout(120_000)
-      conn.setRequestProperty('Accept', 'image/*,*/*;q=0.8')
-      int status = conn.responseCode
-      if (status < 200 || status >= 300) {
-        throw new IllegalStateException("Failed to download image: HTTP ${status}")
-      }
-      String contentType = (conn.contentType ?: '').split(';')[0]?.trim()?.toLowerCase() ?: ''
-      if (contentType && !contentType.startsWith('image/')) {
-        throw new IllegalStateException("URL did not return an image (Content-Type: ${contentType})")
-      }
+      byte[] bytes
+      String contentType = ''
 
-      ByteArrayOutputStream bos = new ByteArrayOutputStream()
-      byte[] buf = new byte[16384]
-      long total = 0
-      InputStream inStream = conn.inputStream
-      try {
-        int n
-        while ((n = inStream.read(buf)) != -1) {
-          total += n
-          if (total > MAX_REMOTE_IMAGE_BYTES) {
-            throw new IllegalStateException("Image exceeds maximum size (${MAX_REMOTE_IMAGE_BYTES} bytes)")
+      if (scheme == 'data') {
+        def decoded = parseRasterDataImageUrl(normalizedUrl)
+        bytes = decoded.bytes as byte[]
+        contentType = (decoded.contentType ?: 'image/png') as String
+      } else if (scheme == 'https' || scheme == 'http') {
+        String host = parsed.host
+        if (!host) {
+          throw new IllegalArgumentException('imageUrl must include a host')
+        }
+        if (scheme == 'http') {
+          String h = host.toLowerCase()
+          if (!(h == 'localhost' || h == '127.0.0.1' || h == '[::1]')) {
+            throw new IllegalArgumentException('Only https URLs are allowed (http is limited to localhost).')
           }
-          bos.write(buf, 0, n)
         }
-      } finally {
+        InetAddress addr = InetAddress.getByName(host)
+        if (addr.isAnyLocalAddress() || addr.isLoopbackAddress() || addr.isLinkLocalAddress() ||
+          addr.isSiteLocalAddress() || addr.isMulticastAddress()) {
+          throw new IllegalArgumentException('imageUrl host resolves to a non-public address (blocked).')
+        }
+
+        URL url = parsed.toURL()
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection()
+        conn.setInstanceFollowRedirects(true)
+        conn.setConnectTimeout(15_000)
+        conn.setReadTimeout(120_000)
+        conn.setRequestProperty('Accept', 'image/*,*/*;q=0.8')
+        int status = conn.responseCode
+        if (status < 200 || status >= 300) {
+          throw new IllegalStateException("Failed to download image: HTTP ${status}")
+        }
+        contentType = (conn.contentType ?: '').split(';')[0]?.trim()?.toLowerCase() ?: ''
+        if (contentType && !contentType.startsWith('image/')) {
+          throw new IllegalStateException("URL did not return an image (Content-Type: ${contentType})")
+        }
+
+        ByteArrayOutputStream bos = new ByteArrayOutputStream()
+        byte[] buf = new byte[16384]
+        long total = 0
+        InputStream inStream = conn.inputStream
         try {
-          inStream?.close()
-        } catch (Throwable ignored) {
+          int n
+          while ((n = inStream.read(buf)) != -1) {
+            total += n
+            if (total > MAX_REMOTE_IMAGE_BYTES) {
+              throw new IllegalStateException("Image exceeds maximum size (${MAX_REMOTE_IMAGE_BYTES} bytes)")
+            }
+            bos.write(buf, 0, n)
+          }
+        } finally {
+          try {
+            inStream?.close()
+          } catch (Throwable ignored) {
+          }
         }
-      }
-      byte[] bytes = bos.toByteArray()
-      if (bytes.length == 0) {
-        throw new IllegalStateException('Downloaded image is empty')
+        bytes = bos.toByteArray()
+        if (bytes.length == 0) {
+          throw new IllegalStateException('Downloaded image is empty')
+        }
+      } else {
+        throw new IllegalArgumentException('imageUrl must use http, https, or a raster data:image URL')
       }
 
       String ext = extensionForImageContentType(contentType)
-      String nameFromUrl = suggestedFileNameFromUrlPath(parsed.path ?: '')
+      String nameFromUrl = scheme == 'data' ? '' : suggestedFileNameFromUrlPath(parsed.path ?: '')
       String baseName = (optionalFileName ?: '').toString().trim()
       if (!baseName) {
         baseName = nameFromUrl ?: "crafterq-import${ext}"

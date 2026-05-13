@@ -36,12 +36,28 @@ export function normalizeOpenAiLiteralEscapes(input: string): string {
     .replace(/\\t/g, '\t');
 }
 
-function fencedBlockSanitizeSchema() {
+/**
+ * Default hast-util-sanitize schema only allows {@code http(s)} on {@code src}, which strips
+ * inline {@code data:image/...} from assistant markdown (e.g. {@code GenerateImage} previews).
+ */
+function crafterqChatMarkdownSanitizeSchema() {
+  const srcProtocols = [...(defaultSchema.protocols?.src ?? []), 'data', 'blob'];
   return {
     ...defaultSchema,
+    protocols: {
+      ...defaultSchema.protocols,
+      src: [...new Set(srcProtocols)]
+    }
+  };
+}
+
+function fencedBlockSanitizeSchema() {
+  const base = crafterqChatMarkdownSanitizeSchema();
+  return {
+    ...base,
     attributes: {
-      ...defaultSchema.attributes,
-      code: [...(defaultSchema.attributes?.code || []), ['className']]
+      ...base.attributes,
+      code: [...(base.attributes?.code || []), ['className']]
     }
   };
 }
@@ -385,12 +401,12 @@ export default function MarkdownMessage(props: Readonly<{ text: string }>) {
   const displayText = useMemo(() => normalizeOpenAiLiteralEscapes(text), [text]);
 
   const sanitizeSchema = useMemo(() => {
-    // defaultSchema already allows table, thead, tbody, tr, th, td (GitHub-style)
+    const base = crafterqChatMarkdownSanitizeSchema();
     return {
-      ...defaultSchema,
+      ...base,
       attributes: {
-        ...defaultSchema.attributes,
-        code: [...(defaultSchema.attributes?.code || []), ['className']]
+        ...base.attributes,
+        code: [...(base.attributes?.code || []), ['className']]
       }
     };
   }, []);
@@ -536,7 +552,7 @@ export default function MarkdownMessage(props: Readonly<{ text: string }>) {
               {children}
             </TableCell>
           ),
-          code: ({ className, children, ...rest }) => {
+          code: ({ className, children }) => {
             const raw = String(children ?? '');
             const isInline = !className;
             if (isInline) {

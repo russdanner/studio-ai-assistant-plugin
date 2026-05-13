@@ -169,6 +169,7 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
                   llm: resolved.llm,
                   llmModel: resolved.llmModel,
                   imageModel: resolved.imageModel,
+                  imageGenerator: resolved.imageGenerator,
                   openAiApiKey: resolved.openAiApiKey,
                   prompts: resolved.prompts,
                   ...(resolved.enableTools !== undefined ? { enableTools: resolved.enableTools } : {})
@@ -277,6 +278,7 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
     const iceRaw = iceChatCfg as Record<string, unknown>;
     const llmModel = (iceRaw.llmModel as string | undefined)?.trim();
     const imageModel = iceChatCfg.imageModel as string | undefined;
+    const imageGenerator = (iceRaw.imageGenerator as string | undefined)?.trim();
     const openAiApiKey = iceChatCfg.openAiApiKey as string | undefined;
     const configPrompts = Array.isArray(iceChatCfg.prompts)
       ? (iceChatCfg.prompts as Array<{ userText: string; additionalContext?: string }>)
@@ -295,6 +297,7 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
           llm={llm}
           llmModel={llmModel || undefined}
           imageModel={imageModel}
+          imageGenerator={imageGenerator || undefined}
           openAiApiKey={openAiApiKey}
           enableTools={iceEnableTools}
           expertSkills={iceExpertSkills}
@@ -440,6 +443,7 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
                         llm={d.agent.llm}
                         llmModel={d.agent.llmModel}
                         imageModel={d.agent.imageModel}
+                        imageGenerator={d.agent.imageGenerator}
                         openAiApiKey={d.agent.openAiApiKey}
                         enableTools={d.agent.enableTools}
                         expertSkills={d.agent.expertSkills}

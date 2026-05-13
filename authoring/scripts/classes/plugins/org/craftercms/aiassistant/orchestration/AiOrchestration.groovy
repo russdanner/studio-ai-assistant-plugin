@@ -104,8 +104,18 @@ class AiOrchestration {
   /**
    * Max characters per {@code role:tool} message in the OpenAI native RestClient loop. Huge tool JSON (e.g.
    * {@code ListPagesAndComponents} with a large {@code size}) must not blow the model context window.
+   * <p><strong>{@code GenerateImage}:</strong> bitmaps are <strong>not</strong> sent in {@code role:tool} content — a
+   * compact JSON with {@code crafterqInlineImageRef} is wired instead; the full {@code data:image/...;base64,...} is
+   * held server-side and expanded into the final assistant text for SSE only (see {@link #CRAFTERRQ_TOOL_IMAGE_REF_PREFIX}).</p>
    */
   private static final int OPENAI_NATIVE_TOOL_WIRE_MAX_CHARS = 36_000
+
+  /**
+   * Model-visible placeholder for a generated inline image in the OpenAI native tool loop. Value is the OpenAI
+   * {@code tool_call_id} (e.g. {@code call_…}). {@link #openAiExpandCrafterqToolImageRefs} swaps this for the real
+   * {@code data:} URL in the author-facing response.
+   */
+  private static final String CRAFTERRQ_TOOL_IMAGE_REF_PREFIX = 'crafterq-tool-image://'
 
   /**
    * Latest worker phase for logs and **SSE heartbeats** (OpenAI+tools worker sets it; servlet thread reads it while
@@ -529,6 +539,14 @@ For **content XML** (pages/components): do not invent a new element tree — pre
       }
       if (m?.contentXml != null) return m.contentXml as String
       if (m?.formDefinitionXml != null) return m.formDefinitionXml as String
+      if ('GenerateImage'.equals(m?.tool?.toString())) {
+        def u = m.url?.toString()
+        if (u && u.startsWith('data:image') && m.containsKey('b64_json')) {
+          Map m2 = new LinkedHashMap<>(m)
+          m2.remove('b64_json')
+          return JsonOutput.toJson(m2)
+        }
+      }
     }
     return JsonOutput.toJson(result != null ? result : [])
   }
@@ -744,6 +762,40 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     return s
   }
 
+  /**
+   * Normalizes obsolete **dall-e*** / **DALL·E**-style image model strings (often left in older ui.xml) to **{@code gpt-image-1}**
+   * before {@code POST /v1/images/generations}. OpenAI’s current Images API is built around **GPT Image** models; those
+   * legacy ids are not used on the wire. Safe to pass either raw ui.xml text or an already canonical id from
+   * {@link #openAiCanonicalizeApiModelToken(String)}.
+   */
+  static String normalizeOpenAiImagesApiModelId(String modelIdRawOrCanonical) {
+    if (modelIdRawOrCanonical == null || !modelIdRawOrCanonical.toString().trim()) {
+      return modelIdRawOrCanonical
+    }
+    String canon = openAiCanonicalizeApiModelToken(modelIdRawOrCanonical.toString().trim())
+    if (!canon) {
+      return modelIdRawOrCanonical
+    }
+    String m = openAiNormalizeModelIdForHeuristics(canon)
+    // "DALL·E" branding (U+00B7) and common unicode dashes → ASCII hyphen so substring / regex checks work.
+    m = m.replace('\u00b7', '-')
+    m = m.replace('\u2011', '-').replace('\u2010', '-').replace('\u2212', '-').replace('\u2013', '-').replace('\u2014', '-')
+    m = m.replaceAll(/\s+/, '-')
+    m = m.replace('_', '-')
+    m = m.replaceAll(/-+/, '-')
+    m = m.replaceAll(/^-+/, '').replaceAll(/-+$/, '')
+    m = m.toLowerCase(Locale.US)
+    if (!m) {
+      return canon
+    }
+    boolean legacy =
+      m.startsWith('dall-e') ||
+      m.contains('dall-e') ||
+      m.startsWith('dalle') ||
+      Pattern.compile('(?i)dall[^a-z0-9]*e').matcher(m).find()
+    return legacy ? 'gpt-image-1' : canon
+  }
+
   /** Wire JSON body for {@code /v1/chat/completions}: read {@code model} for author-facing errors. */
   private static String openAiExtractWireModelFromChatCompletionsRequestJson(String jsonBody) {
     if (jsonBody == null || !jsonBody.toString().trim()) {
@@ -935,11 +987,12 @@ For **content XML** (pages/components): do not invent a new element tree — pre
         "The OpenAI image model is not configured properly. The value could not be turned into an API model id: \"${base}\"."
       )
     }
-    return canon
+    return normalizeOpenAiImagesApiModelId(canon)
   }
 
   /**
    * OpenAI Images API model id (e.g. {@code gpt-image-1}). Source: agent **{@code <imageModel>}** or POST **{@code imageModel}** only.
+   * Obsolete **{@code dall-e-*}** strings from older configs are normalized to **{@code gpt-image-1}** via {@link #normalizeOpenAiImagesApiModelId(String)}.
    */
   static String resolveOpenAiImageModel(String fromRequest) {
     String base = (fromRequest ?: '').toString().trim()
@@ -954,7 +1007,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
         "The OpenAI image model is not configured properly. The value could not be turned into an API model id: \"${base}\"."
       )
     }
-    return canon
+    return normalizeOpenAiImagesApiModelId(canon)
   }
 
   /** Per-request expert skill URLs from the client (see {@code crafterq.expertSkills} request attribute). */
@@ -1000,7 +1053,8 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     String imageModelParam = null,
     boolean fullSuppressRepoWrites = false,
     String protectedFormItemPath = null,
-    boolean enableTools = true
+    boolean enableTools = true,
+    String imageGeneratorParam = null
   ) {
     def converter = { Object result, java.lang.reflect.Type returnType -> toolResultToWireString(result, returnType) }
     /** Spring AI tool callbacks run on Reactor/HTTP-client threads; copy servlet SecurityContext for Studio permission checks. */
@@ -1028,6 +1082,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
       openAiApiKeyFromRequest: openAiApiKeyFromRequest,
       toolProgressListener: toolProgressListener,
       imageModelParam: imageModelParam,
+      imageGeneratorParam: imageGeneratorParam,
       fullSuppressRepoWrites: fullSuppressRepoWrites,
       protectedFormItemPath: protectedFormItemPath,
       enableTools: enableTools
@@ -1672,6 +1727,47 @@ For **content XML** (pages/components): do not invent a new element tree — pre
   }
 
   /**
+   * Tool-progress debug wraps assistant text in a {@code ```text} fence with a size cap (~12k). Inline
+   * {@code data:image/...;base64,...} payloads are often hundreds of KB — they (a) blow the cap mid-base64 so the
+   * debug panel shows misleading garbage, and (b) duplicate the real preview in the final assistant markdown below.
+   * Replace each with a short note so authors see intent without truncated ciphertext.
+   */
+  private static String openAiElideDataImageUrlsForToolProgressDebug(String raw) {
+    if (raw == null || raw.isEmpty() || raw.indexOf('data:image') < 0) {
+      return raw ?: ''
+    }
+    Pattern p = Pattern.compile('(?is)data:image/[a-z0-9.+-]+;base64,')
+    Matcher mat = p.matcher(raw)
+    StringBuilder out = new StringBuilder(Math.min(raw.length(), 200_000))
+    int pos = 0
+    int len = raw.length()
+    while (pos < len) {
+      mat.region(pos, len)
+      if (!mat.find()) {
+        out.append(raw, pos, len)
+        break
+      }
+      out.append(raw, pos, mat.start())
+      int payloadStart = mat.end()
+      int i = payloadStart
+      while (i < len) {
+        char c = raw.charAt(i)
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=' ||
+          c == '\n' || c == '\r' || c == ' ' || c == '\t') {
+          i++
+          continue
+        }
+        break
+      }
+      out.append('[inline image omitted from tool-progress debug (')
+        .append(i - payloadStart)
+        .append(' base64 chars); full image renders in the assistant reply below]')
+      pos = i
+    }
+    return out.toString()
+  }
+
+  /**
    * Emits one {@code tool-progress} chunk with the **flattened assistant {@code content}** OpenAI returned for this
    * round plus each {@code tool_calls} entry (name + arguments preview). Gives authors visibility into the model
    * reply before repository tools execute.
@@ -1688,7 +1784,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
       return
     }
     final int maxAssistant = 12000
-    String body = (assistantFlatAsReceived ?: '').toString()
+    String body = openAiElideDataImageUrlsForToolProgressDebug((assistantFlatAsReceived ?: '').toString())
     boolean truncated = false
     if (body.length() > maxAssistant) {
       body = body.substring(0, maxAssistant)
@@ -2428,8 +2524,199 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     return out
   }
 
-  private static String openAiTruncateNativeToolWireContent(String fnName, Object toolOutRaw) {
+  /**
+   * When {@code GenerateImage} returns a large {@code data:image/...;base64,...} {@code url}, stores the full URL in
+   * {@code generateImageDataUrlByToolCallId} under {@code toolCallId} and returns compact JSON for the OpenAI
+   * {@code role:tool} wire (avoids {@code context_length_exceeded}). Returns {@code null} if not applicable.
+   */
+  private static String openAiCompactGenerateImageToolWireForOpenAiContext(
+    String toolOutJson,
+    String toolCallId,
+    Map<String, String> generateImageDataUrlByToolCallId
+  ) {
+    if (!toolOutJson?.trim() || !toolCallId?.trim() || generateImageDataUrlByToolCallId == null) {
+      return null
+    }
+    Object parsed
+    try {
+      parsed = new JsonSlurper().parseText(toolOutJson)
+    } catch (Throwable ignored) {
+      return null
+    }
+    if (!(parsed instanceof Map)) {
+      return null
+    }
+    Map m = (Map) parsed
+    if (m.get('result') instanceof Map) {
+      m = (Map) m.get('result')
+    }
+    String url = m.get('url') != null ? m.get('url').toString().trim() : ''
+    if (!url.startsWith('data:image')) {
+      return null
+    }
+    String urlLower = url.toLowerCase(Locale.ROOT)
+    if (!urlLower.contains(';base64,')) {
+      return null
+    }
+    String tid = toolCallId.trim()
+    generateImageDataUrlByToolCallId.put(tid, url)
+    Map compact = new LinkedHashMap<>()
+    for (String k : ['ok', 'tool', 'model', 'revised_prompt', 'hint']) {
+      if (m.containsKey(k) && m.get(k) != null) {
+        compact.put(k, m.get(k))
+      }
+    }
+    compact.put('crafterqInlineImageRef', tid)
+    compact.put(
+      'authorMarkdownInstruction',
+      'In your next assistant message, include exactly ONE markdown image line using this URL in the parentheses (verbatim): ' +
+        CRAFTERRQ_TOOL_IMAGE_REF_PREFIX + tid +
+        ' Example: ![Generated illustration](' + CRAFTERRQ_TOOL_IMAGE_REF_PREFIX + tid +
+        ') Do not use a data: URL.'
+    )
+    log.info(
+      'OpenAI native tools: GenerateImage compact tool wire toolCallId={} elidedDataUrlChars={}',
+      tid,
+      url.length()
+    )
+    return JsonOutput.toJson(compact)
+  }
+
+  /** Replaces {@code crafterq-tool-image://<toolCallId>} with stored {@code data:} URLs for author-visible output. */
+  private static String openAiExpandCrafterqToolImageRefs(String text, Map<String, String> generateImageDataUrlByToolCallId) {
+    if (text == null) {
+      return ''
+    }
+    String out = text.toString()
+    if (generateImageDataUrlByToolCallId == null || generateImageDataUrlByToolCallId.isEmpty()) {
+      if (out.contains(CRAFTERRQ_TOOL_IMAGE_REF_PREFIX)) {
+        log.warn(
+          'OpenAI native tools: assistant text still contains {} but inline image map is empty (GenerateImage wire may not have been compacted).',
+          CRAFTERRQ_TOOL_IMAGE_REF_PREFIX
+        )
+      }
+      return out
+    }
+    String soleUrl =
+      generateImageDataUrlByToolCallId.size() == 1
+        ? generateImageDataUrlByToolCallId.values().iterator().next()
+        : null
+    Pattern pat = Pattern.compile(Pattern.quote(CRAFTERRQ_TOOL_IMAGE_REF_PREFIX) + '([A-Za-z0-9_-]+)')
+    Matcher mat = pat.matcher(out)
+    StringBuffer sb = new StringBuffer()
+    while (mat.find()) {
+      String id = mat.group(1)
+      String url = generateImageDataUrlByToolCallId.get(id)
+      if (url == null && soleUrl != null) {
+        url = soleUrl
+      }
+      if (url != null && url.length() > 0) {
+        mat.appendReplacement(sb, Matcher.quoteReplacement(url))
+      } else {
+        mat.appendReplacement(sb, Matcher.quoteReplacement(mat.group(0)))
+      }
+    }
+    mat.appendTail(sb)
+    return sb.toString()
+  }
+
+  /**
+   * If the model never echoed {@link #CRAFTERRQ_TOOL_IMAGE_REF_PREFIX} (or the inline {@code data:} bytes) in the final
+   * assistant message, the author would see no image. Appends one markdown image line per stored {@code tool_call_id}
+   * that is still missing, then {@link #openAiExpandCrafterqToolImageRefs} replaces refs with real {@code data:} URLs.
+   */
+  private static String openAiEnsureGenerateImageMarkdownLinesPresent(
+    String assistantText,
+    Map<String, String> generateImageDataUrlByToolCallId
+  ) {
+    if (generateImageDataUrlByToolCallId == null || generateImageDataUrlByToolCallId.isEmpty()) {
+      return assistantText != null ? assistantText.toString() : ''
+    }
+    String text = (assistantText != null ? assistantText.toString() : '')
+    int appended = 0
+    StringBuilder tail = new StringBuilder()
+    for (Map.Entry<String, String> e : generateImageDataUrlByToolCallId.entrySet()) {
+      String id = e.getKey() != null ? e.getKey().toString().trim() : ''
+      String url = e.getValue() != null ? e.getValue().toString() : ''
+      if (!id || !url) {
+        continue
+      }
+      String ref = CRAFTERRQ_TOOL_IMAGE_REF_PREFIX + id
+      if (text.contains(ref) || text.contains(url)) {
+        continue
+      }
+      tail.append('\n\n![](').append(ref).append(')')
+      appended++
+    }
+    if (appended > 0) {
+      log.info(
+        'OpenAI native tools: appended {} fallback markdown image line(s) for GenerateImage (assistant omitted crafterq-tool-image refs).',
+        appended
+      )
+      return text + tail.toString()
+    }
+    return text
+  }
+
+  /**
+   * Before appending an assistant {@code message} to {@code wireMessages}, replace any known huge {@code data:image}
+   * URLs (same bytes as a prior {@code GenerateImage} tool result) with {@link #CRAFTERRQ_TOOL_IMAGE_REF_PREFIX} refs
+   * so follow-up {@code POST /v1/chat/completions} requests stay within context limits.
+   */
+  private static void openAiMutateAssistantWireContentElideKnownGenerateImageDataUrls(
+    Map msgCopy,
+    Map<String, String> generateImageDataUrlByToolCallId
+  ) {
+    if (!(msgCopy instanceof Map) || generateImageDataUrlByToolCallId == null || generateImageDataUrlByToolCallId.isEmpty()) {
+      return
+    }
+    def c = msgCopy.get('content')
+    if (!(c instanceof CharSequence)) {
+      return
+    }
+    String flat = c.toString()
+    if (!flat) {
+      return
+    }
+    String s = flat
+    boolean changed = false
+    for (Map.Entry<String, String> e : generateImageDataUrlByToolCallId.entrySet()) {
+      String id = e.key
+      String url = e.value
+      if (!id || !url || !s.contains(url)) {
+        continue
+      }
+      s = s.replace(url, CRAFTERRQ_TOOL_IMAGE_REF_PREFIX + id)
+      changed = true
+    }
+    if (changed) {
+      msgCopy.put('content', s)
+    }
+  }
+
+  private static String openAiTruncateNativeToolWireContent(
+    String fnName,
+    Object toolOutRaw,
+    String toolCallId = null,
+    Map<String, String> generateImageDataUrlByToolCallId = null
+  ) {
     String s = toolOutRaw != null ? toolOutRaw.toString() : ''
+    if ('GenerateImage'.equals((fnName ?: '').toString().trim())) {
+      if (generateImageDataUrlByToolCallId != null && toolCallId?.toString()?.trim()) {
+        String compact = openAiCompactGenerateImageToolWireForOpenAiContext(s, toolCallId.trim(), generateImageDataUrlByToolCallId)
+        if (compact != null) {
+          return compact
+        }
+      }
+      if (s.length() <= OPENAI_NATIVE_TOOL_WIRE_MAX_CHARS) {
+        return s
+      }
+      int cap = OPENAI_NATIVE_TOOL_WIRE_MAX_CHARS
+      String head = s.substring(0, cap)
+      return head +
+        '\n\n[crafterq: output truncated for OpenAI context limit; tool=GenerateImage originalChars=' + s.length() + ']' +
+        '\nHint: payload too large for wire; use a smaller image or save to /static-assets/.]'
+    }
     if (s.length() <= OPENAI_NATIVE_TOOL_WIRE_MAX_CHARS) {
       return s
     }
@@ -2452,7 +2739,8 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     boolean logFirstPostChars,
     OutputStream ssePreToolAssistantText = null,
     AtomicBoolean cancelRequested = null,
-    String wireBaseUrl = null
+    String wireBaseUrl = null,
+    Map<String, String> generateImageDataUrlByToolCallId = null
   ) {
     def slurper = new JsonSlurper()
     String assistantAccum = ''
@@ -2599,6 +2887,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
         }
         openAiEmitSseAssistantTurnDebugPreview(ssePreToolAssistantText, assistantApiFlatForDebug, msgCopy, hasTc, round, agentId)
       }
+      openAiMutateAssistantWireContentElideKnownGenerateImageDataUrls(msgCopy, generateImageDataUrlByToolCallId)
       wireMessages << msgCopy
       if (hasTc) {
         def runList = msgCopy.get('tool_calls') as List
@@ -2663,11 +2952,14 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
           )
           if (toolOut == null) {
             toolOut = ''
+          } else if (toolOut instanceof Map) {
+            // Spring AI may return the tool Map directly; JsonSlurper needs JSON, not Map#toString().
+            toolOut = JsonOutput.toJson((Map) toolOut)
           } else {
             toolOut = toolOut.toString()
           }
-          String toolWire = openAiTruncateNativeToolWireContent(fnName, toolOut)
-          if (toolWire.length() < toolOut.length()) {
+          String toolWire = openAiTruncateNativeToolWireContent(fnName, toolOut, id, generateImageDataUrlByToolCallId)
+          if (toolWire.length() < toolOut.length() && !'GenerateImage'.equals(fnName)) {
             log.warn(
               'OpenAI native tools: truncated tool wire output tool={} agentId={} beforeChars={} afterChars={}',
               fnName,
@@ -2739,8 +3031,21 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     List<Map> wireMessages = openAiDeepCloneWireMessages(baseWire)
     Map wmUser = openAiLastUserWireMessage(wireMessages)
     def origUser = wmUser?.get('content')?.toString() ?: ''
+    Map<String, String> cqGenerateImageDataUrlByToolCallId = new LinkedHashMap<>()
     String assistantAccum = openAiRunNativeToolLoopToAssistantText(
-      apiKey, model, wireMessages, wireTools, byName, agentId, 40, true, sseOut, cancelRequested, wireBaseUrl)
+      apiKey,
+      model,
+      wireMessages,
+      wireTools,
+      byName,
+      agentId,
+      40,
+      true,
+      sseOut,
+      cancelRequested,
+      wireBaseUrl,
+      cqGenerateImageDataUrlByToolCallId
+    )
     if (openAiPostToolReviewEnabled() && (cancelRequested == null || !cancelRequested.get())) {
       try {
         openAiEmitSseToolProgressLine(
@@ -2765,7 +3070,19 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
             )
             wireMessages << [role: 'user', content: openAiBuildPostReviewCorrectionUserMessage(rev)]
             assistantAccum = openAiRunNativeToolLoopToAssistantText(
-              apiKey, model, wireMessages, wireTools, byName, agentId, 15, false, sseOut, cancelRequested, wireBaseUrl)
+              apiKey,
+              model,
+              wireMessages,
+              wireTools,
+              byName,
+              agentId,
+              15,
+              false,
+              sseOut,
+              cancelRequested,
+              wireBaseUrl,
+              cqGenerateImageDataUrlByToolCallId
+            )
           }
         }
       } catch (Throwable tre) {
@@ -2792,7 +3109,8 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
         // never break return path
       }
     }
-    return assistantAccum ?: ''
+    String stitched = openAiEnsureGenerateImageMarkdownLinesPresent((assistantAccum ?: '').toString(), cqGenerateImageDataUrlByToolCallId)
+    return openAiExpandCrafterqToolImageRefs(stitched, cqGenerateImageDataUrlByToolCallId)
     } finally {
       crafterQPipelineCancelBindingClear()
     }
@@ -3046,7 +3364,8 @@ Technical detail: ''' + msg
     String imageModel = null,
     boolean formEngineClientForward = false,
     String formEngineItemPathRaw = null,
-    boolean enableTools = true
+    boolean enableTools = true,
+    String imageGenerator = null
   ) {
     try {
       crafterQPipelineCancelBindingClear()
@@ -3061,7 +3380,7 @@ Technical detail: ''' + msg
           fullSuppress = true
         }
       }
-      def springAi = buildSpringAiChatClient(agentId, chatId, llm, openAiModel, openAiApiKey, null, imageModel, fullSuppress, protNorm, enableTools)
+      def springAi = buildSpringAiChatClient(agentId, chatId, llm, openAiModel, openAiApiKey, null, imageModel, fullSuppress, protNorm, enableTools, imageGenerator)
       if (formEngineClientForward && !StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi)) {
         log.warn(
           'Form-engine client-apply: llm is {} (not OpenAI-wire native tools). Use openAI / xAI / deepSeek / llama / genesis (gemini) on this agent for native RestClient tools + best compliance with crafterqFormFieldUpdates.',
@@ -3640,7 +3959,8 @@ Technical detail: ''' + msg
     String imageModel = null,
     boolean formEngineClientForward = false,
     String formEngineItemPathRaw = null,
-    boolean enableTools = true
+    boolean enableTools = true,
+    String imageGenerator = null
   ) {
     OutputStream out = null
     try {
@@ -3670,7 +3990,7 @@ Technical detail: ''' + msg
           fullSuppress = true
         }
       }
-      def springAi = buildSpringAiChatClient(agentId, chatId, llm, openAiModel, openAiApiKey, toolProgressListener, imageModel, fullSuppress, protNorm, enableTools)
+      def springAi = buildSpringAiChatClient(agentId, chatId, llm, openAiModel, openAiApiKey, toolProgressListener, imageModel, fullSuppress, protNorm, enableTools, imageGenerator)
       if (formEngineClientForward && !StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi)) {
         log.warn(
           'Form-engine client-apply: llm is {} (not OpenAI-wire native tools). Use openAI / xAI / deepSeek / llama / genesis (gemini) on this agent for native RestClient tools + best compliance with crafterqFormFieldUpdates.',

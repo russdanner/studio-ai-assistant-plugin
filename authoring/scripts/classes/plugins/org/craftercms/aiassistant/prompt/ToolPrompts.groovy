@@ -6,6 +6,9 @@ package plugins.org.craftercms.aiassistant.prompt
  * {@code plugins/org/craftercms/aiassistant/prompts/} in this repo, or next to compiled classes) to replace the whole
  * string for that key. Keys match the property name (e.g. {@code OPENAI_AUTHORING_INSTRUCTIONS.md}). Missing or
  * blank files keep the shipped default unchanged.
+ * <p><strong>Site project overrides:</strong> when {@link ToolPromptsSiteContext} is active for the request thread,
+ * {@code /scripts/aiassistant/prompts/&lt;KEY&gt;.md} in the Studio site sandbox is tried <strong>before</strong> the
+ * classpath (same keys as the built-in defaults).</p>
  */
 class ToolPrompts {
 
@@ -386,7 +389,7 @@ For **content-only** tasks, use **`crafterqFormFieldUpdates`** in your final JSO
   }
 
   static String getDESC_GENERATE_IMAGE() {
-    p('DESC_GENERATE_IMAGE', 'Generates an image via OpenAI Images API (POST /v1/images/generations). Same API key as chat. Default image model is the agent imageModel (ui.xml imageModel) or chat request imageModel only — no server default; optional tool argument model overrides per call. Required: prompt. Optional: size, quality, and response_format url|b64_json (allowed size/quality values depend on the configured model; prefer GPT Image family ids such as gpt-image-1 or gpt-image-1-mini per OpenAI guidance). Returns url or b64_json plus revised_prompt when present; URLs expire — for production CMS assets, download to /static-assets/ and reference the repo path. When the author asked for an image, **call this tool** — do not answer with a text-only “concept” or ask them to approve a concept first. In your **author-visible** reply, include the image as Markdown, e.g. ![short description](URL_FROM_TOOL_RESULT) so Studio chat shows a draggable preview like the Assets panel.')
+    p('DESC_GENERATE_IMAGE', 'Generates an image using the **configured image backend** for this Studio site/agent (default: OpenAI-compatible **POST /v1/images/generations** when an API key and **imageModel** are set; **script:{id}** uses **`/scripts/aiassistant/imagegen/{id}/generate.groovy`**; **none** / **off** / **disabled** removes the tool). Same key material as chat when using the OpenAI-compatible wire. Default image model is the agent **imageModel** (ui.xml) or chat request **imageModel** only — no JVM default; optional tool argument **model** overrides per call on the wire path (obsolete dall-e-* strings map to gpt-image-1). Required: **prompt**. Optional: **size**, **quality** (OpenAI GPT Image wire — see provider docs). **Do not** pass **response_format** on the GPT Image Images path; the server never sends it. When the backend returns base64, the **tool result wire** uses a short **`crafterqInlineImageRef`** (not a multi‑megabyte `data:` URL). When the author asked for an image, **call this tool** — do not answer with a text-only “concept” or ask them to approve a concept first. In your **author-visible** reply, include **exactly one** markdown image using the ref from the tool result, e.g. `![short description](crafterq-tool-image://<crafterqInlineImageRef>)` — copy the **`crafterqInlineImageRef`** value verbatim (same id as the provider’s `tool_call_id` when applicable). **Do not** paste a `data:image/...;base64,...` URL into chat (context limit). Studio resolves the ref to the real image for the author.')
   }
 
   static String getTRANSFORM_CONTENT_SUBGRAPH_SYSTEM() {

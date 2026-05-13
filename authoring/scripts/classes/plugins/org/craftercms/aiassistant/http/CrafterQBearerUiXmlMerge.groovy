@@ -5,6 +5,7 @@ import org.dom4j.Element
 import org.dom4j.io.SAXReader
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import plugins.org.craftercms.aiassistant.orchestration.AiOrchestration
 
 import java.io.StringReader
 import java.util.Iterator
@@ -14,7 +15,8 @@ import java.util.Map
 
 /**
  * Stream/chat POST bodies often omit fields that exist on the matching {@code <agent>} in site {@code /ui.xml}.
- * Merges missing {@code crafterQBearerTokenEnv} / {@code crafterQBearerToken}, {@code imageModel}, and {@code llmModel}
+ * Merges missing {@code crafterQBearerTokenEnv} / {@code crafterQBearerToken}, {@code imageModel}, {@code llmModel},
+ * and {@code imageGenerator}
  * from that row onto the POST body (bearer is then applied to the servlet request by {@link AiHttpProxy#installCrafterQBearerFromChatBody}).
  * Same {@code HttpServletRequest} is used by the OpenAI tool worker.
  */
@@ -72,6 +74,7 @@ final class CrafterQBearerUiXmlMerge {
     out.put('crafterQBearerToken', '')
     out.put('imageModel', '')
     out.put('llmModel', '')
+    out.put('imageGenerator', '')
     String wanted = (crafterQApiAgentId ?: '').toString().trim()
     if (!wanted || uiXmlUtf8 == null || !uiXmlUtf8.toString().trim()) {
       return out
@@ -91,6 +94,7 @@ final class CrafterQBearerUiXmlMerge {
         out.put('crafterQBearerToken', findDirectChildByLocalName(agentEl, 'crafterQBearerToken')?.getTextTrim() ?: '')
         out.put('imageModel', findDirectChildByLocalName(agentEl, 'imageModel')?.getTextTrim() ?: '')
         out.put('llmModel', findDirectChildByLocalName(agentEl, 'llmModel')?.getTextTrim() ?: '')
+        out.put('imageGenerator', findDirectChildByLocalName(agentEl, 'imageGenerator')?.getTextTrim() ?: '')
         break
       }
     } catch (Throwable t) {
@@ -156,7 +160,7 @@ final class CrafterQBearerUiXmlMerge {
   }
 
   /**
-   * Fills missing bearer fields, {@code imageModel}, and/or {@code llmModel} on {@code body} from site {@code /ui.xml} for {@code crafterQAgentId}.
+   * Fills missing bearer fields, {@code imageModel}, {@code llmModel}, and/or {@code imageGenerator} on {@code body} from site {@code /ui.xml} for {@code crafterQAgentId}.
    */
   static void mergeStreamAgentFieldsFromSiteUiXmlIfMissing(Object applicationContext, Map body, String siteId, String crafterQApiAgentId) {
     if (!(body instanceof Map) || body == null) {
@@ -168,7 +172,9 @@ final class CrafterQBearerUiXmlMerge {
       (body.crafterQBearerToken ?: body.get('crafterQ-bearer-token') ?: body.crafter_q_bearer_token)?.toString()?.trim() ?: ''
     String imgBody = (body.imageModel ?: body.get('image-model') ?: body.image_model)?.toString()?.trim() ?: ''
     String llmBody = (body.llmModel ?: body.get('llm-model') ?: body.llm_model)?.toString()?.trim() ?: ''
-    if (envKeyBody && litBody && imgBody && llmBody) {
+    String imgGenBody =
+      (body.imageGenerator ?: body.get('image-generator') ?: body.image_generator)?.toString()?.trim() ?: ''
+    if (envKeyBody && litBody && imgBody && llmBody && imgGenBody) {
       return
     }
     String site = (siteId ?: '').toString().trim()
@@ -186,9 +192,10 @@ final class CrafterQBearerUiXmlMerge {
     String xmlTok = (extracted.crafterQBearerToken ?: '').toString().trim()
     String xmlImg = (extracted.imageModel ?: '').toString().trim()
     String xmlLlm = (extracted.llmModel ?: '').toString().trim()
-    if (!xmlEnv && !xmlTok && !xmlImg && !xmlLlm) {
+    String xmlImgGen = (extracted.imageGenerator ?: '').toString().trim()
+    if (!xmlEnv && !xmlTok && !xmlImg && !xmlLlm && !xmlImgGen) {
       log.info(
-        'Agent ui.xml merge: no crafterQBearerTokenEnv/crafterQBearerToken/imageModel/llmModel on matching <agent> for crafterQAgentId={} siteId={}',
+        'Agent ui.xml merge: no crafterQBearerTokenEnv/crafterQBearerToken/imageModel/llmModel/imageGenerator on matching <agent> for crafterQAgentId={} siteId={}',
         agent,
         site
       )
@@ -209,12 +216,27 @@ final class CrafterQBearerUiXmlMerge {
       )
     }
     if (!imgBody && xmlImg) {
-      body.put('imageModel', xmlImg)
-      log.info('Agent ui.xml merge: copied imageModel="{}" into POST body (POST omitted it; fixes GenerateImage without asking the author) siteId={} agent={}', xmlImg, site, agent)
+      String imgNorm = AiOrchestration.normalizeOpenAiImagesApiModelId(xmlImg)
+      body.put('imageModel', imgNorm)
+      log.info(
+        'Agent ui.xml merge: copied imageModel="{}" into POST body (POST omitted it; fixes GenerateImage without asking the author) siteId={} agent={}',
+        imgNorm,
+        site,
+        agent
+      )
     }
     if (!llmBody && xmlLlm) {
       body.put('llmModel', xmlLlm)
       log.info('Agent ui.xml merge: copied llmModel="{}" into POST body (POST omitted it) siteId={} agent={}', xmlLlm, site, agent)
+    }
+    if (!imgGenBody && xmlImgGen) {
+      body.put('imageGenerator', xmlImgGen)
+      log.info(
+        'Agent ui.xml merge: copied imageGenerator="{}" into POST body (POST omitted it) siteId={} agent={}',
+        xmlImgGen,
+        site,
+        agent
+      )
     }
   }
 }

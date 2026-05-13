@@ -22,6 +22,7 @@ export interface AiAssistantPopoverProps extends PopoverProps {
   llm?: 'crafterQ' | 'openAI';
   llmModel?: string;
   imageModel?: string;
+  imageGenerator?: string;
   /** Testing only — prefer server env. See docs/using-and-extending/llm-configuration.md */
   openAiApiKey?: string;
   /** Prompts to show above the chat (quick message buttons). Overrides API quick messages when set. */
@@ -52,6 +53,7 @@ function AiAssistantPopover(props: Readonly<AiAssistantPopoverProps>) {
     llm,
     llmModel,
     imageModel,
+    imageGenerator,
     openAiApiKey,
     prompts,
     enableTools,
@@ -115,6 +117,7 @@ function AiAssistantPopover(props: Readonly<AiAssistantPopoverProps>) {
           llm={llm}
           llmModel={llmModel}
           imageModel={imageModel}
+          imageGenerator={imageGenerator}
           openAiApiKey={openAiApiKey}
           enableTools={enableTools}
           expertSkills={expertSkills}

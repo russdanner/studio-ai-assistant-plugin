@@ -1,9 +1,13 @@
 package plugins.org.craftercms.aiassistant.tools
 
 import plugins.org.craftercms.aiassistant.authoring.AuthoringPreviewContext
+import plugins.org.craftercms.aiassistant.config.StudioAiAssistantProjectConfig
 import plugins.org.craftercms.aiassistant.concurrent.ParallelToolExecutor
 import plugins.org.craftercms.aiassistant.content.ContentSubgraphAggregator
 import plugins.org.craftercms.aiassistant.http.AiHttpProxy
+import plugins.org.craftercms.aiassistant.imagegen.StudioAiImageGenContext
+import plugins.org.craftercms.aiassistant.imagegen.StudioAiImageGenerator
+import plugins.org.craftercms.aiassistant.imagegen.StudioAiImageGeneratorFactory
 import plugins.org.craftercms.aiassistant.orchestration.AiOrchestration
 import plugins.org.craftercms.aiassistant.playbook.CrafterizingPlaybookLoader
 import plugins.org.craftercms.aiassistant.prompt.ToolPrompts
@@ -20,15 +24,15 @@ import org.w3c.dom.Node
 
 import javax.xml.parsers.DocumentBuilderFactory
 import java.io.ByteArrayInputStream
-import java.net.HttpURLConnection
-import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.util.ArrayList
 import java.util.HashMap
 import java.util.LinkedHashMap
 import java.util.LinkedHashSet
 import java.util.List
+import java.util.Iterator
 import java.util.Locale
+import java.util.Set
 import java.util.concurrent.Callable
 import java.util.concurrent.Future
 import java.util.concurrent.Semaphore
@@ -241,7 +245,7 @@ class AiOrchestrationTools {
   private static final String SCHEMA_CMS_LOOSE =
     '{"type":"object","properties":{"siteId":{"type":"string"},"site_id":{"type":"string"},"path":{"type":"string"},"contentPath":{"type":"string"},"templatePath":{"type":"string"},"contentType":{"type":"string"},"contentTypeId":{"type":"string"},"instructions":{"type":"string"},"date":{"type":"string"},"publishingTarget":{"type":"string"},"revertType":{"type":"string"},"version":{"type":"string","description":"Studio ItemVersion versionNumber from GetContentVersionHistory"},"revertToPrevious":{"type":"boolean","description":"If true, revert to the immediate prior revertible version (no version string needed)"}}}'
   private static final String SCHEMA_GENERATE_IMAGE =
-    '{"type":"object","properties":{"prompt":{"type":"string","description":"Description of the image to generate"},"size":{"type":"string","description":"Optional size or aspect preset; allowed values depend on the configured OpenAI image model (see OpenAI Images API docs)"},"quality":{"type":"string","description":"Optional; supported values depend on the image model (e.g. gpt-image-1 family vs legacy dall-e-3)"},"response_format":{"type":"string","enum":["url","b64_json"],"description":"Return hosted image URL or base64 JSON"},"model":{"type":"string","description":"Optional override of the configured OpenAI image model"}},"required":["prompt"]}'
+    '{"type":"object","additionalProperties":false,"properties":{"prompt":{"type":"string","description":"Description of the image to generate"},"size":{"type":"string","description":"Optional size or aspect preset; see OpenAI Images API (GPT image: 1024x1024, 1536x1024, 1024x1536, auto, etc.)"},"quality":{"type":"string","description":"Optional quality for GPT image models: low, medium, high, auto"},"model":{"type":"string","description":"Optional override of the configured OpenAI image model. Obsolete dall-e-* strings map to gpt-image-1 server-side. Do not pass response_format (rejected by the GPT image Images API)."}},"required":["prompt"]}'
   /** One-shot chat completion (no further function tools on that inner request). Invoked only when the main agent calls this tool. */
   private static final String SCHEMA_GENERATE_TEXT_NO_TOOLS =
     '{"type":"object","properties":{"userPrompt":{"type":"string","description":"Full user/task text for the inner model (what to write, format, constraints)."},"prompt":{"type":"string","description":"Alias for userPrompt."},"systemInstructions":{"type":"string","description":"Optional system message for this inner call only (role, output shape, tone)."},"system":{"type":"string","description":"Alias for systemInstructions."},"maxOutTokens":{"type":"integer","description":"Max completion tokens for this inner call (256–8192; server may clamp per model)."},"model":{"type":"string","description":"Optional OpenAI chat model id for this inner call only; default matches the agent chat model family."},"llmModel":{"type":"string","description":"Alias for model."},"readTimeoutMs":{"type":"integer","description":"HTTP read timeout ms (60000–600000)."}},"required":[]}'
@@ -1512,95 +1516,6 @@ class AiOrchestrationTools {
    * {@code listener} signature: {@code (toolName, phase, inputMap, errorOrNull, toolResultOrNull)} —
    * {@code phase} is {@code start}, {@code done}, {@code warn}, or {@code error}; {@code toolResultOrNull} is set for {@code done}/{@code warn}.
    */
-  /**
-   * POST {@code /v1/images/generations}. Uses the same API key as chat; default model from {@link AiOrchestration#resolveOpenAiImageModel} (agent/request {@code imageModel} only).
-   */
-  private static Map openAiImagesGenerations(String apiKey, String defaultImageModel, Map input) {
-    def prompt = input?.prompt?.toString()?.trim()
-    if (!prompt) {
-      return [error: true, message: 'Missing required field: prompt']
-    }
-    def model = input?.model?.toString()?.trim() ?: defaultImageModel
-    if (!model?.trim()) {
-      return [error: true, message: 'No image model configured']
-    }
-    def size = input?.size?.toString()?.trim()
-    def quality = input?.quality?.toString()?.trim()
-    def rf = input?.response_format?.toString()?.trim() ?: input?.responseFormat?.toString()?.trim()
-    if (!rf) rf = 'url'
-
-    def payload = [model: model, prompt: prompt, n: 1, response_format: rf]
-    if (size) payload.size = size
-    def mLower = model.toLowerCase()
-    if (quality && (mLower.contains('dall-e-3') || mLower.startsWith('gpt-image'))) {
-      payload.quality = quality
-    }
-
-    def body = JsonOutput.toJson(payload)
-    HttpURLConnection conn = null
-    try {
-      conn = (HttpURLConnection) new URL('https://api.openai.com/v1/images/generations').openConnection()
-      conn.requestMethod = 'POST'
-      conn.setRequestProperty('Content-Type', 'application/json; charset=UTF-8')
-      conn.setRequestProperty('Authorization', 'Bearer ' + apiKey)
-      conn.doOutput = true
-      conn.connectTimeout = 120_000
-      conn.readTimeout = 300_000
-      conn.outputStream.withWriter('UTF-8') { w -> w.write(body) }
-
-      int code = conn.responseCode
-      def stream = code >= 400 ? conn.errorStream : conn.inputStream
-      def text = stream != null ? stream.getText('UTF-8') : ''
-      if (code < 200 || code >= 300) {
-        def errMsg = "OpenAI images API HTTP ${code}"
-        try {
-          def parsed = new JsonSlurper().parseText(text ?: '{}')
-          if (parsed instanceof Map && parsed.error?.message) {
-            errMsg = "${errMsg}: ${parsed.error.message}"
-          } else if (text?.trim()) {
-            errMsg = "${errMsg}: ${text.length() > 800 ? text.substring(0, 800) + '…' : text}"
-          }
-        } catch (Throwable ignored) {
-          if (text?.trim()) errMsg = "${errMsg}: ${text.length() > 800 ? text.substring(0, 800) + '…' : text}"
-        }
-        return [error: true, message: errMsg, httpStatus: code]
-      }
-
-      def json = new JsonSlurper().parseText(text ?: '{}')
-      if (!(json instanceof Map)) {
-        return [error: true, message: 'Unexpected images API response shape']
-      }
-      def data = json.data
-      if (!(data instanceof List) || data.isEmpty()) {
-        return [error: true, message: 'Images API returned no data array', raw: text]
-      }
-      def first = data[0]
-      if (!(first instanceof Map)) {
-        return [error: true, message: 'Images API data[0] is not an object', raw: text]
-      }
-      def out = [
-        ok             : true,
-        tool           : 'GenerateImage',
-        model          : model,
-        url            : first.url,
-        b64_json       : first.b64_json,
-        revised_prompt : first.revised_prompt
-      ]
-      if (!out.url && !out.b64_json) {
-        return [error: true, message: 'No url or b64_json in image result', raw: text]
-      }
-      out.hint = 'Image URL expires; for CMS use, download and upload to /static-assets/ then reference in content.'
-      return out
-    } catch (Throwable t) {
-      log.warn('openAiImagesGenerations failed: {}', t.toString())
-      return [error: true, message: (t.message ?: t.toString())]
-    } finally {
-      try {
-        conn?.disconnect()
-      } catch (Throwable ignored) {}
-    }
-  }
-
   static Map runWithToolProgress(String toolName, Map rawInput, Closure listener, Closure work) {
     def input = (rawInput != null) ? rawInput : [:]
     if (AiOrchestration.crafterQPipelineCancelEffective()) {
@@ -1657,7 +1572,9 @@ class AiOrchestrationTools {
     boolean fullSuppressRepoWrites = false,
     String protectedFormItemPath = null,
     List<Map> expertSkillSpecs = null,
-    String openAiTextModel = null
+    String openAiTextModel = null,
+    String llmNormalized = null,
+    String imageGeneratorParam = null
   ) {
     def converter =
       { Object result, java.lang.reflect.Type rt -> AiOrchestration.toolResultToWireString(result, rt) }
@@ -1670,7 +1587,9 @@ class AiOrchestrationTools {
       fullSuppressRepoWrites,
       protectedFormItemPath,
       expertSkillSpecs,
-      openAiTextModel
+      openAiTextModel,
+      llmNormalized,
+      imageGeneratorParam
     )
   }
 
@@ -1678,14 +1597,17 @@ class AiOrchestrationTools {
    * @param converter Spring AI tool result converter or Groovy closure {@code (Object result, Type returnType) -> String}; passed via {@code invokeMethod} so site Groovy compiles without {@code ToolCallResultConverter} on the script classpath
    * @param ops Studio tool operations
    * @param toolProgressListener optional progress callback for streaming chat (see {@link #runWithToolProgress})
-   * @param openAiApiKeyForImages when set (OpenAI path), registers {@code GenerateImage}; omitted for CrafterQ-only clients
-   * @param imageModel resolved default image model from agent/request (e.g. gpt-image-1); tool may override per call with {@code model}
+   * @param openAiApiKeyForImages API key for OpenAI-compatible **image** HTTP and for embedding/RAG inner calls when applicable (see {@link StudioAiImageGeneratorFactory})
+   * @param imageModel resolved default image model from agent/request for OpenAI-compatible image wire (e.g. gpt-image-1); optional per-call {@code model} in tool args; ignored for pure {@code script:…} image backends unless the script reads it from context
    * @param fullSuppressRepoWrites when true (form engine + client JSON apply but no item path), omit write/publish/revert tools entirely
    * @param protectedFormItemPath normalized repo path of the open form item — when set (and not full suppress), write/publish/revert stay registered but are rejected only for this path; {@code update_content} for this path steers toward {@code crafterqFormFieldUpdates}
    * @param expertSkillSpecs normalized maps {@code skillId},{@code name},{@code url},{@code description} from the chat request; when non-empty and an OpenAI API key is available, registers {@code QueryExpertGuidance}
    * @param openAiTextModel resolved OpenAI chat model id for inner completions ({@code TranslateContentItem} / bulk subgraph when enabled) default {@code llmModel}; ignored when no API key
+   * @param llmNormalized {@link plugins.org.craftercms.aiassistant.llm.StudioAiLlmKind#normalize} result for the active session (image wire defaults)
+   * @param imageGeneratorParam optional {@code openAiWire} (default when blank), {@code none}|{@code off}|{@code disabled}, or {@code script:id} — see site docs
    * <p>{@code ConsultCrafterQExpert}, {@code ListCrafterQAgentChats}, and {@code GetCrafterQAgentChat} are registered only when {@link StudioToolOperations#isCrafterqAgentIdPresent()} is true
    * (agent {@code <crafterQAgentId>} in ui.xml — the CrafterQ API agent id).</p>
+   * <p>Built-in tool visibility may be constrained by site {@code /scripts/aiassistant/config/tools.json} — see {@link StudioAiAssistantProjectConfig}.</p>
    */
   static List build(
     Object converter,
@@ -1696,8 +1618,11 @@ class AiOrchestrationTools {
     boolean fullSuppressRepoWrites = false,
     String protectedFormItemPath = null,
     List<Map> expertSkillSpecs = null,
-    String openAiTextModel = null
+    String openAiTextModel = null,
+    String llmNormalized = null,
+    String imageGeneratorParam = null
   ) {
+    Map aiProjectToolCfg = StudioAiAssistantProjectConfig.load(ops)
     def normProtected = AuthoringPreviewContext.normalizeRepoPath(protectedFormItemPath)
     boolean pathProtect = normProtected.length() > 0
     List<Map> expertSpecs = new ArrayList<>()
@@ -2568,18 +2493,32 @@ class AiOrchestrationTools {
       tools.add(revertChangeTool)
     }
 
-    def imgKey = (openAiApiKeyForImages ?: '').toString().trim()
-    if (imgKey) {
-      def imgModelDefault = AiOrchestration.resolveOpenAiImageModel(imageModel)
+    String llmNormForImg = (llmNormalized ?: '').toString()
+    String imageGenSpec = (imageGeneratorParam ?: '').toString().trim()
+    StudioAiImageGenerator imageGen = StudioAiImageGeneratorFactory.resolve(
+      ops,
+      llmNormForImg,
+      imageGenSpec,
+      (openAiApiKeyForImages ?: '').toString().trim(),
+      imageModel
+    )
+    if (imageGen != null) {
+      final StudioAiImageGenContext imageCtx = StudioAiImageGeneratorFactory.buildContext(
+        ops,
+        llmNormForImg,
+        imageGenSpec,
+        (openAiApiKeyForImages ?: '').toString().trim(),
+        imageModel
+      )
       def generateImageTool = FunctionToolCallback.builder('GenerateImage', new Function<Map, Map>() {
         @Override Map apply(Map input) {
           runWithToolProgress('GenerateImage', input, toolProgressListener, {
             logToolInvocation('GenerateImage', (Map) (input ?: [:]))
-            openAiImagesGenerations(imgKey, imgModelDefault, (Map) (input ?: [:]))
+            imageGen.generate((Map) (input ?: [:]), imageCtx)
           })
         }
       })
-        .description(ToolPrompts.DESC_GENERATE_IMAGE)
+        .description(ToolPrompts.getDESC_GENERATE_IMAGE())
         .inputSchema(SCHEMA_GENERATE_IMAGE)
         .inputType(Map.class)
         .invokeMethod('toolCallResultConverter', converter)
@@ -2629,7 +2568,39 @@ class AiOrchestrationTools {
       tools.add(invokeSiteUserTool)
     }
 
+    applyToolCatalogFilters(tools, aiProjectToolCfg)
     return tools
+  }
+
+  /**
+   * Applies {@link StudioAiAssistantProjectConfig} whitelist/blacklist to built-in {@link FunctionToolCallback} entries only.
+   */
+  private static void applyToolCatalogFilters(List tools, Map projectCfg) {
+    if (tools == null || tools.isEmpty()) {
+      return
+    }
+    if (!(projectCfg instanceof Map)) {
+      return
+    }
+    Set<String> wl = StudioAiAssistantProjectConfig.enabledBuiltInWhitelist(projectCfg)
+    Set<String> bl = StudioAiAssistantProjectConfig.disabledBuiltInSet(projectCfg)
+    if (wl == null && (bl == null || bl.isEmpty())) {
+      return
+    }
+    for (Iterator it = tools.iterator(); it.hasNext();) {
+      Object t = it.next()
+      if (!(t instanceof FunctionToolCallback)) {
+        continue
+      }
+      String n = ((FunctionToolCallback) t).getToolDefinition().name()
+      if (wl != null) {
+        if (!wl.contains(n)) {
+          it.remove()
+        }
+      } else if (StudioAiAssistantProjectConfig.isToolNameDisabled(n, bl)) {
+        it.remove()
+      }
+    }
   }
 }
 

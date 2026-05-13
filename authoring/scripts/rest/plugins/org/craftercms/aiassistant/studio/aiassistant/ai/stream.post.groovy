@@ -7,6 +7,7 @@ import plugins.org.craftercms.aiassistant.http.AiHttpProxy
 import plugins.org.craftercms.aiassistant.http.CrafterQBearerUiXmlMerge
 import plugins.org.craftercms.aiassistant.llm.StudioAiLlmKind
 import plugins.org.craftercms.aiassistant.orchestration.AiOrchestration
+import plugins.org.craftercms.aiassistant.prompt.ToolPromptsSiteContext
 import plugins.org.craftercms.aiassistant.rag.ExpertSkillVectorRegistry
 import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
 
@@ -24,12 +25,13 @@ import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
  *   "enableTools": optional boolean — when false, OpenAI chat omits CMS function tools (matches ui.xml enableTools false). Absent defaults true.
  *   "omitTools": optional boolean — when true, CMS function tools are omitted for this request only (copy/image-style LLM steps); overrides enableTools. Same for XB/ICE preview chat, dialog, and form-engine (`authoringSurface`). Absent/false keeps normal tool registration from enableTools/agent defaults.
  *   "llmModel": optional string — OpenAI chat model id (e.g. gpt-4o-mini).
- *   "imageModel": optional string — OpenAI Images API model for GenerateImage (e.g. gpt-image-1); agent ui.xml **imageModel**; no JVM fallback. Legacy dall-e-* image models were retired by OpenAI on the Images API effective 2026-05-12.
+ *   "imageModel": optional string — Default image model for OpenAI-compatible **GenerateImage** wire (e.g. gpt-image-1); agent ui.xml **imageModel**; no JVM fallback. Obsolete dall-e-* strings in older configs map to gpt-image-1 server-side. Ignored when **imageGenerator** selects a pure script backend unless the script reads it from context.
+ *   "imageGenerator": optional string — **GenerateImage** backend: blank = OpenAI-compatible Images wire when key+imageModel exist; **none** / **off** / **disabled** omits the tool; **script:{id}** runs **`/scripts/aiassistant/imagegen/{id}/generate.groovy`**. Agent ui.xml **imageGenerator**; merged from site ui.xml like **imageModel** when POST omits it.
  *   "expertSkills": optional JSON array of { name, url, description } — per-agent markdown URLs for {@code QueryExpertGuidance} (Spring AI vector store); normalized server-side.
  *   "translateBatchConcurrency": optional integer 1–64 — parallel {@code TranslateContentBatch} workers when the model omits {@code maxConcurrency}; from agent ui.xml; server default 25 when omitted.
  *   "crafterQBearerTokenEnv": optional string — name of a **Studio host environment variable** holding the CrafterQ JWT; server sets {@code Authorization: Bearer} on outbound api.crafterq.ai calls when {@code System.getenv} returns a non-blank value (preferred over literal token in config).
  *   "crafterQBearerToken": optional string — literal CrafterQ JWT (duplicates ui.xml {@code <crafterQBearerToken>}); used when env is unset or empty. **Discouraged** in versioned config.
- *   **Server merge:** when {@code siteId} + {@code agentId} are present, missing {@code crafterQBearerTokenEnv} / {@code crafterQBearerToken} / {@code imageModel} / {@code llmModel} on the POST body may be copied from the matching {@code <agent>} row in site {@code /ui.xml} before auth and orchestration (so GenerateImage sees the configured image model even if the client omitted it).
+ *   **Server merge:** when {@code siteId} + {@code agentId} are present, missing {@code crafterQBearerTokenEnv} / {@code crafterQBearerToken} / {@code imageModel} / {@code llmModel} / {@code imageGenerator} on the POST body may be copied from the matching {@code <agent>} row in site {@code /ui.xml} before auth and orchestration (so GenerateImage sees the configured image model/backend even if the client omitted it).
  *   "previewToken": optional string — Studio {@code crafterPreview} cookie value; enables {@code GetPreviewHtml} without passing the token on every tool call. When omitted, the server still uses {@code crafterPreview} from the **incoming request cookies** (HttpOnly-safe).
  *   Response:  text/event-stream (SSE) on success, or application/json on error
  */
@@ -100,7 +102,18 @@ try {
     AiHttpProxy.installCrafterQBearerFromChatBody(request, (Map) body)
   }
   def openAiModel = body?.llmModel?.toString()
-  def imageModel = body?.imageModel?.toString()
+  def imageModelRaw = body?.imageModel?.toString()
+  def imageModel = null
+  if (imageModelRaw?.trim()) {
+    imageModel = AiOrchestration.normalizeOpenAiImagesApiModelId(imageModelRaw.trim())
+    if (body instanceof Map) {
+      try {
+        body.put('imageModel', imageModel)
+      } catch (Throwable ignoredIm) {
+      }
+    }
+  }
+  def imageGenerator = body?.imageGenerator?.toString()?.trim() ?: null
   def tbcRaw = body?.translateBatchConcurrency
   if (tbcRaw != null) {
     try {
@@ -142,21 +155,24 @@ try {
     return null
   }
 
+  String siteForPrompts = (siteIdBody ?: params?.siteId?.toString()?.trim() ?: '')
+  ToolPromptsSiteContext.enter(applicationContext, siteForPrompts)
   try {
-    def orchestration = new AiOrchestration(request, response, applicationContext, params, pluginConfig)
-    def result = orchestration.chatStreamWithSpringAi(agentId, promptForOrchestration.toString(), chatId, llm, openAiModel, openAiApiKey, imageModel, formEngineClientForward, formEngineItemPathRaw, enableTools)
-    if (result != null) {
-      if (response.isCommitted()) {
-        log.warn('chatStreamWithSpringAi returned error map but response already committed (SSE). Client should read metadata.error from stream. result={}', result)
-        return null
+    try {
+      def orchestration = new AiOrchestration(request, response, applicationContext, params, pluginConfig)
+      def result = orchestration.chatStreamWithSpringAi(agentId, promptForOrchestration.toString(), chatId, llm, openAiModel, openAiApiKey, imageModel, formEngineClientForward, formEngineItemPathRaw, enableTools, imageGenerator)
+      if (result != null) {
+        if (response.isCommitted()) {
+          log.warn('chatStreamWithSpringAi returned error map but response already committed (SSE). Client should read metadata.error from stream. result={}', result)
+          return null
+        }
+        response.resetBuffer()
+        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
+        response.setContentType('application/json')
+        response.getOutputStream().withWriter('UTF-8') { it.write(JsonOutput.toJson(result)) }
       }
-      response.resetBuffer()
-      response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
-      response.setContentType('application/json')
-      response.getOutputStream().withWriter('UTF-8') { it.write(JsonOutput.toJson(result)) }
-    }
-    return null
-  } catch (IllegalStateException ise) {
+      return null
+    } catch (IllegalStateException ise) {
     if (response.isCommitted()) {
       log.error('stream.post IllegalStateException after response committed: {}', ise.message, ise)
       try {
@@ -207,6 +223,9 @@ try {
     response.getOutputStream().withWriter('UTF-8') { it.write(JsonOutput.toJson([message: "Stream failed: ${e.message ?: e.class.simpleName}"])) }
     log.error('stream.post: orchestration failed', e)
     return null
+  }
+  } finally {
+    ToolPromptsSiteContext.exit()
   }
 } catch (Throwable outer) {
   if (response?.isCommitted()) {

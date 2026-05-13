@@ -79,6 +79,7 @@ export interface AiAssistantDialogContentProps {
   llm?: 'crafterQ' | 'openAI';
   llmModel?: string;
   imageModel?: string;
+  imageGenerator?: string;
   /** Testing only — prefer server env. See docs/using-and-extending/llm-configuration.md */
   openAiApiKey?: string;
   prompts?: Array<{ userText: string; additionalContext?: string }>;
@@ -99,6 +100,7 @@ function AiAssistantDialogContent(props: Readonly<AiAssistantDialogContentProps>
     llm,
     llmModel,
     imageModel,
+    imageGenerator,
     openAiApiKey,
     prompts,
     enableTools,
@@ -113,6 +115,7 @@ function AiAssistantDialogContent(props: Readonly<AiAssistantDialogContentProps>
       llm={llm}
       llmModel={llmModel}
       imageModel={imageModel}
+      imageGenerator={imageGenerator}
       openAiApiKey={openAiApiKey}
       enableTools={enableTools}
       expertSkills={expertSkills}

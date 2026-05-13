@@ -105,6 +105,7 @@ function cqParseAgentElement(agentEl) {
   else if (llmRaw === 'crafterq' || llmRaw === 'crafter-q') llm = 'crafterQ';
   var llmModel = cqChildTextDirect(agentEl, 'llmModel');
   var imageModel = cqChildTextDirect(agentEl, 'imageModel');
+  var imageGenerator = cqChildTextDirect(agentEl, 'imageGenerator');
   var openAiApiKey =
     cqChildTextDirect(agentEl, 'openAiApiKey') ||
     cqChildTextDirect(agentEl, 'open-ai-api-key') ||
@@ -113,6 +114,7 @@ function cqParseAgentElement(agentEl) {
   if (llm) out.llm = llm;
   if (llmModel) out.llmModel = llmModel;
   if (imageModel) out.imageModel = imageModel;
+  if (imageGenerator) out.imageGenerator = imageGenerator;
   if (openAiApiKey && String(openAiApiKey).trim()) out.openAiApiKey = String(openAiApiKey).trim();
   var enableToolsRaw = cqChildTextDirect(agentEl, 'enableTools') || cqChildTextDirect(agentEl, 'enable_tools');
   if (enableToolsRaw != null && String(enableToolsRaw).trim() !== '') {

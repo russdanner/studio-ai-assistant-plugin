@@ -20,6 +20,7 @@ import plugins.org.craftercms.aiassistant.llm.StudioAiLlmKind
 import plugins.org.craftercms.aiassistant.llm.StudioAiLlmRuntimeFactory
 import plugins.org.craftercms.aiassistant.llm.StudioAiRuntimeBuildRequest
 import plugins.org.craftercms.aiassistant.orchestration.AiOrchestration
+import plugins.org.craftercms.aiassistant.prompt.ToolPromptsSiteContext
 import plugins.org.craftercms.aiassistant.rag.ExpertSkillVectorRegistry
 import plugins.org.craftercms.aiassistant.tools.AiOrchestrationTools
 import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
@@ -129,7 +130,13 @@ final class AutonomousAssistantWorker {
             'AutonomousAssistantWorker: Spring applicationContext is not registered; open Autonomous Assistants sync or status once from Studio (AutonomousAssistantRuntimeHooks.register).'
           )
         }
+        String imageGenSpec = (definition?.imageGenerator ?: '').toString().trim()
+        ToolPromptsSiteContext.enter(app, (siteId ?: '').toString())
+        try {
         String imageModel = (definition?.imageModel ?: '').toString().trim()
+        if (imageModel) {
+          imageModel = AiOrchestration.normalizeOpenAiImagesApiModelId(imageModel)
+        }
         StudioToolOperations studioOps = new StudioToolOperations(
           null,
           app,
@@ -154,6 +161,7 @@ final class AutonomousAssistantWorker {
           openAiApiKeyFromRequest: definition?.openAiApiKey?.toString(),
           toolProgressListener: null,
           imageModelParam: definition?.imageModel?.toString(),
+          imageGeneratorParam: imageGenSpec ?: null,
           fullSuppressRepoWrites: false,
           protectedFormItemPath: null,
           enableTools: false
@@ -194,7 +202,9 @@ final class AutonomousAssistantWorker {
           false,
           null,
           exNorm,
-          model
+          model,
+          normLlm,
+          imageGenSpec ?: null
         )
         if (tools == null || tools.isEmpty()) {
           throw new IllegalStateException(
@@ -213,6 +223,9 @@ final class AutonomousAssistantWorker {
           'AutonomousAssistant',
           wireBaseUrl
         )
+        } finally {
+          ToolPromptsSiteContext.exit()
+        }
       }
       Map parsed = tryParseJsonObject(assistant)
       String report = parsed?.get('report')?.toString() ?: (assistant ?: '')

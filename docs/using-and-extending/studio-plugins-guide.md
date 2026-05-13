@@ -375,6 +375,10 @@ async function callPluginScriptJson<T>(siteId: string, scriptPath: string, body:
 
 **Convention (AI Assistant — custom LLM):** `config/studio/scripts/aiassistant/llm/{id}/runtime.groovy` (or `llm.groovy`) implements **`StudioAiLlmRuntime`** or a **Map** with **`buildSessionBundle`** for **`&lt;llm&gt;script:{id}&lt;/llm&gt;`**. Same install survivability as **user-tools/** (sibling under `config/studio/scripts/aiassistant/`). See **`docs/using-and-extending/llm-configuration.md`** and **`docs/examples/aiassistant-llm/demo/runtime.groovy`**.
 
+**Convention (AI Assistant — custom image generation):** `config/studio/scripts/aiassistant/imagegen/{id}/generate.groovy` — backend selected per agent or request **`imageGenerator`**: blank uses the **OpenAI-compatible Images** wire when credentials and **`imageModel`** allow it; **`none`** / **`off`** / **`disabled`** omits **GenerateImage**; **`script:{id}`** runs that Groovy script (same “script your own” idea as LLMs). Optional **`OPENAI_IMAGES_OPENAI_BASE_URL`** / **`crafter.openai.imagesOpenAiBaseUrl`** adjusts the wire URL.
+
+**Per-site built-in tool policy and prompts:** `config/studio/scripts/aiassistant/config/tools.json` may list **`disabledBuiltInTools`** (tool names to hide) or a non-empty **`enabledBuiltInTools`** whitelist. Tool prompt text can be overridden by dropping Markdown files under **`config/studio/scripts/aiassistant/prompts/`** using the same keys as the plugin’s classpath prompts (resolved **per site** before defaults). See **`plugins.org.craftercms.aiassistant.config.StudioAiAssistantProjectConfig`** and **`ToolPromptsLoader`** in the plugin sources.
+
 **Runtime wiring (shipped in plugin classes):** When `registry.json` exists and lists at least one tool, the Spring AI tool list includes **`InvokeSiteUserTool`**. The model calls it with:
 
 - **`toolId`** — must match an `id` from `registry.json`.

@@ -41,6 +41,8 @@ class ExpertApiLlmRuntime implements StudioAiLlmRuntime {
       false,
       null,
       null,
+      null,
+      null,
       null
     )
     int maxQ = req.orchestration.resolveMaxCrafterQPromptChars()

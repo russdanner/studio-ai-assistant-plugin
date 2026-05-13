@@ -24,6 +24,7 @@ import plugins.org.craftercms.aiassistant.llm.StudioAiRuntimeBuildRequest
     sub.openAiApiKeyFromRequest = r.openAiApiKeyFromRequest
     sub.toolProgressListener = r.toolProgressListener
     sub.imageModelParam = r.imageModelParam
+    sub.imageGeneratorParam = r.imageGeneratorParam
     sub.fullSuppressRepoWrites = r.fullSuppressRepoWrites
     sub.protectedFormItemPath = r.protectedFormItemPath
     sub.enableTools = r.enableTools

@@ -3,14 +3,17 @@ package plugins.org.craftercms.aiassistant.prompt
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import plugins.org.craftercms.aiassistant.config.StudioAiSiteModuleText
+
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * <strong>Override mechanism</strong> for {@link ToolPrompts}: built-in Groovy strings remain the defaults; a
- * non-blank {@code KEY.md} on the classpath (or under {@code prompts/} next to compiled classes) replaces
- * that key only. Omit the file (or leave it blank) to keep the shipped default — no merge, no partial patch.
+ * non-blank {@code KEY.md} replaces that key only. Omit the file (or leave it blank) to keep the shipped default —
+ * no merge, no partial patch.
  * <p>Lookup order for each key (e.g. {@code OPENAI_AUTHORING_INSTRUCTIONS}):</p>
  * <ol>
+ *   <li>When {@link ToolPromptsSiteContext} is active: site sandbox {@code /scripts/aiassistant/prompts/&lt;KEY&gt;.md}.</li>
  *   <li>Classpath resource {@link #CLASSPATH_PREFIX}{@code <KEY>.md} (e.g.
  *   {@code authoring/scripts/classes/plugins/org/craftercms/aiassistant/prompts/} in this repo).</li>
  *   <li>Peer resource next to this class, then classloaders, then {@code prompts/} next to compiled classes when
@@ -39,15 +42,53 @@ final class ToolPromptsLoader {
     if (key == null) {
       return defaultText
     }
-    if (CACHE.containsKey(key)) {
-      return CACHE.get(key)
+    String cacheKey = cacheKeyFor(key)
+    if (CACHE.containsKey(cacheKey)) {
+      return CACHE.get(cacheKey)
+    }
+    String siteFirst = tryLoadFromSiteProject(key)
+    if (siteFirst != null) {
+      CACHE.put(cacheKey, siteFirst)
+      return siteFirst
     }
     String s = tryLoadFromClasspathOrExpanded(key)
     if (s == null) {
       s = defaultText
     }
-    CACHE.put(key, s)
+    CACHE.put(cacheKey, s)
     s
+  }
+
+  private static String cacheKeyFor(String key) {
+    def ctx = ToolPromptsSiteContext.current()
+    String site = ctx?.get('siteId')?.toString()?.trim()
+    if (site) {
+      return "site:${site}:${key}"
+    }
+    return key
+  }
+
+  private static String tryLoadFromSiteProject(String key) {
+    def ctx = ToolPromptsSiteContext.current()
+    if (ctx == null) {
+      return null
+    }
+    Object app = ctx.get('applicationContext')
+    String siteId = ctx.get('siteId')?.toString()?.trim()
+    if (app == null || !siteId) {
+      return null
+    }
+    String rel = "/scripts/aiassistant/prompts/${key}.md"
+    try {
+      String body = StudioAiSiteModuleText.readUtf8IfPresent(app, siteId, rel)
+      def t = meaningfulOverrideOrNull(body)
+      if (t != null) {
+        log.debug('Tool prompt from site sandbox: {} ({} chars) siteId={}', key, t.length(), siteId)
+      }
+      return t
+    } catch (Throwable ignored) {
+      return null
+    }
   }
 
   /** Non-blank text only; blank files must not replace a large built-in default with an empty string. */

@@ -1,7 +1,7 @@
 import { getGuestToHostBus } from '@craftercms/studio-ui/utils/subjects';
 import { updateFieldValueOperation } from '@craftercms/studio-ui/state/actions/preview';
 import { showSystemNotification } from '@craftercms/studio-ui/state/actions/system';
-import { importRemoteImageToRepo, isProbablyRemoteImageUrl } from './aiAssistantImportApi';
+import { importRemoteImageToRepo, isImageUrlImportableOnDrop } from './aiAssistantImportApi';
 import { DEFAULT_IMPORT_REPO_PATH } from './aiAssistantImportPath';
 
 let installed = false;
@@ -37,8 +37,9 @@ function isUpdateFieldOp(action: unknown): action is { type: string; payload: { 
 
 /**
  * When Experience Builder drops an AI Assistant chat image, the guest sends {@code UPDATE_FIELD_VALUE_OPERATION} with
- * {@code value} set to the remote {@code https?://} URL. Studio's write API expects a repo path. This bridge
- * imports the image on drop, then forwards the operation with {@code value} replaced by {@code /static-assets/...}.
+ * {@code value} set to the remote {@code https?://} URL or a raster {@code data:image/...;base64,...} payload. Studio's
+ * write API expects a repo path. This bridge imports the image on drop, then forwards the operation with
+ * {@code value} replaced by {@code /static-assets/...}.
  */
 export function installRemoteImageDropImportBridge(): void {
   if (installed || typeof window === 'undefined') return;
@@ -54,7 +55,7 @@ export function installRemoteImageDropImportBridge(): void {
     }
     const payload = action.payload as Record<string, unknown>;
     const value = payload.value;
-    if (typeof value !== 'string' || !isProbablyRemoteImageUrl(value)) {
+    if (typeof value !== 'string' || !isImageUrlImportableOnDrop(value)) {
       rawNext(action);
       return;
     }

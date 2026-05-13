@@ -5,6 +5,7 @@ import plugins.org.craftercms.aiassistant.http.AiHttpProxy
 import plugins.org.craftercms.aiassistant.http.CrafterQBearerUiXmlMerge
 import plugins.org.craftercms.aiassistant.llm.StudioAiLlmKind
 import plugins.org.craftercms.aiassistant.orchestration.AiOrchestration
+import plugins.org.craftercms.aiassistant.prompt.ToolPromptsSiteContext
 import plugins.org.craftercms.aiassistant.rag.ExpertSkillVectorRegistry
 
 /**
@@ -31,7 +32,9 @@ import plugins.org.craftercms.aiassistant.rag.ExpertSkillVectorRegistry
  *   "expertSkills": "optional array of { name, url, description } — per-agent markdown RAG for QueryExpertGuidance",
  *   "crafterQBearerTokenEnv": "optional — Studio host env var name for CrafterQ JWT (Authorization: Bearer on api.crafterq.ai)",
  *   "crafterQBearerToken": "optional — literal CrafterQ JWT (discouraged in Git; prefer crafterQBearerTokenEnv)",
- *   "llmModel": "optional — OpenAI model id"
+ *   "llmModel": "optional — OpenAI model id",
+ *   "imageModel": "optional — default image model for GenerateImage on the OpenAI-compatible wire",
+ *   "imageGenerator": "optional — GenerateImage backend (blank / openAiWire / none / script:{id}); see llm-configuration.md"
  * }
  */
 
@@ -85,7 +88,19 @@ if (body instanceof Map) {
   AiHttpProxy.installCrafterQBearerFromChatBody(request, (Map) body)
 }
 def openAiModel = body.llmModel?.toString()
-def imageModel = body.imageModel?.toString()
+def imageModelRaw = body.imageModel?.toString()
+def imageModel = null
+if (imageModelRaw?.trim()) {
+  imageModel = AiOrchestration.normalizeOpenAiImagesApiModelId(imageModelRaw.trim())
+  if (body instanceof Map) {
+    try {
+      body.put('imageModel', imageModel)
+    } catch (Throwable ignoredIm) {
+    }
+  }
+}
+
+def imageGenerator = body?.imageGenerator?.toString()?.trim() ?: null
 
 def llmNorm = AiOrchestration.normalizeLlmProvider(llm)
 if ((!agentId && StudioAiLlmKind.isCrafterQRemoteApi(llmNorm)) || !prompt) {
@@ -96,13 +111,19 @@ if ((!agentId && StudioAiLlmKind.isCrafterQRemoteApi(llmNorm)) || !prompt) {
 }
 
 try {
-  def formEngineClientForward = AuthoringPreviewContext.isFormEngineSurface(body?.authoringSurface) && AuthoringPreviewContext.isTruthy(body?.formEngineClientJsonApply)
-  def formEngineItemPathRaw = body?.formEngineItemPath?.toString()
-  def omitTools = AuthoringPreviewContext.isTruthy(body?.omitTools)
-  def enableToolsRequested = AuthoringPreviewContext.parseEnableTools(body?.enableTools)
-  def enableTools = omitTools ? false : enableToolsRequested
-  def orchestration = new AiOrchestration(request, response, applicationContext, params, pluginConfig)
-  return orchestration.chatProxy(agentId, promptForOrchestration, chatId, llm, openAiModel, openAiApiKey, imageModel, formEngineClientForward, formEngineItemPathRaw, enableTools)
+  String siteForPrompts = (siteIdBody ?: params?.siteId?.toString()?.trim() ?: '')
+  ToolPromptsSiteContext.enter(applicationContext, siteForPrompts)
+  try {
+    def formEngineClientForward = AuthoringPreviewContext.isFormEngineSurface(body?.authoringSurface) && AuthoringPreviewContext.isTruthy(body?.formEngineClientJsonApply)
+    def formEngineItemPathRaw = body?.formEngineItemPath?.toString()
+    def omitTools = AuthoringPreviewContext.isTruthy(body?.omitTools)
+    def enableToolsRequested = AuthoringPreviewContext.parseEnableTools(body?.enableTools)
+    def enableTools = omitTools ? false : enableToolsRequested
+    def orchestration = new AiOrchestration(request, response, applicationContext, params, pluginConfig)
+    return orchestration.chatProxy(agentId, promptForOrchestration, chatId, llm, openAiModel, openAiApiKey, imageModel, formEngineClientForward, formEngineItemPathRaw, enableTools, imageGenerator)
+  } finally {
+    ToolPromptsSiteContext.exit()
+  }
 } catch (IllegalStateException ise) {
   response.setStatus(HttpServletResponse.SC_BAD_REQUEST)
   return [ok: false, message: ise.message ?: 'Configuration error']

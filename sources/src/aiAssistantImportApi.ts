@@ -86,3 +86,11 @@ export function isProbablyRemoteImageUrl(src: string): boolean {
   const s = src?.trim() ?? '';
   return /^https?:\/\//i.test(s);
 }
+
+/** True when dropping from chat should run {@link importRemoteImageToRepo} (https URL or raster {@code data:image}). */
+export function isImageUrlImportableOnDrop(src: string): boolean {
+  const s = src?.trim() ?? '';
+  if (!s) return false;
+  if (isProbablyRemoteImageUrl(s)) return true;
+  return /^data:image\//i.test(s);
+}

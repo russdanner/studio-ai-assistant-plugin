@@ -35,6 +35,7 @@ function parseAgentElement(agentEl: Element): AgentConfig | null {
   else if (llmRaw === 'aiassistant' || llmRaw === 'crafter-q') llm = 'crafterQ';
   const llmModel = childTextDirect(agentEl, 'llmModel');
   const imageModel = childTextDirect(agentEl, 'imageModel');
+  const imageGenerator = childTextDirect(agentEl, 'imageGenerator');
   const openAiApiKey =
     childTextDirect(agentEl, 'openAiApiKey') ??
     childTextDirect(agentEl, 'open-ai-api-key') ??
@@ -43,6 +44,7 @@ function parseAgentElement(agentEl: Element): AgentConfig | null {
   if (llm) out.llm = llm;
   if (llmModel) out.llmModel = llmModel;
   if (imageModel) out.imageModel = imageModel;
+  if (imageGenerator) out.imageGenerator = imageGenerator;
   if (openAiApiKey?.trim()) out.openAiApiKey = openAiApiKey.trim();
   const enableToolsRaw = childTextDirect(agentEl, 'enableTools') ?? childTextDirect(agentEl, 'enable_tools');
   if (enableToolsRaw !== undefined && String(enableToolsRaw).trim() !== '') {

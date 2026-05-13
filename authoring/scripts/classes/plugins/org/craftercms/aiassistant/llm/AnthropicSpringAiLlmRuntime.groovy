@@ -55,7 +55,9 @@ class AnthropicSpringAiLlmRuntime implements StudioAiLlmRuntime {
         req.fullSuppressRepoWrites,
         req.protectedFormItemPath,
         expertSpecs,
-        modelName
+        modelName,
+        req.llmNormalized,
+        req.imageGeneratorParam
       )
     } else {
       tools = []

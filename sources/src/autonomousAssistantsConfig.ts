@@ -15,6 +15,8 @@ export interface AutonomousAgentDefinition {
   llm: string;
   llmModel: string;
   imageModel?: string;
+  /** Optional GenerateImage backend (same semantics as interactive chat **imageGenerator**). */
+  imageGenerator?: string;
   openAiApiKey?: string;
   /**
    * When true, the model may set `ownerAgentId` on new human tasks and dismiss/complete tasks owned by other agents.
@@ -111,6 +113,9 @@ export function mergeAutonomousAgentsForTable(
       llm: d.llm,
       llmModel: d.llmModel,
       ...(d.imageModel != null ? { imageModel: d.imageModel } : {}),
+      ...(d.imageGenerator != null && String(d.imageGenerator).trim() !== ''
+        ? { imageGenerator: String(d.imageGenerator).trim() }
+        : {}),
       ...(d.manageOtherAgentsHumanTasks ? { manageOtherAgentsHumanTasks: true } : {}),
       ...(d.startAutomatically === false ? { startAutomatically: false } : {}),
       ...(d.stopOnFailure === false ? { stopOnFailure: false } : {}),
@@ -226,6 +231,10 @@ function normalizeOne(raw: unknown): AutonomousAgentDefinition | null {
     llm: String(o.llm ?? 'openAI').trim(),
     llmModel: String(o.llmModel ?? 'gpt-4o-mini').trim(),
     imageModel: o.imageModel != null ? String(o.imageModel).trim() : undefined,
+    imageGenerator:
+      o.imageGenerator != null && String(o.imageGenerator).trim() !== ''
+        ? String(o.imageGenerator).trim()
+        : undefined,
     openAiApiKey: o.openAiApiKey != null ? String(o.openAiApiKey).trim() : undefined,
     ...(manageCross !== undefined ? { manageOtherAgentsHumanTasks: manageCross } : {}),
     ...(startAuto === false ? { startAutomatically: false } : {}),
