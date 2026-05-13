@@ -24,6 +24,7 @@ High-level map; deep dives live in linked files.
 | Autonomous widget placement & overview | [autonomous-assistants-widget.md](using-and-extending/autonomous-assistants-widget.md) |
 | **`imageGenerator`**, **`imagegen/`**, tool/prompt overrides | [image-generation.md](using-and-extending/image-generation.md) |
 | REST/stream body, tools, CrafterQ auth | [chat-and-tools-runtime.md](internals/chat-and-tools-runtime.md) |
+| MCP client (`mcpEnabled` + `mcpServers` in `tools.json`, Streamable HTTP) | [chat-and-tools-runtime.md](internals/chat-and-tools-runtime.md#mcp-client-tools-streamable-http) |
 | Debug logging (loggers, Spring AI HTTP trace) | [internals/README.md](internals/README.md#debug-logging) |
 | Full product spec | [spec.md](internals/spec.md) |
 

@@ -2774,6 +2774,25 @@ class StudioToolOperations {
   }
 
   /**
+   * Same SSRF and scheme checks as the first hop of {@link #fetchHttpUrl} (without performing the GET).
+   * Used by MCP and other outbound HTTP clients in the plugin.
+   *
+   * @return {@code null} if the URL is allowed, otherwise a short error message suitable for logs or tool JSON
+   */
+  static String validateOutboundHttpUrlForSsrf(String absoluteUrl) {
+    if ('false'.equalsIgnoreCase(System.getProperty('crafterq.httpFetch.enabled', 'true')?.toString()?.trim())) {
+      return 'HTTP outbound is disabled (JVM crafterq.httpFetch.enabled=false).'
+    }
+    URI start
+    try {
+      start = new URI((absoluteUrl ?: '').toString().trim())
+    } catch (Throwable t) {
+      return "Invalid URL: ${t.message}"
+    }
+    return httpFetchSsrfErrorForUri(start)
+  }
+
+  /**
    * Validates scheme, userinfo, hostname blocklist, optional suffix allowlist, and that all resolved IPs are public.
    * @return {@code null} if OK, otherwise an error message
    */

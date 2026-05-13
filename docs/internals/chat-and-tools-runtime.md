@@ -117,7 +117,31 @@ If listing or chat calls return **401/403**, verify **`X-CrafterQ-Chat-User`** a
 
 **Tool arguments (reminder):** **`ListCrafterQAgentChats`:** optional **`startDate`** / **`endDate`** (ISO-8601 UTC instants, or date-only `YYYY-MM-DD` treated as UTC midnight). **Omit both** to let the server use the **last 30 days UTC** and the session **`crafterQAgentId`** from the agent row (same as stream **`agentId`**). Optional **`limit`** (1–100, default 20); optional **`agentId`** to override. **`GetCrafterQAgentChat`** requires **`chatId`**; optional **`agentId`** the same way.
 
-### Optional: per-agent expert skills (markdown RAG, OpenAI + tools)
+---
+
+## MCP client tools (Streamable HTTP) {#mcp-client-tools-streamable-http}
+
+Sites can attach **remote MCP servers** so OpenAI-wire (and other native-tool) agents gain **extra function tools** beyond the built-in CMS catalog. Configuration lives in **`config/studio/scripts/aiassistant/config/tools.json`**. MCP is **off by default**: set JSON boolean **`mcpEnabled`** to **`true`** in that file to load **`mcpServers`** (site config only — not a JVM env var). The same file continues to hold **`disabledBuiltInTools`** / **`enabledBuiltInTools`** as today.
+
+### `tools.json` fields
+
+| Key | Purpose |
+|-----|---------|
+| **`mcpEnabled`** | **Required to turn MCP on:** JSON boolean **`true`**. If omitted or **`false`**, **`mcpServers` is ignored** (no outbound MCP calls, no `mcp_*` tools registered). |
+| **`mcpServers`** | JSON array of server objects (processed only when **`mcpEnabled`** is **`true`**): required **`id`**, required **`url`** (MCP **Streamable HTTP** endpoint — single path accepting `POST`), optional **`headers`**, optional **`readTimeoutMs`** (default **120000**). |
+| **`disabledMcpTools`** | Optional array of **wire** tool names to omit (case-insensitive), e.g. **`mcp_docs_search`**. You can also list those names under **`disabledBuiltInTools`**. |
+
+### Wire names and lifecycle
+
+- Each MCP tool from **`tools/list`** becomes a Studio tool whose name is **`mcp_<serverId>_<mcpToolName>`** (non-alphanumeric segments collapsed to `_`, total length capped at **64** characters for OpenAI compatibility).
+- **Per chat request**, when the plugin builds **`AiOrchestrationTools`**, it runs **`initialize`** → **`notifications/initialized`** → **`tools/list`** for **each** configured server, then keeps a **single session** (including **`Mcp-Session-Id`** when returned) for all **`tools/call`** invocations from that request.
+- **Security:** MCP **`url`** values use the **same SSRF policy** as **`FetchHttpUrl`** (`StudioToolOperations.validateOutboundHttpUrlForSsrf`). Set **`crafterq.httpFetch.allowedHostSuffixes`** when you need to allow specific vendor hostnames. JVM **`crafterq.httpFetch.enabled=false`** still blocks all outbound HTTP including MCP, regardless of **`mcpEnabled`**.
+- **Whitelist:** When **`enabledBuiltInTools`** is a non-empty whitelist, **built-in** CMS tools are filtered to that list, but **`mcp_*`** tools and **`InvokeSiteUserTool`** are **still registered** unless their wire names appear in **`disabledBuiltInTools`** / **`disabledMcpTools`**.
+- **Response size:** MCP HTTP bodies are capped by JVM **`crafterq.mcp.maxResponseChars`** (default **500000**).
+
+---
+
+## Optional: per-agent expert skills (markdown RAG, OpenAI + tools)
 
 Inside an `<agent>` that uses `<llm>openAI</llm>`, add one or more **`<expertSkill>`** children. Each row points to a **public `http(s)` URL** whose response body is treated as **UTF-8 markdown**. On first use, Studio **fetches** that URL (same SSRF rules as **`FetchHttpUrl`**), **chunks** the text, **embeds** it with Spring AI (**`text-embedding-3-small`** by default), and stores vectors in a **per-skill in-memory `SimpleVectorStore`**. The model gets a system appendix with **`skillId`** (stable hash from the URL) and may call **`QueryExpertGuidance`** (`skillId`, `query`, optional `topK`).
 

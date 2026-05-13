@@ -8,6 +8,7 @@ import plugins.org.craftercms.aiassistant.http.AiHttpProxy
 import plugins.org.craftercms.aiassistant.imagegen.StudioAiImageGenContext
 import plugins.org.craftercms.aiassistant.imagegen.StudioAiImageGenerator
 import plugins.org.craftercms.aiassistant.imagegen.StudioAiImageGeneratorFactory
+import plugins.org.craftercms.aiassistant.mcp.StudioAiMcpClient
 import plugins.org.craftercms.aiassistant.orchestration.AiOrchestration
 import plugins.org.craftercms.aiassistant.playbook.CrafterizingPlaybookLoader
 import plugins.org.craftercms.aiassistant.prompt.ToolPrompts
@@ -1607,7 +1608,8 @@ class AiOrchestrationTools {
    * @param imageGeneratorParam optional {@code openAiWire} (default when blank), {@code none}|{@code off}|{@code disabled}, or {@code script:id} — see site docs
    * <p>{@code ConsultCrafterQExpert}, {@code ListCrafterQAgentChats}, and {@code GetCrafterQAgentChat} are registered only when {@link StudioToolOperations#isCrafterqAgentIdPresent()} is true
    * (agent {@code <crafterQAgentId>} in ui.xml — the CrafterQ API agent id).</p>
-   * <p>Built-in tool visibility may be constrained by site {@code /scripts/aiassistant/config/tools.json} — see {@link StudioAiAssistantProjectConfig}.</p>
+   * <p>Built-in tool visibility may be constrained by site {@code /scripts/aiassistant/config/tools.json} — see {@link StudioAiAssistantProjectConfig}.
+ * Optional <strong>MCP</strong> servers register additional {@code mcp_*} tools when {@code mcpEnabled} is JSON {@code true} in the same file — see {@link StudioAiAssistantProjectConfig#mcpClientEnabled} and {@link plugins.org.craftercms.aiassistant.mcp.StudioAiMcpClient}.</p>
    */
   static List build(
     Object converter,
@@ -2568,12 +2570,92 @@ class AiOrchestrationTools {
       tools.add(invokeSiteUserTool)
     }
 
+    if (StudioAiAssistantProjectConfig.mcpClientEnabled(aiProjectToolCfg)) {
+      Set<String> disabledMcpLower = StudioAiAssistantProjectConfig.disabledMcpToolsLower(aiProjectToolCfg)
+      List<Map> mcpSpecs = StudioAiAssistantProjectConfig.mcpServers(aiProjectToolCfg)
+      for (Map mcpSpec : mcpSpecs) {
+        String serverId = mcpSpec?.id?.toString()?.trim()
+        if (!serverId) {
+          log.warn('MCP: skipping server entry without id')
+          continue
+        }
+        StudioAiMcpClient.McpConnection mcpConn
+        List<Map> mcpDefs
+        try {
+          def opened = StudioAiMcpClient.openSessionAndListTools(ops, mcpSpec)
+          mcpConn = (StudioAiMcpClient.McpConnection) opened.connection
+          mcpDefs = (List<Map>) opened.tools
+        } catch (Throwable tm) {
+          log.warn('MCP server {} not available: {}', serverId, tm.message ?: tm.toString())
+          continue
+        }
+        for (Map tdef : mcpDefs) {
+          String mcpNm = tdef?.name?.toString()?.trim()
+          if (!mcpNm) {
+            continue
+          }
+          String wname = StudioAiMcpClient.wireToolName(serverId, mcpNm)
+          if (StudioAiAssistantProjectConfig.isMcpWireToolDisabled(disabledMcpLower, wname)) {
+            continue
+          }
+          Object isch = tdef.get('inputSchema')
+          Map schema =
+            isch instanceof Map ? new LinkedHashMap<>((Map) isch) : [type: 'object', properties: [:]]
+          if (!schema.containsKey('type')) {
+            schema = new LinkedHashMap<>(schema)
+            schema.put('type', 'object')
+          }
+          String desc = tdef.get('description')?.toString()?.trim()
+          if (!desc) {
+            desc =
+              "MCP tool '${mcpNm}' on server '${serverId}' (remote). Use CMS repository tools for /site reads and writes."
+          }
+          if (desc.length() > 8000) {
+            desc = desc.substring(0, 7997) + '…'
+          }
+          final StudioAiMcpClient.McpConnection connF = mcpConn
+          final String mcpNmF = mcpNm
+          final String wnameF = wname
+          def mcpToolCb = FunctionToolCallback.builder(wnameF, new Function<Map, Map>() {
+            @Override
+            Map apply(Map input) {
+              runWithToolProgress(wnameF, input, toolProgressListener, {
+                logToolInvocation(wnameF, (Map) (input ?: [:]))
+                connF.toolsCall(mcpNmF, (Map) (input ?: [:]))
+              })
+            }
+          })
+            .description(desc)
+            .inputSchema(schema)
+            .inputType(Map.class)
+            .invokeMethod('toolCallResultConverter', converter)
+            .build()
+          tools.add(mcpToolCb)
+        }
+      }
+    }
+
     applyToolCatalogFilters(tools, aiProjectToolCfg)
     return tools
   }
 
   /**
-   * Applies {@link StudioAiAssistantProjectConfig} whitelist/blacklist to built-in {@link FunctionToolCallback} entries only.
+   * {@code InvokeSiteUserTool} and {@code mcp_*} tools are kept when {@code enabledBuiltInTools} is a whitelist.
+   */
+  private static boolean isExtensionCatalogToolName(String n) {
+    if (n == null) {
+      return false
+    }
+    if ('InvokeSiteUserTool'.equals(n)) {
+      return true
+    }
+    return n.startsWith('mcp_')
+  }
+
+  /**
+   * Applies {@link StudioAiAssistantProjectConfig} whitelist/blacklist to the tool catalog.
+   * When {@code enabledBuiltInTools} is set, it filters <strong>built-in</strong> CMS tool names only;
+   * {@code InvokeSiteUserTool} and {@code mcp_*} tools are always retained unless listed in {@code disabledBuiltInTools}.
    */
   private static void applyToolCatalogFilters(List tools, Map projectCfg) {
     if (tools == null || tools.isEmpty()) {
@@ -2594,6 +2676,9 @@ class AiOrchestrationTools {
       }
       String n = ((FunctionToolCallback) t).getToolDefinition().name()
       if (wl != null) {
+        if (isExtensionCatalogToolName(n)) {
+          continue
+        }
         if (!wl.contains(n)) {
           it.remove()
         }

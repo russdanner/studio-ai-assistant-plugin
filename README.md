@@ -18,7 +18,7 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 |------|------------|-------|
 | **LLMs** | OpenAI, Anthropic, XAI, Ollama, Deepseek, scriptable (**`script:{id}`**) | [LLM configuration](docs/using-and-extending/llm-configuration.md) |
 | **Image generation** | OpenAI, scriptable (**`script:{id}`**) | [Image generation](docs/using-and-extending/image-generation.md) |
-| **Tools** | General tools (HTTP GET, POST); built-in Studio/CMS tools; CrafterQ (Get Chats, Get Chat); scriptable tools | |
+| **Tools** | CMS / HTTP / CrafterQ / scriptable user tools; optional **MCP** (`mcpEnabled` + `mcpServers` in `tools.json`) | [Chat & tools runtime](docs/internals/chat-and-tools-runtime.md#mcp-client-tools-streamable-http) |
 | **Core Config overrides** | **`tools.json`** (built-in allow/deny), **`prompts/*.md`**, same sandbox layout as script LLMs | [Studio plugins guide](docs/using-and-extending/studio-plugins-guide.md) |
 
 ## Documentation

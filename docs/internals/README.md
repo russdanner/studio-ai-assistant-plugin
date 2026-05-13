@@ -8,7 +8,7 @@ Documentation here is aimed at **maintainers**, **integrators**, and anyone debu
 |----------|----------------|
 | [**spec.md**](spec.md) | As-is product/behavior specification: terminology, TinyMCE/Helper/form control, `ui.xml` agent shapes, macros, shortcuts, autonomous widget (`autonomousAgents`), REST scripts, human tasks |
 | [**stream-endpoint-design.md**](stream-endpoint-design.md) | SSE stream (and related) contract, CrafterQ vs tool-capable LLMs on the wire, classpath notes |
-| [**chat-and-tools-runtime.md**](chat-and-tools-runtime.md) | CMS tool wiring, CrafterQ bearer/auth, API tools, expert skills, SSE/stream behavior, REST body fields, troubleshooting |
+| [**chat-and-tools-runtime.md**](chat-and-tools-runtime.md) | CMS tool wiring, CrafterQ bearer/auth, API tools, expert skills, SSE/stream behavior, REST body fields, troubleshooting, **MCP Streamable HTTP client** |
 | [**reference-spring-ai-completions-with-tools.md**](reference-spring-ai-completions-with-tools.md) | Archived Spring AI pattern reference (may diverge from current wiring) |
 
 ## Debug logging
