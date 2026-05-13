@@ -6,7 +6,7 @@ Configure or extend the plugin **without** changing core sources unless you are 
 
 | Document | What it covers |
 |----------|----------------|
-| [configuration-guide.md](configuration-guide.md) | **Operators — start here** — `ui.xml`, plugin id, agents, keys, TinyMCE vs Helper vs form vs autonomous; **§9** prompts / `tools.json` / scripts / MCP |
+| [configuration-guide.md](configuration-guide.md) | **Operators — start here** — **Basic:** `ui.xml`, plugin id, agents, keys, TinyMCE, form, autonomous checklist (§1–§8). **Advanced:** [site scripts](configuration-guide.md#cg-adv) — prompts, `tools.json`, MCP, user tools, script LLM. |
 | [installation.md](installation.md) | Install from Studio UI, CLI, Marketplace API, **`install-plugin.sh`**, build-before-install |
 | [tinymce-integration.md](tinymce-integration.md) | TinyMCE **`tinymceOptions`**, toolbar ids, **`craftercms_aiassistant`** config |
 | [helper-widget.md](helper-widget.md) | Helper **`ui.xml`** snippet and “component not found” checklist |

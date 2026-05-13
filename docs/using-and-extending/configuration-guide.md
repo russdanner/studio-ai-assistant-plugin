@@ -2,9 +2,11 @@
 
 **Audience:** Studio admins and site builders who need the assistant to **appear**, **authenticate**, and **behave** as intended—without reading the full implementation spec first.
 
-**Related docs:** [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. [spec.md](../internals/spec.md) for **`ui.xml`** and widget contracts, macros, form vs preview, and autonomous REST. Optional hosted SaaS HTTP (bearer, chat audit tools) is covered in [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when you opt in on a tool-capable agent. **Site overrides** for prompts, built‑in tool policy, scripted tools, image backends, and MCP: [§9 Advanced configuration](#cg-9).
+**Related docs:** [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. [spec.md](../internals/spec.md) for **`ui.xml`** and widget contracts, macros, form vs preview, and autonomous REST. Optional hosted SaaS HTTP (bearer, chat audit tools) is covered in [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when you opt in on a tool-capable agent. **Site overrides** for prompts, built‑in tool policy, scripted tools, image backends, and MCP: [Advanced configuration](#cg-adv).
 
 ## Table of contents
+
+**[Basic configuration](#cg-basic)** — `ui.xml` + forms: Helper / Tools Panel / Preview / Autonomous placement, **`plugin`** line, **`<agents>`**, secrets, form pipeline, checklist, TinyMCE (**§1–§8**).
 
 | § | Topic |
 |---|--------|
@@ -16,14 +18,31 @@
 | [6](#cg-6) | Autonomous assistants (overview) |
 | [7](#cg-7) | Checklist before support |
 | [8](#cg-8) | TinyMCE (rich text editor) |
-| [9](#cg-9) | Advanced — [9.1 Prompts](#cg-9-1) · [9.2 Stock tools](#cg-9-2) · [9.3 Scripts / imagegen / LLM](#cg-9-3) · [9.4 MCP](#cg-9-4) |
-| [10](#cg-10) | Where to go next |
+
+**[Advanced configuration](#cg-adv)** — Site Git scripts under `config/studio/scripts/aiassistant/…`: Markdown prompts, **`tools.json`**, user tools, script image backends, script LLMs, MCP.
+
+| § | Topic |
+|---|--------|
+| [9.1](#cg-9-1) | Override tool / system prompt text (`prompts/*.md`) |
+| [9.2](#cg-9-2) | Enable / disable stock (built‑in) tools |
+| [9.3](#cg-9-3) | Scripted tools, script LLMs, image generators |
+| [9.4](#cg-9-4) | MCP servers (optional remote tools) |
+
+**[Where to go next](#cg-10)** — Links to [llm-configuration.md](llm-configuration.md), [spec.md](../internals/spec.md), and the rest of this doc set.
+
+---
+
+<a id="cg-basic"></a>
+
+## Basic configuration
+
+Typical authoring setup is **`config/studio/ui.xml`** plus content-type form definitions: register the Helper (and optional Autonomous), use one consistent **`plugin`** line, define **`<agents>`**, supply keys, wire TinyMCE, then validate with the checklist. **§1–§8** below are the subsections in reading order.
 
 ---
 
 <a id="cg-1"></a>
 
-## 1. What you are configuring
+### 1. What you are configuring
 
 | Goal | Typical touchpoints |
 |------|---------------------|
@@ -148,7 +167,7 @@ Full sample (including optional SVG icon): [examples/studio-ui-aiassistant-fragm
 
 <a id="cg-2"></a>
 
-## 2. Helper, Autonomous, and toolbar widgets: `plugin` element
+### 2. Helper, Autonomous, and toolbar widgets: `plugin` element
 
 Studio resolves the **JavaScript bundle** from the **`plugin`** child on each widget that mounts this plugin (Helper, AutonomousAssistants, and any **Experience Builder preview toolbar** entry that uses the same pattern). Use the same values everywhere so Studio loads **`index.js`** from the installed plugin.
 
@@ -173,7 +192,7 @@ If the id or `file` path is wrong, Studio shows **component not found** or **404
 
 <a id="cg-3"></a>
 
-## 3. Agents (`<agents>` / `<agent>`)
+### 3. Agents (`<agents>` / `<agent>`)
 
 Each **agent** is one row in the Helper menu (or one accordion row on the form assistant). Per agent you normally set:
 
@@ -208,7 +227,7 @@ Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concu
 
 <a id="cg-4"></a>
 
-## 4. Secrets and API keys (recommended order)
+### 4. Secrets and API keys (recommended order)
 
 1. **Studio host environment variables** — Preferred for production API keys and base URLs. Provider names and variables are listed in [llm-configuration.md](llm-configuration.md).
 2. **Per‑agent `ui.xml` / widget JSON** — e.g. `<openAiApiKey>`: **testing only**; discouraged in Git‑tracked sites. Precedence vs host env is described in [chat-and-tools-runtime.md § OpenAI API key](../internals/chat-and-tools-runtime.md#openai-api-key-server-side).
@@ -234,7 +253,7 @@ Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concu
 
 <a id="cg-5"></a>
 
-## 5. Form Engine control
+### 5. Form Engine control
 
 The AI Assistant **form control** reads agent definitions from the same **`/ui.xml`** agent collection as the Helper (by stable id). Changing only the Helper widget JSON in Studio UI without updating **`/config/studio/ui.xml`** can leave the form panel out of sync—see the form pipeline notes in [studio-plugins-guide.md](studio-plugins-guide.md) and the frozen rules in `.cursor/rules/crafterq-form-panel-contract.mdc` (repo root).
 
@@ -242,7 +261,7 @@ The AI Assistant **form control** reads agent definitions from the same **`/ui.x
 
 <a id="cg-6"></a>
 
-## 6. Autonomous assistants (optional)
+### 6. Autonomous assistants (optional)
 
 Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑memory state. Not a substitute for interactive chat configuration: you still define **`llm`**, **`llmModel`**, schedules, scopes, and human‑task behavior per [spec.md — Autonomous assistants widget](../internals/spec.md#autonomous-assistants-widget-tools-panel).
 
@@ -250,7 +269,7 @@ Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑
 
 <a id="cg-7"></a>
 
-## 7. Checklist before opening a support thread
+### 7. Checklist before opening a support thread
 
 - [ ] Plugin installed for the **site** (Marketplace or `copy-plugin` / `install-plugin.sh`); **`org.craftercms.aiassistant.studio`** appears in Plugin Management.
 - [ ] **`ui.xml`** committed; Studio **Sync** performed if you rely on git‑backed sandbox.
@@ -263,7 +282,7 @@ Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑
 
 <a id="cg-8"></a>
 
-## 8. TinyMCE (rich text editor)
+### 8. TinyMCE (rich text editor)
 
 **File:** **`config/studio/ui.xml`**
 
@@ -296,11 +315,11 @@ Full toolbar list and keys: [tinymce-integration.md](tinymce-integration.md).
 
 ---
 
-<a id="cg-9"></a>
+<a id="cg-adv"></a><a id="cg-9"></a>
 
-## 9. Advanced configuration (prompts, tools, scripts, MCP)
+## Advanced configuration (prompts, tools, scripts, MCP)
 
-All paths below are under the **site** Git sandbox (`config/studio/scripts/aiassistant/…`). Commit changes and refresh Studio configuration as you do for other site scripts.
+All paths in this section are under the **site** Git sandbox (`config/studio/scripts/aiassistant/…`). Commit changes and refresh Studio configuration as you do for other site scripts.
 
 <a id="cg-9-1"></a>
 
