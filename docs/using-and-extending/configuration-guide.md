@@ -1,6 +1,6 @@
 # Configuration guide — AI Assistant for Crafter Studio
 
-**Audience:** Studio admins and site builders who need the assistant to **appear**, **authenticate**, and **behave** as intended—without reading the full implementation spec first.
+**Audience:** **Crafter Studio administrators** responsible for installing and configuring the assistant and its **tools** for authors—`ui.xml` widgets, agents, credentials, form/TinyMCE wiring, and optional site-script overrides—without reading the full implementation spec first.
 
 **Related docs:** [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. [spec.md](../internals/spec.md) for **`ui.xml`** and widget contracts, macros, form vs preview, and autonomous REST. Optional hosted SaaS HTTP (bearer, chat audit tools) is covered in [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when you opt in on a tool-capable agent. **Site overrides** for prompts, built‑in tool policy, scripted tools, image backends, and MCP: [Advanced configuration](#cg-adv).
 
