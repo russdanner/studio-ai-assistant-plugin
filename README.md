@@ -18,7 +18,7 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 |------|------------|-------|
 | **Site setup** | Agents, `ui.xml`, keys, Experience Builder, forms, TinyMCE | [Configuration guide](docs/using-and-extending/configuration-guide.md) |
 | **LLMs** | OpenAI, Anthropic, XAI, Ollama, Deepseek, scriptable (**`script:{id}`**) | [LLM configuration](docs/using-and-extending/llm-configuration.md) |
-| **Image generation** | OpenAI, scriptable (**`script:{id}`**) | [Image generation](docs/using-and-extending/image-generation.md) |
+| **Image generation** | OpenAI, scriptable (**`script:{id}`**) | [Image generation](docs/using-and-extending/image-generation.md) · [Scripted tools & imagegen](docs/using-and-extending/scripted-tools-and-imagegen.md) |
 | **Tools** | CMS / HTTP / optional hosted SaaS API tools / scriptable user tools; optional **MCP** (`mcpEnabled` + `mcpServers` in `tools.json`) | [Chat & tools runtime](docs/internals/chat-and-tools-runtime.md#mcp-client-tools-streamable-http) |
 | **Core Config overrides** | **`tools.json`** (built-in allow/deny), **`prompts/*.md`**, same sandbox layout as script LLMs | [Studio plugins guide](docs/using-and-extending/studio-plugins-guide.md) |
 
@@ -30,11 +30,13 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 | **Install or deploy the plugin** | [Installation](docs/using-and-extending/installation.md) |
 | **LLM ids, secrets, env + `ui.xml`** | [LLM configuration](docs/using-and-extending/llm-configuration.md) |
 | **JVM-only tuning (`-D` properties)** | [Studio AI assistant JVM parameters](docs/using-and-extending/studio-aiassistant-jvm-parameters.md) |
+| **Integrators — Groovy `user-tools/` + `imagegen/`** | [Scripted tools & imagegen](docs/using-and-extending/scripted-tools-and-imagegen.md) |
 | **Image backends & overrides** | [Image generation](docs/using-and-extending/image-generation.md) |
 | **TinyMCE toolbar & JSON** | [TinyMCE integration](docs/using-and-extending/tinymce-integration.md) |
 | **Autonomous widget overview** | [Autonomous assistants widget](docs/using-and-extending/autonomous-assistants-widget.md) |
 | **Helper widget snippet & troubleshooting** | [Helper widget](docs/using-and-extending/helper-widget.md) |
 | **Build paths, Rollup, `user-tools/`, script LLM paths** | [Studio plugins guide](docs/using-and-extending/studio-plugins-guide.md) |
+| **Official requirements & build specification** | [spec.md](docs/internals/spec.md) · [Studio plugins guide](docs/using-and-extending/studio-plugins-guide.md) |
 | **Behavior spec, streaming, runtime** | [Internals index](docs/internals/README.md) |
 | **Contributing (clone, build, policy, spec updates)** | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | **Full doc index** | [docs/README.md](docs/README.md) |

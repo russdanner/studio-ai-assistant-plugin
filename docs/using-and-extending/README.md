@@ -1,6 +1,6 @@
 # Using the AI Assistant & developing extensions
 
-Configure or extend the plugin **without** changing core sources unless you are developing the plugin itself.
+Configure or extend the plugin **without** changing core sources unless you are developing the plugin itself. **Official product requirements & mechanics** for implementers: **[`../internals/spec.md`](../internals/spec.md)** (with **[`studio-plugins-guide.md`](studio-plugins-guide.md)** for build invariants).
 
 ## Guides (table)
 
@@ -14,6 +14,7 @@ Configure or extend the plugin **without** changing core sources unless you are 
 | [llm-configuration.md](llm-configuration.md) | **`<llm>`** — **OpenAI-wire / Claude / `script:` first**; env + `ui.xml`; optional hosted-only adapter; **`script:{id}`** |
 | [studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md) | **JVM-only** `-D` / `System.getProperty` tuning (timeouts, fetch/MCP caps, key fallbacks) |
 | [image-generation.md](image-generation.md) | **Pluggable `GenerateImage`** — wire vs **`script:{id}`**, **`imageGenerator`** / **`imageModel`**, site overrides |
+| [scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md) | **Integrators** — **`InvokeSiteUserTool`** + **`imagegen/{id}/generate.groovy`**: bindings, contracts, examples, checklists |
 | [studio-plugins-guide.md](studio-plugins-guide.md) | Descriptor, paths, Rollup, auth; **`user-tools/`**; **`imagegen/`**; **`tools.json`**; **`prompts/`**; script LLM paths |
 
 ## Internals

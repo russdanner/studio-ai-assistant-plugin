@@ -1,10 +1,12 @@
 # Chat, CMS tools, and runtime behavior
 
+**What this is:** Official companion to **[`spec.md`](spec.md)** for tools, REST bodies, CrafterQ/SaaS HTTP, MCP, and runtime troubleshooting contracts. When those behaviors change, update **this file** and the relevant **`spec.md`** sections.
+
 **Audience:** Maintainers and advanced operators debugging **tools**, **SSE**, **optional hosted SaaS identity**, or **Studio integration** — not the primary “which `<llm>` do I pick?” reference.
 
 **LLM ids, keys, and provider behavior:** [llm-configuration.md](../using-and-extending/llm-configuration.md)  
 **Operator checklist and `ui.xml` surfaces:** [configuration-guide.md](../using-and-extending/configuration-guide.md)  
-**Product contract (macros, form vs preview, REST):** [spec.md](spec.md)
+**Product requirements & mechanics (parent spec):** [spec.md](spec.md)
 
 ---
 

@@ -1,9 +1,11 @@
 # Supported LLMs (`<llm>`) — ids, configuration, behavior
 
+**What this is:** Official specification for **`<llm>`** identifiers, env/XML keys, merge rules, and the provider capability matrix. Parent product requirements: **[`spec.md`](../internals/spec.md)** — keep **this file** and **`spec.md`** aligned when those contracts change together.
+
 **For site operators:** [configuration-guide.md](configuration-guide.md)  
 **For CMS tools, SSE, optional hosted SaaS API identity, and troubleshooting:** [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md)  
 **For script LLMs and `user-tools/`:** [studio-plugins-guide.md](studio-plugins-guide.md)  
-**For pluggable image backends (`imageGenerator`, `imagegen/` scripts, site overrides):** [image-generation.md](image-generation.md)  
+**For pluggable image backends (`imageGenerator`, `imagegen/` scripts, site overrides):** [image-generation.md](image-generation.md) · **Integrators:** [scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md) (Groovy closure, `context` map, return shape)  
 **For `ui.xml` contracts, macros, and REST:** [spec.md](../internals/spec.md) · **Doc index:** [README.md](../README.md)
 
 ---

@@ -1,5 +1,7 @@
 # Crafter Studio Plugin Build & Install — Developer's Guide
 
+**What this is:** This guide is part of the **official build specification** for this plugin, alongside **[`docs/internals/spec.md`](../internals/spec.md)** (product requirements & mechanics). Invariants here (paths, `yarn package`, descriptor/plugin id rules, what must not be hand-edited under `authoring/`) are **required**; when the build or packaging story changes, update **this file** and, if author-visible or install semantics change, **`spec.md`** as well.
+
 **Scope:** Build, install, and site-level extensions such as **`user-tools/`** and script LLMs. For behavior contracts and autonomous REST, see [spec.md](../internals/spec.md). Doc index: [README.md](../README.md).
 
 This guide captures what you need to build, package, and install Crafter Studio (site) plugins so they load correctly in Studio and in the preview toolbar. Use it as a reference when creating or debugging plugins. For **Crafter Studio 4.x**-specific UI integration (preview **`reloadRequest`**, host/guest buses) and **in-process services** (v1 vs v2 content APIs, **`DeploymentService.deploy`**, **`revertContentItem`**, security context on async threads), see **§7** and **§8**.
@@ -19,10 +21,6 @@ Use it to:
 - **Keep code consistent** — Follow the same patterns for UI components, config, and plugin integration.
 
 Your plugin depends on `@craftercms/studio-ui`; inspecting this branch helps when adding features or debugging integration.
-
-### Cursor rules, project skills, and AI policy (this plugin repo)
-
-Maintainer-facing behavior for agents is defined under **`.cursor/`** and summarized in **`docs/CURSOR_PROJECT_POLICY.md`**. That document lists project **rules** (`.cursor/rules/*.mdc`) and the **project skill** (`.cursor/skills/crafterq-studio-plugin/SKILL.md`). **When you add or change a rule or skill, update `CURSOR_PROJECT_POLICY.md`** so in-repo docs stay aligned with what is stored locally.
 
 ---
 
@@ -421,6 +419,8 @@ docs/examples/aiassistant-user-tools/
 Copy `registry.json` and `hello.groovy` into the site sandbox folder above, commit, and refresh Studio configuration if needed. After that, **`InvokeSiteUserTool`** appears for agents with tools enabled; the model can call `toolId: "hello"` and optional `args: { "name": "Team" }`.
 
 **Security note:** Anyone who can commit to `config/studio/scripts/aiassistant/user-tools/` can run arbitrary Groovy in the Studio JVM with the author’s security context. Treat that path like production code access.
+
+**Consolidated integrator guide** (user-tool bindings vs script **`generate.groovy`**, `GenerateImage` return maps, checklists): **[scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md)**.
 
 
 ### Calling Crafter Studio services in-process from Groovy (preferred for “tools”)

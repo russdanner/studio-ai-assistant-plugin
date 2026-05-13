@@ -1,6 +1,21 @@
-## AI Assistant — Crafter Studio Plugin Spec (As-Is)
+## AI Assistant — Crafter Studio Plugin Specification
 
-**Internals** — detailed contracts and surfaces for maintainers. **Configuration & LLM keys:** [llm-configuration.md](../using-and-extending/llm-configuration.md). **Doc index:** [README.md](../README.md).
+**What this is:** **`docs/internals/spec.md`** is the **official product requirements and mechanics specification** for this repository. Behavior authors and integrators rely on (surfaces, `ui.xml` contracts, form pipeline, stream semantics, autonomous semantics, REST shapes described here) is **required** to match this document unless the change is an intentional product revision **and** this file (or the companion listed below that owns the same concern) is updated in lockstep. The implementation in **`sources/`**, **`sources/control/`**, **`authoring/scripts/`**, and install descriptors **must** conform to the specification; when code evolves, **update the spec in the same merge** or in an immediately following PR explicitly linked from the code PR description.
+
+**Companion specifications** (official for their topics; keep them aligned when you touch the same behavior):
+
+| Document | Owns |
+|----------|------|
+| [stream-endpoint-design.md](stream-endpoint-design.md) | SSE/stream wire behavior and related server contracts |
+| [chat-and-tools-runtime.md](chat-and-tools-runtime.md) | Tool catalog, REST request/response fields, CrafterQ/SaaS HTTP, MCP client, operational troubleshooting contracts |
+| [../using-and-extending/studio-plugins-guide.md](../using-and-extending/studio-plugins-guide.md) | **Build & install**: `yarn package`, Rollup outputs, canonical source paths vs generated `authoring/` paths, plugin id / descriptor invariants |
+| [../using-and-extending/llm-configuration.md](../using-and-extending/llm-configuration.md) | **`<llm>`** identifiers, env + XML configuration, provider capability matrix, merge rules |
+
+**Scope:** Operator-only “how to turn it on in a site” procedures live in **[configuration-guide.md](../using-and-extending/configuration-guide.md)**. JVM **`-D`** flags live in **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**. This **`spec.md`** must still record any **new** author-visible, wire-level, or cross-surface contract when it ships, even when details are duplicated or deep-linked in a companion doc.
+
+**Review rule:** Code changes that alter documented behavior without updating **`spec.md`** / the relevant companion should be **blocked in review** unless the PR states a doc-only follow-up with a tracked issue (use sparingly—prefer same-merge updates).
+
+**Audience:** Maintainers and advanced integrators. **Configuration & LLM keys:** [llm-configuration.md](../using-and-extending/llm-configuration.md). **Doc index:** [README.md](../README.md).
 
 ### Terminology (product vs integrations)
 
@@ -24,8 +39,6 @@ The UI uses a combination of:
 
 - **Crafter Studio UI** (`@craftercms/studio-ui`) components (e.g., `DialogHeader`, `MinimizedBar`), and
 - **Material UI** (`@mui/*`) primitives and icons.
-
-**Maintainer / agent policy:** Cursor rules and the project skill for this repo are listed in [CURSOR_PROJECT_POLICY.md](../CURSOR_PROJECT_POLICY.md). Update that file when `.cursor/rules/` or `.cursor/skills/` changes.
 
 ### Code Locations (Source vs Built)
 

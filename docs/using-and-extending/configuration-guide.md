@@ -2,7 +2,7 @@
 
 **Audience:** **Crafter Studio administrators** responsible for installing and configuring the assistant and its **tools** for authors—`ui.xml` widgets, agents, credentials, form/TinyMCE wiring, and optional site-script overrides—without reading the full implementation spec first.
 
-**Related docs:** [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. [spec.md](../internals/spec.md) for **`ui.xml`** and widget contracts, macros, form vs preview, and autonomous REST. Optional hosted SaaS HTTP (bearer, chat audit tools) is covered in [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when you opt in on a tool-capable agent. **Site overrides** for prompts, built‑in tool policy, scripted tools, image backends, and MCP: [Advanced configuration](#cg-adv).
+**Related docs:** **Official product specification:** [spec.md](../internals/spec.md) — requirements & mechanics for surfaces, `ui.xml`, form vs preview, macros, autonomous REST (update **`spec.md`** when those contracts change). [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. **[scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md)** — **Integrators:** Groovy **`InvokeSiteUserTool`** / **`script:{id}`** image backends (bindings, examples, return shapes); this guide **§9.3** is the short overview. Optional hosted SaaS HTTP (bearer, chat audit tools): [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md). **Site overrides** for prompts, built‑in tool policy, scripted tools, image backends, and MCP: [Advanced configuration](#cg-adv).
 
 ## Table of contents
 
@@ -255,7 +255,7 @@ Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concu
 
 ### 5. Form Engine control
 
-The AI Assistant **form control** reads agent definitions from the same **`/ui.xml`** agent collection as the Helper (by stable id). Changing only the Helper widget JSON in Studio UI without updating **`/config/studio/ui.xml`** can leave the form panel out of sync—see the form pipeline notes in [studio-plugins-guide.md](studio-plugins-guide.md) and the frozen rules in `.cursor/rules/crafterq-form-panel-contract.mdc` (repo root).
+The AI Assistant **form control** reads agent definitions from the same **`/ui.xml`** agent collection as the Helper (by stable id). Changing only the Helper widget JSON in Studio UI without updating **`/config/studio/ui.xml`** can leave the form panel out of sync—see the form pipeline and locked panel behavior in [studio-plugins-guide.md](studio-plugins-guide.md) (**Form assistant panel**) and [spec.md](../internals/spec.md) (content-type form assistant).
 
 ---
 
@@ -445,7 +445,7 @@ Per-request **`omitTools`** / agent **`<enableTools>false</enableTools>`** still
 | **Script LLM** | **`config/studio/scripts/aiassistant/llm/{id}/runtime.groovy`** (or `llm.groovy`) | Agent **`<llm>script:{id}</llm>`** — see [llm-configuration.md](llm-configuration.md) and [studio-plugins-guide.md](studio-plugins-guide.md). |
 | **Script image backend** | **`config/studio/scripts/aiassistant/imagegen/{id}/generate.groovy`** | Agent or POST **`imageGenerator`** = **`script:{id}`**. **`none`** / **`off`** / **`disabled`** removes **GenerateImage**. Blank + keys + **`imageModel`** uses the default OpenAI‑compatible Images wire. |
 
-Copy‑paste starter: **`docs/examples/aiassistant-user-tools/`**. Image pipeline details: [image-generation.md](image-generation.md). Build / classpath / security notes: [studio-plugins-guide.md](studio-plugins-guide.md) (**user-tools**, **imagegen**, **tools.json**).
+Copy‑paste starter: **`docs/examples/aiassistant-user-tools/`**. **Interfaces, bindings, return maps, and setup checklists** (integrators): **[scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md)**. When **`GenerateImage`** uses the default HTTP wire vs **`script:{id}`**: [image-generation.md](image-generation.md). Build / classpath / security: [studio-plugins-guide.md](studio-plugins-guide.md) (**user-tools**, **imagegen**, **tools.json**).
 
 **Example — `registry.json` + Groovy file** (same folder: `config/studio/scripts/aiassistant/user-tools/`):
 
@@ -476,7 +476,7 @@ Copy‑paste starter: **`docs/examples/aiassistant-user-tools/`**. Image pipelin
         <imageGenerator>script:mygen</imageGenerator>
 ```
 
-Implement **`config/studio/scripts/aiassistant/imagegen/mygen/generate.groovy`** per [image-generation.md](image-generation.md).
+Implement **`config/studio/scripts/aiassistant/imagegen/mygen/generate.groovy`** per **[scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md)** (closure contract, **`context`** map) and [image-generation.md](image-generation.md) (registration rules).
 
 **Example — script LLM agent** (still in **`ui.xml`**):
 
@@ -530,6 +530,7 @@ Full behavior, lifecycle, and limits: [chat-and-tools-runtime.md § MCP client t
 | Topic | Document |
 |-------|-----------|
 | Full `<llm>` matrix, env + XML, tool availability | [llm-configuration.md](llm-configuration.md) |
+| **`InvokeSiteUserTool`** + **`script:{id}`** image Groovy (integrators; bindings, examples) | [scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md) |
 | Build, install, classpath, `user-tools/`, script LLM | [studio-plugins-guide.md](studio-plugins-guide.md) |
 | Macros, `omitTools`, ICE vs form engine, REST paths, human tasks | [spec.md](../internals/spec.md) |
 | SSE / stream endpoint design | [stream-endpoint-design.md](../internals/stream-endpoint-design.md) |

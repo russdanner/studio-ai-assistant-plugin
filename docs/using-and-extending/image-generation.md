@@ -2,6 +2,8 @@
 
 The **GenerateImage** tool is not hard-wired to a single vendor. The server picks a backend from the agent / request and site scripts.
 
+**Integrator guide** (script `generate.groovy` closure, `context` map, return shape, **`InvokeSiteUserTool`**): [scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md)
+
 ## Options (summary)
 
 | Mechanism | When it applies |

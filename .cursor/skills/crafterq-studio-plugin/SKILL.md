@@ -19,10 +19,11 @@ Use this skill when editing **this repo**: `plugin-studio-crafterq` — Studio p
    - **`crafterq-form-panel-contract.mdc`** — Form Engine assistant: agent visibility from `config.properties`, accordion-style panel in `AiAssistantFormControlPanel.tsx`, sync `sources/control/ai-assistant/main.js` copies, `yarn package` after TS or React changes.
    - **`no-unauthorized-ui-changes.mdc`** — Do not change visible UI or UX or interaction unless the user explicitly requests it in the same task; feature work defaults to wiring, API, server, types, and build only.
 
-2. **`docs/CURSOR_PROJECT_POLICY.md`** — Manifest of Cursor artifacts in this repo. **When adding or changing a rule or skill, update that doc** so it stays accurate.
+2. **`.cursor/skills/`** — Other Cursor skills for this repo. Prefer extending **this** skill when guidance applies repo-wide.
 
 ## Documentation map
 
+- **`docs/internals/spec.md`** — **Official** product requirements & mechanics; update when behavior or contracts change.
 - **`docs/README.md`** — Index: **using & extending** vs **internals**.
 - **`docs/using-and-extending/configuration-guide.md`** — Operators: `ui.xml` surfaces, plugin id, agents, keys checklist.
 - **`docs/using-and-extending/`** — **`llm-configuration.md`**, **`studio-plugins-guide.md`**, **`README.md`** (install, `user-tools/`, script LLM paths).
@@ -33,7 +34,7 @@ Use this skill when editing **this repo**: `plugin-studio-crafterq` — Studio p
 - **Form control `main.js`:** Edit **`sources/control/ai-assistant/main.js` only**. Rollup **`yarn package`** copies it into **`authoring/static-assets/plugins/.../studio/control/ai-assistant/main.js`**. Editing only the `authoring/...` copy is overwritten on the next package — that pattern makes fixes “disappear.”
 - After TS/React changes: run **`yarn package`** from **`sources/`**; do not hand-edit **`authoring/.../aiassistant/components/index.js`** (generated bundle).
 - After edits to `sources/src` form or chat bundle: run **`yarn package`** from `sources/`.
-- If behavior or API visible to authors changes: update **`docs/internals/spec.md`** (and **`README.md`** / **`docs/using-and-extending/studio-plugins-guide.md`** when install or `ui.xml` contracts change; **`docs/CURSOR_PROJECT_POLICY.md`** or this skill if policy or rules changed).
+- If behavior or API visible to authors changes: update **`docs/internals/spec.md`** (and **`README.md`** / **`docs/using-and-extending/studio-plugins-guide.md`** when install or `ui.xml` contracts change; **this skill** or **`.cursor/rules/`** when contributor-only policy changes).
 
 ## Do not
 
