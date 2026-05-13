@@ -2,9 +2,26 @@
 
 **Audience:** Studio admins and site builders who need the assistant to **appear**, **authenticate**, and **behave** as intended—without reading the full implementation spec first.
 
-**Related docs:** [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. [spec.md](../internals/spec.md) for **`ui.xml`** and widget contracts, macros, form vs preview, and autonomous REST. Optional hosted SaaS HTTP (bearer, chat audit tools) is covered in [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when you opt in on a tool-capable agent. **Site overrides** for prompts, built‑in tool policy, scripted tools, image backends, and MCP: **§9** below.
+**Related docs:** [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. [spec.md](../internals/spec.md) for **`ui.xml`** and widget contracts, macros, form vs preview, and autonomous REST. Optional hosted SaaS HTTP (bearer, chat audit tools) is covered in [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when you opt in on a tool-capable agent. **Site overrides** for prompts, built‑in tool policy, scripted tools, image backends, and MCP: [§9 Advanced configuration](#cg-9).
+
+## Table of contents
+
+| § | Topic |
+|---|--------|
+| [1](#cg-1) | What you are configuring — goals; [where XML goes](#cg-1-xml) ([A](#cg-1a) Preview toolbar · [B](#cg-1b) Tools Panel · [C](#cg-1c) Form · [D](#cg-1d) Autonomous) |
+| [2](#cg-2) | Helper / Autonomous / toolbar — **`plugin`** element |
+| [3](#cg-3) | Agents (`<agents>` / `<agent>`) |
+| [4](#cg-4) | Secrets and API keys |
+| [5](#cg-5) | Form Engine control |
+| [6](#cg-6) | Autonomous assistants (overview) |
+| [7](#cg-7) | Checklist before support |
+| [8](#cg-8) | TinyMCE (rich text editor) |
+| [9](#cg-9) | Advanced — [9.1 Prompts](#cg-9-1) · [9.2 Stock tools](#cg-9-2) · [9.3 Scripts / imagegen / LLM](#cg-9-3) · [9.4 MCP](#cg-9-4) |
+| [10](#cg-10) | Where to go next |
 
 ---
+
+<a id="cg-1"></a>
 
 ## 1. What you are configuring
 
@@ -17,6 +34,8 @@
 
 Commit **`config/studio/ui.xml`** (and any content-type changes) to the site sandbox so Studio and other authors load the same configuration.
 
+<a id="cg-1-xml"></a>
+
 ### Where to put XML (file + parent elements)
 
 | What | File on disk (site Git sandbox) | Where inside the file |
@@ -27,6 +46,8 @@ Commit **`config/studio/ui.xml`** (and any content-type changes) to the site san
 | **TinyMCE** | **`config/studio/ui.xml`** | Under **`craftercms.components.TinyMCE`** → **`configuration`** → **`setups`** → **`setup`** → **`tinymceOptions`** (JSON). See **§8**. |
 
 ---
+
+<a id="cg-1a"></a>
 
 #### A) Experience Builder — Preview Toolbar
 
@@ -55,6 +76,8 @@ Longer copy-paste blocks (Tools Panel + Preview + Autonomous together): [example
 
 ---
 
+<a id="cg-1b"></a>
+
 #### B) Studio Tools Panel (left rail)
 
 **Locate:** **`craftercms.components.ToolsPanel`** → **`configuration`** → **`widgets`**.
@@ -79,6 +102,8 @@ Longer copy-paste blocks (Tools Panel + Preview + Autonomous together): [example
 
 ---
 
+<a id="cg-1c"></a>
+
 #### C) Content type form (AI Assistant field)
 
 **Locate:** `config/studio/content-types/<content-type-id>/form-definition.xml` — inside the **`<fields>`** collection for the section where you want the accordion.
@@ -88,6 +113,8 @@ Longer copy-paste blocks (Tools Panel + Preview + Autonomous together): [example
 Agent rows still come from **`config/studio/ui.xml`** **`<agents>`** (same stable ids as the Helper). Do not define agents only in the form field.
 
 ---
+
+<a id="cg-1d"></a>
 
 #### D) Autonomous assistants (Tools Panel only)
 
@@ -119,6 +146,8 @@ Full sample (including optional SVG icon): [examples/studio-ui-aiassistant-fragm
 
 ---
 
+<a id="cg-2"></a>
+
 ## 2. Helper, Autonomous, and toolbar widgets: `plugin` element
 
 Studio resolves the **JavaScript bundle** from the **`plugin`** child on each widget that mounts this plugin (Helper, AutonomousAssistants, and any **Experience Builder preview toolbar** entry that uses the same pattern). Use the same values everywhere so Studio loads **`index.js`** from the installed plugin.
@@ -141,6 +170,8 @@ Full **Experience Builder + Tools Panel + Autonomous** examples: [examples/studi
 If the id or `file` path is wrong, Studio shows **component not found** or **404** on `index.js`. Install path, classpath, and toolbar wiring are covered in [studio-plugins-guide.md](studio-plugins-guide.md); widget XML contract in [spec.md § Helper widget](../internals/spec.md#helper-widget-studio-ui).
 
 ---
+
+<a id="cg-3"></a>
 
 ## 3. Agents (`<agents>` / `<agent>`)
 
@@ -175,6 +206,8 @@ Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concu
 
 ---
 
+<a id="cg-4"></a>
+
 ## 4. Secrets and API keys (recommended order)
 
 1. **Studio host environment variables** — Preferred for production API keys and base URLs. Provider names and variables are listed in [llm-configuration.md](llm-configuration.md).
@@ -183,7 +216,23 @@ Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concu
 
 **Optional — hosted SaaS HTTP** — If authors use hosted SaaS in the widget (`X-CrafterQ-Chat-User`) and/or you configure **`crafterQBearerTokenEnv`** / **`crafterQBearerToken`** for server‑to‑SaaS `Authorization`, see [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when debugging 401s on list/get chat tools.
 
+**Example — read the bearer JWT from a Studio host env var** (set `CRAFTQ_ADMIN_JWT` in the Studio process environment; do not commit secrets in `ui.xml`):
+
+```xml
+              <agent>
+                <label>Hosted + API tools</label>
+                <llm>openAI</llm>
+                <llmModel>gpt-4o-mini</llmModel>
+                <crafterQAgentId>019c7237-478b-7f98-9a5c-87144c3fb010</crafterQAgentId>
+                <crafterQBearerTokenEnv>CRAFTQ_ADMIN_JWT</crafterQBearerTokenEnv>
+              </agent>
+```
+
+**Testing-only literal** (discouraged in Git): use **`<crafterQBearerToken>`** instead of **`<crafterQBearerTokenEnv>`** — see [llm-configuration.md](llm-configuration.md) and [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md).
+
 ---
+
+<a id="cg-5"></a>
 
 ## 5. Form Engine control
 
@@ -191,11 +240,15 @@ The AI Assistant **form control** reads agent definitions from the same **`/ui.x
 
 ---
 
+<a id="cg-6"></a>
+
 ## 6. Autonomous assistants (optional)
 
 Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑memory state. Not a substitute for interactive chat configuration: you still define **`llm`**, **`llmModel`**, schedules, scopes, and human‑task behavior per [spec.md — Autonomous assistants widget](../internals/spec.md#autonomous-assistants-widget-tools-panel).
 
 ---
+
+<a id="cg-7"></a>
 
 ## 7. Checklist before opening a support thread
 
@@ -207,6 +260,8 @@ Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑
 - [ ] If you use **`llm` `crafterQ`**: valid **`crafterQAgentId`** and (if needed) identity / bearer as in [llm-configuration.md](llm-configuration.md).
 
 ---
+
+<a id="cg-8"></a>
 
 ## 8. TinyMCE (rich text editor)
 
@@ -241,9 +296,13 @@ Full toolbar list and keys: [tinymce-integration.md](tinymce-integration.md).
 
 ---
 
+<a id="cg-9"></a>
+
 ## 9. Advanced configuration (prompts, tools, scripts, MCP)
 
 All paths below are under the **site** Git sandbox (`config/studio/scripts/aiassistant/…`). Commit changes and refresh Studio configuration as you do for other site scripts.
+
+<a id="cg-9-1"></a>
 
 ### 9.1 Override tool / system prompt text
 
@@ -263,7 +322,18 @@ config/studio/scripts/aiassistant/prompts/<KEY>.md
 
 **Finding keys:** Search **`ToolPrompts.groovy`** in this plugin repo for `p('SOME_KEY',` — the first argument is the filename stem (`SOME_KEY.md`). Large keys include authoring instructions, per‑tool **`DESC_*`** strings, and CrafterQ transcript snippets.
 
+**Example — tighten the main OpenAI authoring system prompt** (file on disk: `config/studio/scripts/aiassistant/prompts/OPENAI_AUTHORING_INSTRUCTIONS.md`):
+
+```markdown
+## OUR STUDIO POLICY (override)
+
+You are assisting CrafterCMS authors. Use CMS tools when they are on the wire. Prefer small, verifiable edits.
+(…your full replacement text; this file replaces the entire shipped default for this key…)
+```
+
 ---
+
+<a id="cg-9-2"></a>
 
 ### 9.2 Enable / disable stock (built‑in) tools
 
@@ -290,7 +360,24 @@ Per-request **`omitTools`** / agent **`<enableTools>false</enableTools>`** still
 }
 ```
 
+**Example — whitelist only read + list tools** (exact names; everything else built‑in is removed except **`InvokeSiteUserTool`** / **`mcp_*`** unless also disabled):
+
+```json
+{
+  "enabledBuiltInTools": [
+    "GetContent",
+    "ListContentTranslationScope",
+    "ListStudioContentTypes",
+    "GetContentTypeFormDefinition",
+    "ListPagesAndComponents",
+    "GetPreviewHtml"
+  ]
+}
+```
+
 ---
+
+<a id="cg-9-3"></a>
 
 ### 9.3 Scripted tools, script LLMs, and image generators
 
@@ -302,7 +389,48 @@ Per-request **`omitTools`** / agent **`<enableTools>false</enableTools>`** still
 
 Copy‑paste starter: **`docs/examples/aiassistant-user-tools/`**. Image pipeline details: [image-generation.md](image-generation.md). Build / classpath / security notes: [studio-plugins-guide.md](studio-plugins-guide.md) (**user-tools**, **imagegen**, **tools.json**).
 
+**Example — `registry.json` + Groovy file** (same folder: `config/studio/scripts/aiassistant/user-tools/`):
+
+`registry.json`:
+
+```json
+{
+  "tools": [
+    {
+      "id": "hello",
+      "script": "hello.groovy",
+      "description": "Returns a greeting; optional args.name"
+    }
+  ]
+}
+```
+
+`hello.groovy` (same directory):
+
+```groovy
+[ok: true, message: "Hello ${(args?.name ?: 'author') as String} from ${siteId}"]
+```
+
+**Example — script image backend on an agent** (in **`config/studio/ui.xml`**, inside the same `<agent>` as **`imageModel`**):
+
+```xml
+        <imageModel>gpt-image-1-mini</imageModel>
+        <imageGenerator>script:mygen</imageGenerator>
+```
+
+Implement **`config/studio/scripts/aiassistant/imagegen/mygen/generate.groovy`** per [image-generation.md](image-generation.md).
+
+**Example — script LLM agent** (still in **`ui.xml`**):
+
+```xml
+        <llm>script:mybackend</llm>
+```
+
+Implement **`config/studio/scripts/aiassistant/llm/mybackend/runtime.groovy`** per [llm-configuration.md](llm-configuration.md).
+
 ---
+
+<a id="cg-9-4"></a>
 
 ### 9.4 MCP servers (optional remote tools)
 
@@ -336,6 +464,8 @@ Each MCP tool becomes a function named roughly **`mcp_<serverId>_<toolName>`** (
 Full behavior, lifecycle, and limits: [chat-and-tools-runtime.md § MCP client tools](../internals/chat-and-tools-runtime.md#mcp-client-tools-streamable-http). JVM caps / host allowlists: [studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md).
 
 ---
+
+<a id="cg-10"></a>
 
 ## 10. Where to go next
 
