@@ -520,11 +520,42 @@ class StudioToolOperations {
   }
 
   /**
+   * Exposed for site-authored Groovy under {@code config/studio/scripts/aiassistant/user-tools/} (see {@code StudioAiUserSiteTools}).
+   * Prefer {@link StudioToolOperations} methods for repository work; use the context only when you need additional Spring beans.
+   */
+  Object crafterqStudioApplicationContext() {
+    applicationContext
+  }
+
+  /**
    * True when the Studio agent row included a non-empty {@code <crafterQAgentId>} (CrafterQ API agent id). When false,
    * {@link #consultCrafterQExpert} cannot call upstream CrafterQ and the OpenAI tool should not be registered.
    */
   boolean isCrafterqAgentIdPresent() {
     return crafterqAgentId != null && !crafterqAgentId.isEmpty()
+  }
+
+  /**
+   * CrafterQ SaaS agent UUID from the Studio agent row (stream {@code agentId} / {@code <crafterQAgentId>}) — for system prompts.
+   */
+  String crafterqApiAgentId() {
+    (crafterqAgentId ?: '').toString()
+  }
+
+  private static java.time.Instant cqParseIsoInstantUtc(String raw) {
+    String t = (raw ?: '').toString().trim()
+    if (!t) {
+      throw new IllegalArgumentException('empty date')
+    }
+    try {
+      return java.time.Instant.parse(t)
+    } catch (java.time.format.DateTimeParseException ignored) {
+      // allow date-only YYYY-MM-DD
+      if (!t.contains('T')) {
+        return java.time.LocalDate.parse(t).atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+      }
+      throw new IllegalArgumentException("Invalid ISO-8601 instant: ${t}")
+    }
   }
 
   private Object resolveRequiredBean(String name, String errorMessage) {
@@ -601,6 +632,150 @@ class StudioToolOperations {
         message: (t.message ?: t.toString()),
         hint   : 'CrafterQ API may be unavailable or the agent misconfigured. You may proceed with best-effort content using CMS tools only.'
       ]
+    }
+  }
+
+  /**
+   * Parses CrafterQ GET failures so tool JSON can steer authors (401/403 are almost always identity).
+   */
+  private static Map crafterqChatApiHttpFailureHint(Throwable t) {
+    String msg = (t?.message ?: t?.toString() ?: '').toString()
+    if (msg.contains('HTTP 401')) {
+      return [
+        httpStatus: 401,
+        authHint  :
+          'CrafterQ returned HTTP 401 (unauthorized). List/get hosted chats need CrafterQ identity on this Studio request: ' +
+          '(1) Sign into CrafterQ in the Studio AI widget so the client sends **X-CrafterQ-Chat-User** on each stream/chat POST, ' +
+          'or (2) set **crafterQBearerTokenEnv** (Studio host env var holding a JWT) or **crafterQBearerToken** on the agent / stream body ' +
+          'so the server sends **Authorization: Bearer …** to api.crafterq.ai. Studio **Authorization** is never forwarded to CrafterQ.'
+      ]
+    }
+    if (msg.contains('HTTP 403')) {
+      return [
+        httpStatus: 403,
+        authHint  :
+          'CrafterQ returned HTTP 403 (forbidden). Identity was sent but is not allowed for this agent or operation—check token scope and agent access in CrafterQ.'
+      ]
+    }
+    return [:]
+  }
+
+  /**
+   * GET {@code https://api.crafterq.ai/v1/agents/{agentId}/chats} with {@code startDate}, {@code endDate}, and optional {@code limit}.
+   * Uses the same forwarded headers as hosted chat ({@link AiHttpProxy#getJson}) — authors must have CrafterQ identity
+   * available in the Studio session (e.g. {@code X-CrafterQ-Chat-User} from the widget).
+   */
+  Map listCrafterQAgentChats(Map input) {
+    Map m = (input instanceof Map) ? (Map) input : [:]
+    String agent = (m.agentId ?: m.agent_id ?: crafterqAgentId)?.toString()?.trim()
+    if (!agent) {
+      return [
+        ok     : false,
+        tool   : 'ListCrafterQAgentChats',
+        message: 'Missing agentId (no session CrafterQ agent and none passed in tool args).'
+      ]
+    }
+    String sdRaw = (m.startDate ?: m.start_date)?.toString()?.trim()
+    String edRaw = (m.endDate ?: m.end_date)?.toString()?.trim()
+    java.time.Instant now = java.time.Instant.now()
+    java.time.Instant startI
+    java.time.Instant endI
+    if (!sdRaw && !edRaw) {
+      endI = now
+      startI = endI.minusSeconds(30L * 24 * 3600)
+    } else if (sdRaw && edRaw) {
+      startI = cqParseIsoInstantUtc(sdRaw)
+      endI = cqParseIsoInstantUtc(edRaw)
+    } else if (sdRaw) {
+      startI = cqParseIsoInstantUtc(sdRaw)
+      endI = now
+    } else {
+      endI = cqParseIsoInstantUtc(edRaw)
+      startI = endI.minusSeconds(30L * 24 * 3600)
+    }
+    if (startI.isAfter(endI)) {
+      java.time.Instant swap = startI
+      startI = endI
+      endI = swap
+    }
+    java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ISO_INSTANT
+    String startDate = fmt.format(startI)
+    String endDate = fmt.format(endI)
+    int lim = 20
+    try {
+      if (m.limit != null) {
+        lim = (m.limit instanceof Number) ? ((Number) m.limit).intValue() : Integer.parseInt(m.limit.toString().trim())
+      }
+    } catch (Throwable ignored) {
+      lim = 20
+    }
+    lim = Math.max(1, Math.min(100, lim))
+    String url =
+      "https://api.crafterq.ai/v1/agents/${URLEncoder.encode(agent, 'UTF-8')}/chats" +
+      "?startDate=${URLEncoder.encode(startDate, 'UTF-8')}" +
+      "&endDate=${URLEncoder.encode(endDate, 'UTF-8')}" +
+      "&limit=${lim}"
+    try {
+      def json = AiHttpProxy.getJson(url, request)
+      return [
+        tool     : 'ListCrafterQAgentChats',
+        ok       : true,
+        agentId  : agent,
+        startDate: startDate,
+        endDate  : endDate,
+        limit    : lim,
+        defaultedLast30DaysUtc: (!sdRaw && !edRaw),
+        data     : json,
+        hint     :
+          'Inspect returned items for feedback fields (e.g. dislikes). Call GetCrafterQAgentChat with a chatId for full message threads.'
+      ]
+    } catch (Throwable t) {
+      log.warn('listCrafterQAgentChats failed: {}', t.toString())
+      Map err = new LinkedHashMap()
+      err.put('ok', false)
+      err.put('tool', 'ListCrafterQAgentChats')
+      err.put('message', (t.message ?: t.toString()))
+      err.putAll(crafterqChatApiHttpFailureHint(t))
+      return err
+    }
+  }
+
+  /**
+   * GET {@code https://api.crafterq.ai/v1/agents/{agentId}/chats/{chatId}} for one conversation payload (messages, metadata).
+   */
+  Map getCrafterQAgentChat(Map input) {
+    Map m = (input instanceof Map) ? (Map) input : [:]
+    String chatId = (m.chatId ?: m.chat_id)?.toString()?.trim()
+    if (!chatId) {
+      throw new IllegalArgumentException('Missing required field: chatId')
+    }
+    String agent = (m.agentId ?: m.agent_id ?: crafterqAgentId)?.toString()?.trim()
+    if (!agent) {
+      return [
+        ok     : false,
+        tool   : 'GetCrafterQAgentChat',
+        message: 'Missing agentId (no session CrafterQ agent and none passed in tool args).'
+      ]
+    }
+    String url =
+      "https://api.crafterq.ai/v1/agents/${URLEncoder.encode(agent, 'UTF-8')}/chats/${URLEncoder.encode(chatId, 'UTF-8')}"
+    try {
+      def json = AiHttpProxy.getJson(url, request)
+      return [
+        tool   : 'GetCrafterQAgentChat',
+        ok     : true,
+        agentId: agent,
+        chatId : chatId,
+        data   : json
+      ]
+    } catch (Throwable t) {
+      log.warn('getCrafterQAgentChat failed: {}', t.toString())
+      Map err = new LinkedHashMap()
+      err.put('ok', false)
+      err.put('tool', 'GetCrafterQAgentChat')
+      err.put('message', (t.message ?: t.toString()))
+      err.putAll(crafterqChatApiHttpFailureHint(t))
+      return err
     }
   }
 
