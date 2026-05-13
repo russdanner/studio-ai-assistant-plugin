@@ -27,7 +27,8 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 |--------------|--------|
 | **Install or deploy the plugin** | [Installation](docs/using-and-extending/installation.md) |
 | **Configure agents, keys, `ui.xml`** | [Configuration guide](docs/using-and-extending/configuration-guide.md) |
-| **LLM ids, secrets, capability matrix** | [LLM configuration](docs/using-and-extending/llm-configuration.md) |
+| **LLM ids, secrets, env + `ui.xml`** | [LLM configuration](docs/using-and-extending/llm-configuration.md) |
+| **JVM-only tuning (`-D` properties)** | [Studio AI assistant JVM parameters](docs/using-and-extending/studio-aiassistant-jvm-parameters.md) |
 | **Image backends & overrides** | [Image generation](docs/using-and-extending/image-generation.md) |
 | **TinyMCE toolbar & JSON** | [TinyMCE integration](docs/using-and-extending/tinymce-integration.md) |
 | **Autonomous widget overview** | [Autonomous assistants widget](docs/using-and-extending/autonomous-assistants-widget.md) |

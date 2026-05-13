@@ -47,7 +47,7 @@
           <prompt>Summarize this page in bullet points</prompt>
         </prompts>
       </agent>
-      <!-- Optional second agent: OpenAI-wire + CMS tools (requires server OPENAI_API_KEY or JVM crafter.openai.apiKey) -->
+      <!-- Optional second agent: OpenAI-wire + CMS tools (set OPENAI_API_KEY on the Studio host) -->
       <!--
       <agent>
         <crafterQAgentId>019c7237-478b-7f98-9a5c-87144c3fb010</crafterQAgentId>

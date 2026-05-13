@@ -2,7 +2,7 @@
 
 **Audience:** Maintainers and advanced operators debugging **tools**, **SSE**, **CrafterQ identity**, or **Studio integration** — not the primary “which `<llm>` do I pick?” reference.
 
-**LLM ids, keys, and capability matrix:** [llm-configuration.md](../using-and-extending/llm-configuration.md)  
+**LLM ids, keys, and provider behavior:** [llm-configuration.md](../using-and-extending/llm-configuration.md)  
 **Operator checklist and `ui.xml` surfaces:** [configuration-guide.md](../using-and-extending/configuration-guide.md)  
 **Product contract (macros, form vs preview, REST):** [spec.md](spec.md)
 
@@ -16,7 +16,7 @@ OpenAI **tool** calls that read/write repository content (`GetContent`, `WriteCo
 - **Reads:** v1 `getContent`-style methods when present; otherwise v2 `getContentAsResource` and `getItemDescriptor` (see `StudioToolOperations.groovy`).
 - **Content item XML:** Pages and components are stored as `<page>` / `<component>` XML whose child element names come from the **content type** (form-definition field ids). Prompts and tool descriptions tell the model **not** to invent unrelated tags (e.g. generic `<article>` trees). The **`update_content`** tool loads the item’s **`form-definition.xml`** (when `<content-type>` is present in the file) and returns **`contentTypeId`**, **`formFieldIds`**, and the full **`formDefinitionForContentType`** so the model can edit **in place** before **`WriteContent`**. (Typical Studio forms + page XML are small relative to modern OpenAI context windows.) On **`WriteContent`**, the server may also append **`checkbox-group`** **`item`** rows for **taxonomy-backed** datasources when the form requires selections but the model omitted them (see **[spec.md](spec.md)**).
 - **`ListContentTranslationScope`:** Returns a **nested tree** and **`pathChunks`** of `/site/.../*.xml` paths reachable from a page (or component) via `<key>` references — **metadata only** (no bulk XML). Default **`pathChunks`** use **one path per chunk** so full-page translate/copy uses **`GetContent`** / **`WriteContent`** per item and stays within LLM context.
-- **`ConsultCrafterQExpert` (OpenAI-wire agents only):** Calls **`api.crafterq.ai/v1/chats`** with the **same `agentId`** as the widget session so the **hosted expert API** can answer as a **subject-matter / RAG** consult (copy, tone, SEO, IA). Does **not** read or write the repository. Prompt length is capped with the same JVM limit as the default remote chat adapter: **`crafterq.maxPromptChars`** (default 1000 chars — increase if consults are trimmed).
+- **`ConsultCrafterQExpert` (OpenAI-wire agents only):** Calls **`api.crafterq.ai/v1/chats`** with the **same `agentId`** as the widget session so the **hosted expert API** can answer as a **subject-matter / RAG** consult (copy, tone, SEO, IA). Does **not** read or write the repository. Prompt length is capped and long transcripts are compacted (default cap **1000** characters; tunable only via JVM — see **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**).
 - **`ListCrafterQAgentChats` / `GetCrafterQAgentChat` (OpenAI-wire agents only, when `<crafterQAgentId>` is set):** Read-only **GET** calls to **`/v1/agents/{agentId}/chats`** (optional **startDate**/**endDate** — omit both for **last 30 days UTC**; session **`agentId`** from config when omitted in args) and **`/v1/agents/{agentId}/chats/{chatId}`** for hosted conversation payloads (e.g. audit dislikes, then **`ConsultCrafterQExpert`** or CMS tools for fixes). Same forwarded-header contract as other CrafterQ calls (**`authorization`** is never forwarded — CrafterQ identity uses headers such as **`X-CrafterQ-Chat-User`** from the widget when the author signed into CrafterQ in Studio).
 - **`GetContentTypeFormDefinition`:** Prefer **`contentPath`** (same repository path as the page/component XML). The server reads **`<content-type>`** from that file so the model must not guess types from filenames (e.g. `/site/website/index.xml` → **`/page/index`** is wrong). If **`contentPath`** and **`contentTypeId`** disagree, **`contentPath`** wins.
 - **`GenerateImage` (OpenAI only):** Calls **`POST /v1/images/generations`** with the same API key as chat. The image model comes only from **`<imageModel>`** / POST **`imageModel`** (no JVM default). OpenAI’s Images API targets **GPT Image** models; obsolete **`dall-e-*`** strings from older configs map server-side to **`gpt-image-1`**. The request does not send **`response_format`** (rejected for GPT image); the tool adds **`output_format`** where appropriate and sets **`url`** to a **`data:`** URL when the API returns **`b64_json`** only (the raw tool map omits **`b64_json`** once **`url`** is populated so the payload is not doubled). Configure **`size`** / **`quality`** per OpenAI’s GPT Image docs; persist assets under **`/static-assets/`** for production. In the **native OpenAI tool loop**, **`GenerateImage`** results with a **`data:`** bitmap are **not** sent in full on the **`role:tool` wire** (that would exceed the chat context limit). The server stores the bitmap keyed by **`tool_call_id`**, sends the model a **compact** JSON (**`crafterqInlineImageRef`** + instructions), and expands **`crafterq-tool-image://…`** placeholders into the real **`data:`** URL in the **final** assistant text delivered to Studio.
@@ -27,16 +27,17 @@ OpenAI **tool** calls that read/write repository content (`GetContent`, `WriteCo
 
 ## OpenAI API key (server-side) and testing-only widget key {#openai-api-key-server-side}
 
-**Recommended:** set on the **Studio** JVM/host (never commit real keys to site config):
+**Recommended:** set on the **Studio host** as an environment variable (never commit real keys to site config):
 
-- Environment variable: **`OPENAI_API_KEY`**
-- Or JVM: **`-Dcrafter.openai.apiKey=sk-...`**
+- **`OPENAI_API_KEY`**
+
+Server-side key fallbacks that use JVM system properties are listed in **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**.
 
 ### Optional: `<openAiApiKey>` in ui.xml (testing only)
 
 **Not recommended** for production: the key lives in Studio configuration (often Git-tracked), is visible to anyone who can read/edit that config, and is sent from the browser on each chat request.
 
-Use only for **local testing** when you cannot set env/JVM on Studio. Add **inside the same `<agent>`** that uses `<llm>openAI</llm>`:
+Use only for **local testing** when you cannot set **`OPENAI_API_KEY`** on the Studio host. Add **inside the same `<agent>`** that uses `<llm>openAI</llm>`:
 
 ```xml
 <agent>
@@ -48,7 +49,7 @@ Use only for **local testing** when you cannot set env/JVM on Studio. Add **insi
 </agent>
 ```
 
-**Precedence:** if `OPENAI_API_KEY` or JVM `crafter.openai.apiKey` / `OPENAI_API_KEY` is set, those win and **`<openAiApiKey>` is ignored**. The widget value is used only when no server-side key is configured.
+**Precedence:** if **`OPENAI_API_KEY`** (or another server-side key source for that provider — see **[llm-configuration.md](../using-and-extending/llm-configuration.md)** and **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**) is set, those win and **`<openAiApiKey>` is ignored**. The widget value is used only when no server-side key is configured.
 
 The REST body may also include `openAiApiKey` (same precedence); the React widget sends it when parsed from configuration.
 
@@ -135,9 +136,9 @@ Sites can attach **remote MCP servers** so OpenAI-wire (and other native-tool) a
 
 - Each MCP tool from **`tools/list`** becomes a Studio tool whose name is **`mcp_<serverId>_<mcpToolName>`** (non-alphanumeric segments collapsed to `_`, total length capped at **64** characters for OpenAI compatibility).
 - **Per chat request**, when the plugin builds **`AiOrchestrationTools`**, it runs **`initialize`** → **`notifications/initialized`** → **`tools/list`** for **each** configured server, then keeps a **single session** (including **`Mcp-Session-Id`** when returned) for all **`tools/call`** invocations from that request.
-- **Security:** MCP **`url`** values use the **same SSRF policy** as **`FetchHttpUrl`** (`StudioToolOperations.validateOutboundHttpUrlForSsrf`). Set **`crafterq.httpFetch.allowedHostSuffixes`** when you need to allow specific vendor hostnames. JVM **`crafterq.httpFetch.enabled=false`** still blocks all outbound HTTP including MCP, regardless of **`mcpEnabled`**.
+- **Security:** MCP **`url`** values use the **same SSRF policy** as **`FetchHttpUrl`** (`StudioToolOperations.validateOutboundHttpUrlForSsrf`). Host allowlists and disabling outbound fetch (which also blocks MCP) are **JVM-only** — see **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)** (`crafterq.httpFetch.*`).
 - **Whitelist:** When **`enabledBuiltInTools`** is a non-empty whitelist, **built-in** CMS tools are filtered to that list, but **`mcp_*`** tools and **`InvokeSiteUserTool`** are **still registered** unless their wire names appear in **`disabledBuiltInTools`** / **`disabledMcpTools`**.
-- **Response size:** MCP HTTP bodies are capped by JVM **`crafterq.mcp.maxResponseChars`** (default **500000**).
+- **Response size:** MCP HTTP bodies are capped server-side (default **500000** characters); JVM override: **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)** (`crafterq.mcp.maxResponseChars`).
 
 ---
 
@@ -160,7 +161,7 @@ Inside an `<agent>` that uses `<llm>openAI</llm>`, add one or more **`<expertSki
 
 Element form is also supported: `<expertSkill><name>…</name><url>…</url><description>…</description></expertSkill>`.
 
-**Optional operator tuning (expert skills only):** Markdown from `<expertSkill>` URLs is chunked and embedded into a per-skill in-memory index on the Studio server; defaults are usually enough. If you hit size or memory limits, the implementation reads optional **`System.getProperty`** keys (same names the old doc listed: `crafterq.expertSkill.embeddingModel`, `crafterq.expertSkill.maxSkills` default 12, `crafterq.expertSkill.maxChunks`, `crafterq.expertSkill.maxChunkChars`) — see **`ExpertSkillVectorRegistry.groovy`**. This is **not** agent `ui.xml` configuration and is unrelated to CrafterQ bearer tokens.
+**Optional operator tuning (expert skills only):** Markdown from `<expertSkill>` URLs is chunked and embedded into a per-skill in-memory index on the Studio server; defaults are usually enough. If you hit size or memory limits, optional JVM tuning keys are documented in **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)** (section **Expert skills**). This is **not** agent `ui.xml` configuration and is unrelated to CrafterQ bearer tokens.
 
 ---
 
@@ -168,7 +169,7 @@ Element form is also supported: `<expertSkill><name>…</name><url>…</url><des
 
 The Studio React client stops reading the SSE body as soon as it sees **`metadata.completed: true`** or **`metadata.error: true`**, then **`cancel()`s** the fetch reader. That avoids waiting for the HTTP connection to close (some servlet/async stacks keep it open), which previously surfaced as **“Timed out waiting for chat response”** after 65s. The safety timeout is now **5 minutes** for long tool runs.
 
-**Server-side (OpenAI + Spring AI flux / OpenAI native tool loop):** `AiOrchestration` waits up to **5 minutes** by default (`CHAT_FLUX_AWAIT_MS`, same order of magnitude as the chat widget’s 5m safety timeout; override JVM `crafterq.chatFluxAwaitMs` in the range **120_000–600_000**) for the `chatResponse()` flux to complete or error, or for the OpenAI **RestClient** multi-round tool `Future` to finish—then **disposes** / **cancels** so the outbound HTTP call is torn down (OpenAI may see a **client disconnect**). Each **sync** `POST /v1/chat/completions` uses `SimpleClientHttpRequestFactory` with read timeout **`CHAT_FLUX_AWAIT_MS` + 30s** by default (override `crafterq.openai.restReadTimeoutMs`, **60_000–900_000**) so JDK **Read timed out** does not fire before that outer budget. On timeout it sends an **SSE error** so authors see a reason in chat. **HTTP visibility:** on the first chat request that hits `AiOrchestration` in a Studio JVM, the plugin calls **Log4j2** `Configurator.setLevel(..., DEBUG)` (via reflection) for `org.springframework.ai`, `org.springframework.ai.openai`, `org.springframework.ai.chat.client`, `org.springframework.web.reactive.function.client`, `org.springframework.http.codec`, and `reactor.netty.http.client`, so OpenAI/WebClient traffic appears in Studio logs. Crafter Studio uses **Log4j2**, not Logback — Logback APIs must not be referenced from plugin Groovy. Logs: first SSE chunk, `onComplete`, `onError`, and a **WARN** if the await times out.
+**Server-side (OpenAI + Spring AI flux / OpenAI native tool loop):** `AiOrchestration` waits up to **5 minutes** by default for the `chatResponse()` flux to complete or error, or for the OpenAI **RestClient** multi-round tool `Future` to finish—then **disposes** / **cancels** so the outbound HTTP call is torn down (OpenAI may see a **client disconnect**). Each **sync** `POST /v1/chat/completions` uses a read timeout tied to that outer budget so JDK **Read timed out** does not fire first. On timeout it sends an **SSE error** so authors see a reason in chat. **Await/read-timeout tuning** and **optional Spring AI HTTP trace** use JVM system properties documented in **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**. Crafter Studio uses **Log4j2** — expect first SSE chunk, `onComplete`, `onError`, and a **WARN** if the await times out.
 
 ### Author-visible progress (OpenAI + tools)
 
@@ -191,7 +192,7 @@ If a tool throws mid-stream (e.g. Spring AI `MessageAggregator` / `UndeclaredThr
 - `llm`: `crafterQ` | `openAI` | `xAI` | `deepSeek` | `llama` | `genesis` | `gemini` | `claude` | `script:{id}` (optional on the agent; if omitted from config the client may omit it from the POST—server then normalizes missing/blank/unknown to **`crafterQ`**). Matching aliases are normalized server-side (e.g. `grok` → xAI, `ollama` → llama). **`script:myid`** → **`scriptLlm:myid`** and loads site Groovy from `/scripts/aiassistant/llm/myid/runtime.groovy`.
 - `llmModel`: optional string
 - `imageModel`: optional string — OpenAI **Images** model id for **GenerateImage**; must be set on the agent and/or this body field when the model should call **GenerateImage** (no server default). Prefer **`gpt-image-1`** or **`gpt-image-1-mini`**; obsolete **`dall-e-*`** strings from older configs map to **`gpt-image-1`** server-side.
-- `openAiApiKey`: optional string — **testing only**; per-provider precedence (OpenAI, xAI, DeepSeek, etc.): ignored when the matching server env/JVM key is set. For **`claude`**, the same field can carry the Anthropic key when no **`ANTHROPIC_API_KEY`** is configured.
+- `openAiApiKey`: optional string — **testing only**; per-provider precedence (OpenAI, xAI, DeepSeek, etc.): ignored when the matching server-side key is set (host **env** vars per **[llm-configuration.md](../using-and-extending/llm-configuration.md)**, plus JVM fallbacks in **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**). For **`claude`**, the same field can carry the Anthropic key when no **`ANTHROPIC_API_KEY`** is configured.
 - `contentPath`: optional repository path of the item open in Studio preview (e.g. `/site/website/about/index.xml`). When set, the server appends **Studio authoring context** to the user prompt so the model treats phrases like “this page”, “my page”, or “update my content” (with no path) as that item.
 - `contentTypeId`: optional preview content type (e.g. `/page/home`); included in that context when present.
 - `expertSkills`: optional JSON array of `{ "name", "url", "description" }` — same semantics as ui.xml **`<expertSkill>`**; server normalizes URLs and registers **`QueryExpertGuidance`** when non-empty and tools are on.
@@ -209,7 +210,7 @@ OpenAI tool mode registers **`GetCrafterizingPlaybook`**, which returns markdown
 
 Edit that file to change phases, checklists, and team conventions without changing Groovy.
 
-**Override (optional):** JVM system property **`crafterq.crafterizingPlaybook.path`** = absolute path to a markdown file (takes precedence over the bundled file).
+**Override (optional):** absolute path to a markdown file via JVM — see **[studio-aiassistant-jvm-parameters.md § Misc](../using-and-extending/studio-aiassistant-jvm-parameters.md#misc)** (`crafterq.crafterizingPlaybook.path`).
 
 If the file is missing at runtime, the tool still returns a short embedded fallback and sets `loadedFromEditableFile: false` in the JSON result.
 
@@ -256,7 +257,7 @@ OpenAI streaming runs tool callbacks on **Reactor / HTTP client worker threads**
 The plugin **captures** `SecurityContextHolder.getContext()` on the **Studio servlet thread** when building the Spring AI client (`AiOrchestration.buildSpringAiChatClient`) and passes a **copy** into `StudioToolOperations`, which calls `SecurityContextHolder.setContext(...)` around tool I/O (`writeContent`, `getContent`, `DeploymentService.deploy`, v1 `revertContentItem`, OpenSearch-backed listing, etc.). `@HasPermission` checks use that context.
 
 - If you still see this error, confirm the chat/stream REST call is authenticated as a **Studio user** with **write** permission on the path (not an anonymous session with no `Authentication`).
-- Custom entry points that construct `StudioToolOperations` without going through `AiOrchestration` must pass the same **security context copy** (4th argument) or tools will log a one-time warning and may fail on worker threads. Optional **5th** = remote hosted **`agentId`** for **`ConsultCrafterQExpert`**; **6th** = max consult prompt chars (same as **`crafterq.maxPromptChars`**).
+- Custom entry points that construct `StudioToolOperations` without going through `AiOrchestration` must pass the same **security context copy** (4th argument) or tools will log a one-time warning and may fail on worker threads. Optional **5th** = remote hosted **`agentId`** for **`ConsultCrafterQExpert`**; **6th** = max consult prompt chars (defaults match the hosted-prompt cap described in **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**).
 
 ---
 

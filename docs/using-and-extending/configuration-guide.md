@@ -42,7 +42,7 @@ Each **agent** is one row in the Helper menu (or one accordion row on the form a
 - **`crafterQAgentId`** — Hosted CrafterQ **agent UUID**; sent as `agentId` on stream/chat. Required for **`llm` `crafterQ`**. For purely OpenAI‑wire / Claude agents that never call CrafterQ APIs, it may be empty when your deployment allows it—see [spec.md](../internals/spec.md).
 - **`label`** — Display name.
 - **`llm`** — Backend for this agent’s chat. **Set `<llm>` explicitly** in `ui.xml`. If omitted, the client may omit `llm` from the POST and the server **normalizes** missing/blank/unknown values to **`crafterQ`**, which is hosted chat only and does not run the CMS tool loop. Allowed values and aliases: [llm-configuration.md § Summary table](llm-configuration.md#summary-table).
-- **`llmModel`** — Provider chat model id (optional; JVM defaults apply when omitted for many providers).
+- **`llmModel`** — Provider chat model id (optional; when omitted, some providers use a server default — see **[llm-configuration.md](llm-configuration.md)** and JVM defaults in **[studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md)** only if you rely on non-XML defaults).
 - **`imageModel`** — OpenAI **Images** model id for **`GenerateImage`** (no server fallback if blank). Use **`gpt-image-1`** or **`gpt-image-1-mini`**; obsolete **`dall-e-*`** strings from older configs map to **`gpt-image-1`** server-side. See [llm-configuration.md](llm-configuration.md).
 - **`prompts`** — Optional quick chips (`<prompt>` plain or structured with `<userText>` / `<additionalContext>` / `<omitTools>`).
 
@@ -52,9 +52,11 @@ Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concu
 
 ## 4. Secrets and API keys (recommended order)
 
-1. **Studio host / JVM** — Environment variables and `-D` system properties (preferred for production). Provider names and variables are listed in [llm-configuration.md](llm-configuration.md).
-2. **Per‑agent `ui.xml` / widget JSON** — e.g. `<openAiApiKey>`: **testing only**; discouraged in Git‑tracked sites. Precedence vs env/JVM is described in [chat-and-tools-runtime.md § OpenAI API key](../internals/chat-and-tools-runtime.md#openai-api-key-server-side).
-3. **CrafterQ hosted APIs** — Authors may authenticate in the widget (`X-CrafterQ-Chat-User`), and/or you configure **`crafterQBearerTokenEnv`** / **`crafterQBearerToken`** for server‑to‑CrafterQ `Authorization`. Read **identity / auth** in [llm-configuration.md](llm-configuration.md) before debugging 401s on `ListCrafterQAgentChats` / `GetCrafterQAgentChat`.
+1. **Studio host environment variables** — Preferred for production API keys and base URLs. Provider names and variables are listed in [llm-configuration.md](llm-configuration.md).
+2. **Per‑agent `ui.xml` / widget JSON** — e.g. `<openAiApiKey>`: **testing only**; discouraged in Git‑tracked sites. Precedence vs host env is described in [chat-and-tools-runtime.md § OpenAI API key](../internals/chat-and-tools-runtime.md#openai-api-key-server-side).
+3. **JVM system properties** — Advanced tuning and key fallbacks only; see **[studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md)** (not alternatives to `ui.xml` fields for normal operators).
+
+**CrafterQ hosted APIs** — Authors may authenticate in the widget (`X-CrafterQ-Chat-User`), and/or you configure **`crafterQBearerTokenEnv`** / **`crafterQBearerToken`** for server‑to‑CrafterQ `Authorization`. Read **identity / auth** in [llm-configuration.md](llm-configuration.md) before debugging 401s on `ListCrafterQAgentChats` / `GetCrafterQAgentChat`.
 
 ---
 
@@ -84,7 +86,7 @@ Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑
 - [ ] **`ui.xml`** committed; Studio **Sync** performed if you rely on git‑backed sandbox.
 - [ ] Helper / Autonomous **`plugin`** element matches §2 above.
 - [ ] For **CrafterQ** `llm`: valid **`crafterQAgentId`** and (if using hosted chat tools) identity headers / bearer as in [llm-configuration.md](llm-configuration.md).
-- [ ] For **OpenAI‑wire / Claude / …**: JVM or env API keys set, or you accept testing‑only keys in `ui.xml`.
+- [ ] For **OpenAI‑wire / Claude / …**: host **env** API keys set (per [llm-configuration.md](llm-configuration.md)), or you accept testing‑only keys in `ui.xml`.
 - [ ] For **GenerateImage**: **`imageModel`** set on the agent (or body) when that tool is used.
 
 ---
