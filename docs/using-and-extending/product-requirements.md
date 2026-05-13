@@ -10,15 +10,15 @@ It is **not** a feature brochure (“what it does” as marketing). It is **not*
 
 ## Author-facing requirements
 
-1. **Chat access** — Authors who have Studio access to a site where the plugin is configured **must** be able to open an AI chat from each surface the site enables: at minimum, the plugin **must** support opening chat from the form-engine control, from the Helper (preview toolbar and/or Tools Panel, per site configuration), and from TinyMCE when that integration is configured.
+1. **Chat access** — Authors who have Studio access to a site where the plugin is configured **must** be able to open an AI chat from each surface the site enables: at minimum, the plugin **must** support opening chat from the form-engine control, from the Helper (preview toolbar and/or Tools Panel, per site configuration), and from **TinyMCE** only when that optional RTE integration is configured.
 
 2. **Multiple agents** — When the site defines more than one agent, the plugin **must** let the author choose which agent to use (or follow the documented single-agent shortcut) without editing code.
 
 3. **Editing context** — Where a surface provides editor or field context (for example selection or current field), the plugin **must** pass that context into the assistant workflow as documented, so replies can align with what the author is editing.
 
-4. **Apply replies in TinyMCE** — When the author uses the TinyMCE integration, the plugin **must** offer a supported path to insert or apply model output into the editor, subject to editor permissions.
+4. **Image generation** — When the site configures a supported image backend, the plugin **must** expose image generation to authors through the same assistant flows documented for that configuration.
 
-5. **Image generation** — When the site configures a supported image backend, the plugin **must** expose image generation to authors through the same assistant flows documented for that configuration.
+5. **Apply replies in TinyMCE** — When the author uses the **TinyMCE** integration, the plugin **must** offer a supported path to insert or apply model output into the editor, subject to editor permissions.
 
 ---
 
@@ -45,6 +45,18 @@ It is **not** a feature brochure (“what it does” as marketing). It is **not*
 ## Optional / experimental requirements (autonomous widget)
 
 12. **Autonomous mode** — If the Autonomous assistants widget is installed and configured, the plugin **must** enforce the documented scheduling, scope, and in-memory semantics so administrators can predict lifecycle (including loss of state on JVM restart) as described in **[`spec.md`](../internals/spec.md#autonomous-assistants-widget-tools-panel)** and the [Autonomous assistants widget](autonomous-assistants-widget.md) guide. This area remains **experimental**; it **must not** be documented as a production-grade job scheduler.
+
+#### Each autonomous agent (minimum behaviors)
+
+For **each** autonomous agent the site defines, the product **must** make the following available and consistent with **`spec.md`** (field names and REST actions are in the spec and widget guide):
+
+- **Schedule** — Each agent **must** run on a documented cadence (cron-style schedule mapped to a minimum time between steps). The supervisor tick and the agent’s schedule **must** interact as documented so admins know it is **not** “every tick = one run.”
+- **Prompt** — Each agent **must** carry configurable base instructions (what the run is for); the server **must** append its own strict reply contract on top for structured outcomes.
+- **State** — Each agent **must** have visible **in-memory** status and history for users in scope (waiting, running, stopped, error, and similar values as documented). State **must** be lost on JVM restart and when the store is destroyed, unless **`spec.md`** explicitly documents otherwise.
+- **Human tasks** — Runs **must** be able to surface **human tasks** (titles and prompts for people to act on) in the widget; humans **must** be able to complete, dismiss, or reopen tasks per the documented controls. The model **may** return task lists and updates in its structured reply as documented.
+- **Lifecycle controls** — Administrators (and other users allowed by **scope**) **must** be able to **start** and **stop** individual agents, **enable** or **disable** the supervisor, and use other documented **control** actions (for example run now, clear error, destroy in-memory store) without redeploying code.
+- **Scope** — Each agent **must** respect a documented **scope** (for example project vs user vs role) so only the right signed-in users see that agent’s status, tasks, and controls.
+- **Failure behavior** — When a step fails, behavior **must** follow the agent’s **stop-on-failure** (or retry) setting as documented, including moving an agent to **error** and surfacing **last error** detail in the widget when applicable.
 
 ---
 

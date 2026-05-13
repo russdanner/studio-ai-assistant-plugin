@@ -10,7 +10,7 @@ Use this skill when editing **this repo**: `plugin-studio-crafterq` — Studio p
 ## Product language (do not conflate)
 
 - **Studio AI assistant** — The product-facing assistant in Studio (Helper, form control, optional autonomous runs). Prefer this in **author-facing** copy and docs.
-- **Two delivery modes** — **(1) Interactive chat** — authors drive each turn (Helper, form-engine control, TinyMCE, preview/XB). **(2) Autonomous assistants (experimental)** — the **`AutonomousAssistants`** Tools Panel widget runs **scheduled** server-side steps; see **`docs/internals/spec.md`**.
+- **Two delivery modes** — **(1) Interactive chat** — authors drive each turn (Helper, form-engine control, preview/XB, optional TinyMCE). **(2) Autonomous assistants (experimental)** — the **`AutonomousAssistants`** Tools Panel widget runs **scheduled** server-side steps; see **`docs/internals/spec.md`**.
 - **CrafterQ** — The **CrafterQ API / SaaS integration** when an agent uses **`llm: crafterQ`**. It is a **tool/backend**, not the name of the whole assistant. **`openAI`** is another tool on the same assistant.
 
 ## Canonical local policy (read first)

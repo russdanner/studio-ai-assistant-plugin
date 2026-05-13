@@ -20,7 +20,7 @@
 
 ### Terminology (product vs integrations)
 
-- **Studio AI assistant** — The authoring-facing assistant in Crafter Studio that this plugin provides: TinyMCE, the form-engine control, the Helper widget on the Tools Panel or preview toolbar, and optional autonomous scheduled runs. Use this name for the product experience authors see.
+- **Studio AI assistant** — The authoring-facing assistant in Crafter Studio that this plugin provides: the form-engine control, the Helper widget on the Tools Panel or preview toolbar, optional autonomous scheduled runs, and **TinyMCE** when sites wire the RTE integration. Use this name for the product experience authors see.
 - **CrafterQ** — A **backend integration** (CrafterQ API / SaaS chat) selected per agent when **`llm` is `crafterQ`**. It is **not** a synonym for the whole Studio assistant; **`openAI`** and other options are separate tools on the same assistant.
 
 ### Overview
@@ -32,9 +32,9 @@ This repository is a Crafter Studio plugin with **two main surfaces**:
 
 It currently focuses on:
 
-- **TinyMCE (RTE) integration**: Toolbar controls that open the assistant UI and can insert returned text into the editor.
 - **Studio UI Helper widget**: Preview toolbar and/or Tools Panel entry points for the assistant (`craftercms.components.aiassistant.Helper`).
 - **Autonomous runs (Tools Panel)**: Optional widget for scheduled in-memory assistant steps (prototype); see § [Autonomous assistants widget](#autonomous-assistants-widget-tools-panel).
+- **TinyMCE (RTE) integration**: Toolbar controls that open the assistant UI and can insert returned text into the editor.
 
 The UI uses a combination of:
 
@@ -44,37 +44,9 @@ The UI uses a combination of:
 ### Code Locations (Source vs Built)
 
 - **Source code**: `sources/src/`
-- **Built plugin assets served by Studio**: `authoring/static-assets/plugins/org/craftercms/aiassistant/studio/aiassistant/` (e.g. `components/index.js`, `tinymce/craftercms_aiassistant.js`)
+- **Built plugin assets served by Studio**: `authoring/static-assets/plugins/org/craftercms/aiassistant/studio/aiassistant/` (e.g. `components/index.js`; optional RTE bundle `tinymce/craftercms_aiassistant.js`)
 
 ### User-Facing Surfaces
-
-#### TinyMCE Plugin (RTE)
-
-- **Entry**: `sources/src/craftercms_aiassistant.tsx`
-- **TinyMCE plugin name**: `craftercms_aiassistant`
-- **Registered toolbar controls**:
-  - `aiAssistantOpen` (button)
-  - `crafterqshortcuts` (menu button)
-  - `crafterq` (split button)
-
-##### Behavior
-
-When invoked, the plugin:
-
-- Reads either:
-  - the current **selection** (preferred) or
-  - the editor’s **full text content** (fallback)
-- Builds a message array (based on the instance config) and opens the Studio AI assistant
-- Provides an **“Insert”** action that inserts returned content into the selection via `editor.selection.setContent(content)`
-
-##### XB vs non-XB execution
-
-The TinyMCE integration detects Experience Builder:
-
-- **XB**: Uses `xb.post(openCrafterQMessageId, props)` to request opening the assistant in Studio via a message topic.
-- **Non-XB**: Dynamically imports the plugin widgets bundle using:
-  - `craftercms.services.plugin.importPlugin(site, 'aiassistant', 'components', 'index.js', 'org.craftercms.aiassistant.studio')`
-  - then mounts the `AiAssistantPopover` widget inside the Studio React bridge (`CrafterCMSNextBridge`)
 
 #### Helper Widget (Studio UI)
 
@@ -187,6 +159,34 @@ If the worker throws or the model response cannot be parsed as JSON, **`state.la
 
 - `authoring/scripts/classes/plugins/org/craftercms/aiassistant/autonomous/` — registry, state store, supervisor, worker, scope guard, id builder, schedule probe, **`AutonomousAssistantRuntimeHooks`** (Spring context + auth for worker threads), **`AutonomousSiteDigestBuilder`** (authoring OpenSearch digest for prompts).
 - `authoring/scripts/rest/plugins/org/craftercms/aiassistant/studio/aiassistant/autonomous/assistants/` — `sync.post`, `status.get`, `control.post`.
+
+#### TinyMCE Plugin (RTE)
+
+- **Entry**: `sources/src/craftercms_aiassistant.tsx`
+- **TinyMCE plugin name**: `craftercms_aiassistant`
+- **Registered toolbar controls**:
+  - `aiAssistantOpen` (button)
+  - `crafterqshortcuts` (menu button)
+  - `crafterq` (split button)
+
+##### Behavior
+
+When invoked, the plugin:
+
+- Reads either:
+  - the current **selection** (preferred) or
+  - the editor’s **full text content** (fallback)
+- Builds a message array (based on the instance config) and opens the Studio AI assistant
+- Provides an **“Insert”** action that inserts returned content into the selection via `editor.selection.setContent(content)`
+
+##### XB vs non-XB execution
+
+The TinyMCE integration detects Experience Builder:
+
+- **XB**: Uses `xb.post(openCrafterQMessageId, props)` to request opening the assistant in Studio via a message topic.
+- **Non-XB**: Dynamically imports the plugin widgets bundle using:
+  - `craftercms.services.plugin.importPlugin(site, 'aiassistant', 'components', 'index.js', 'org.craftercms.aiassistant.studio')`
+  - then mounts the `AiAssistantPopover` widget inside the Studio React bridge (`CrafterCMSNextBridge`)
 
 ### Assistant popover (hosted chat shell)
 
@@ -412,10 +412,10 @@ A single **streaming** endpoint accepts `agentId`, `prompt`, optional `llm` / `l
 
 ### Appendix: Key Files
 
-- `sources/src/craftercms_aiassistant.tsx`: TinyMCE plugin integration & open logic
 - `sources/src/AiAssistantPopover.tsx`: Popover shell and iframe
 - `sources/src/AiAssistantHelper.tsx`: Helper widget for Studio UI
 - `sources/src/AiAssistantAutonomousAssistants.tsx`: Studio AI assistant — autonomous (Tools Panel widget)
 - `sources/src/autonomousAssistantsConfig.ts` / `sources/src/autonomousApi.ts`: parse `autonomousAgents`; REST client for sync/status/control
 - `sources/src/consts.ts`: ids and message topics
+- `sources/src/craftercms_aiassistant.tsx`: optional TinyMCE (RTE) integration & open logic
 
