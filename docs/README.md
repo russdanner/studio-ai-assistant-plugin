@@ -18,6 +18,7 @@ High-level map; deep dives live in linked files.
 
 | Topic | Document |
 |-------|----------|
+| Agents, keys, `ui.xml`, surfaces | [configuration-guide.md](using-and-extending/configuration-guide.md) |
 | Install / copy-plugin / `install-plugin.sh` | [installation.md](using-and-extending/installation.md) |
 | TinyMCE toolbar & `craftercms_aiassistant` | [tinymce-integration.md](using-and-extending/tinymce-integration.md) |
 | Helper `ui.xml` & “component not found” | [helper-widget.md](using-and-extending/helper-widget.md) |

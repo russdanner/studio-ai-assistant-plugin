@@ -2,7 +2,7 @@
 
 **Audience:** Studio admins and site builders who need the assistant to **appear**, **authenticate**, and **behave** as intended—without reading the full implementation spec first.
 
-**Related docs:** [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability (OpenAI-wire / Claude first). [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. [spec.md](../internals/spec.md) for **`ui.xml`** and widget contracts, macros, form vs preview, and autonomous REST. Optional hosted SaaS HTTP (bearer, chat audit tools) is covered in [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when you opt in on a tool-capable agent.
+**Related docs:** [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. [spec.md](../internals/spec.md) for **`ui.xml`** and widget contracts, macros, form vs preview, and autonomous REST. Optional hosted SaaS HTTP (bearer, chat audit tools) is covered in [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when you opt in on a tool-capable agent.
 
 ---
 
@@ -10,28 +10,35 @@
 
 | Goal | Typical touchpoints |
 |------|---------------------|
-| Authors use AI from the **rich text editor** | `config/studio/ui.xml` → **TinyMCE** widget → `tinymceOptions` (external plugin URL + `craftercms_aiassistant` JSON) |
 | Authors use AI from **Studio chrome** (Tools Panel / preview toolbar) | `ui.xml` → **`craftercms.components.aiassistant.Helper`** widget + `<agents>` |
 | Authors use AI on a **content type form** | Content type **form definition** → **AI Assistant** control + `config/studio/ui.xml` **`<agents>`** (merged by stable agent id) |
 | **Scheduled** server-side runs (experimental) | `ui.xml` → **`craftercms.components.aiassistant.AutonomousAssistants`** + `<autonomousAgents>` — see [spec.md — Autonomous assistants widget](../internals/spec.md#autonomous-assistants-widget-tools-panel) |
+| Authors use AI from the **rich text editor** | `config/studio/ui.xml` → **TinyMCE** widget → `tinymceOptions` (external plugin URL + `craftercms_aiassistant` JSON) — details at the end of this guide (**§8**) and in [tinymce-integration.md](tinymce-integration.md) |
 
 Commit **`config/studio/ui.xml`** (and any content-type changes) to the site sandbox so Studio and other authors load the same configuration.
 
 ---
 
-## 2. Non‑negotiables (plugin identity)
+## 2. Helper, Autonomous, and toolbar widgets: `plugin` element
 
-These must match or Studio will not load the bundle (“component not found”, 404 on `index.js`, etc.).
+Studio resolves the **JavaScript bundle** from the **`plugin`** child on each widget that mounts this plugin (Helper, AutonomousAssistants, and any Preview Toolbar entry that uses the same pattern). Use the same values everywhere so Studio loads **`index.js`** from the installed plugin.
 
-| Item | Value |
-|------|--------|
-| **Plugin id** | `org.craftercms.aiassistant.studio` (same as `craftercms-plugin.yaml` and the plugin’s `PluginDescriptor.id`) |
-| **Static type** | `aiassistant` |
-| **Components bundle** | `name="components"` `file="index.js"` on every **Helper**, **AutonomousAssistants**, and Preview Toolbar widget that mounts this plugin |
+| Attribute / concept | Use this value |
+|------------------------|----------------|
+| **`id`** (plugin id) | `org.craftercms.aiassistant.studio` — must match **`craftercms-plugin.yaml`** and the plugin’s internal **`PluginDescriptor.id`**. |
+| **`type`** | `aiassistant` |
+| **`name`** | `components` |
+| **`file`** | `index.js` |
 
-Copy‑paste‑safe **Tools Panel + Preview + Autonomous** fragment: [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).
+Example **`plugin`** line (copy into your `ui.xml` or start from the full fragment below):
 
-Full wiring and troubleshooting: [studio-plugins-guide.md](studio-plugins-guide.md) and [spec.md § Helper widget](../internals/spec.md#helper-widget-studio-ui).
+```xml
+<plugin id="org.craftercms.aiassistant.studio" type="aiassistant" name="components" file="index.js"/>
+```
+
+Full **Tools Panel + Preview + Autonomous** sample: [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).
+
+If the id or `file` path is wrong, Studio shows **component not found** or **404** on `index.js`. Install path, classpath, and toolbar wiring are covered in [studio-plugins-guide.md](studio-plugins-guide.md); widget XML contract in [spec.md § Helper widget](../internals/spec.md#helper-widget-studio-ui).
 
 ---
 
@@ -60,34 +67,34 @@ Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concu
 
 ---
 
-## 5. TinyMCE (RTE)
-
-You must register the external plugin and toolbar buttons under the **TinyMCE** widget in `ui.xml`. The **`siteId`** in the plugin URL must be real.
-
-Step‑by‑step and JSON shape: [tinymce-integration.md](tinymce-integration.md).
-
----
-
-## 6. Form Engine control
+## 5. Form Engine control
 
 The AI Assistant **form control** reads agent definitions from the same **`/ui.xml`** agent collection as the Helper (by stable id). Changing only the Helper widget JSON in Studio UI without updating **`/config/studio/ui.xml`** can leave the form panel out of sync—see the form pipeline notes in [studio-plugins-guide.md](studio-plugins-guide.md) and the frozen rules in `.cursor/rules/crafterq-form-panel-contract.mdc` (repo root).
 
 ---
 
-## 7. Autonomous assistants (optional)
+## 6. Autonomous assistants (optional)
 
 Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑memory state. Not a substitute for interactive chat configuration: you still define **`llm`**, **`llmModel`**, schedules, scopes, and human‑task behavior per [spec.md — Autonomous assistants widget](../internals/spec.md#autonomous-assistants-widget-tools-panel).
 
 ---
 
-## 8. Checklist before opening a support thread
+## 7. Checklist before opening a support thread
 
 - [ ] Plugin installed for the **site** (Marketplace or `copy-plugin` / `install-plugin.sh`); **`org.craftercms.aiassistant.studio`** appears in Plugin Management.
 - [ ] **`ui.xml`** committed; Studio **Sync** performed if you rely on git‑backed sandbox.
-- [ ] Helper / Autonomous **`plugin`** element matches §2 above.
+- [ ] Helper / Autonomous / toolbar **`plugin`** element uses **`id`**, **`type`**, **`name`**, and **`file`** as in **§2** (same as the example fragment).
 - [ ] For **OpenAI‑wire / Claude / …**: host **env** API keys set (per [llm-configuration.md](llm-configuration.md)), or you accept testing‑only keys in `ui.xml`.
 - [ ] For **GenerateImage**: **`imageModel`** set on the agent (or body) when that tool is used.
 - [ ] If you use **`llm` `crafterQ`**: valid **`crafterQAgentId`** and (if needed) identity / bearer as in [llm-configuration.md](llm-configuration.md).
+
+---
+
+## 8. TinyMCE (rich text editor)
+
+Register the external plugin and toolbar actions on the **TinyMCE** widget in `ui.xml`. The **`siteId`** in the plugin script URL must match a real site.
+
+Step‑by‑step and JSON: [tinymce-integration.md](tinymce-integration.md).
 
 ---
 

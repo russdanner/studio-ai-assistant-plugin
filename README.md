@@ -16,6 +16,7 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 
 | Area | Highlights | Notes |
 |------|------------|-------|
+| **Site setup** | Agents, `ui.xml`, keys, surfaces (Helper, forms, TinyMCE) | [Configuration guide](docs/using-and-extending/configuration-guide.md) |
 | **LLMs** | OpenAI, Anthropic, XAI, Ollama, Deepseek, scriptable (**`script:{id}`**) | [LLM configuration](docs/using-and-extending/llm-configuration.md) |
 | **Image generation** | OpenAI, scriptable (**`script:{id}`**) | [Image generation](docs/using-and-extending/image-generation.md) |
 | **Tools** | CMS / HTTP / optional hosted SaaS API tools / scriptable user tools; optional **MCP** (`mcpEnabled` + `mcpServers` in `tools.json`) | [Chat & tools runtime](docs/internals/chat-and-tools-runtime.md#mcp-client-tools-streamable-http) |
@@ -25,8 +26,8 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 
 | If you want… | Open |
 |--------------|--------|
-| **Install or deploy the plugin** | [Installation](docs/using-and-extending/installation.md) |
 | **Configure agents, keys, `ui.xml`** | [Configuration guide](docs/using-and-extending/configuration-guide.md) |
+| **Install or deploy the plugin** | [Installation](docs/using-and-extending/installation.md) |
 | **LLM ids, secrets, env + `ui.xml`** | [LLM configuration](docs/using-and-extending/llm-configuration.md) |
 | **JVM-only tuning (`-D` properties)** | [Studio AI assistant JVM parameters](docs/using-and-extending/studio-aiassistant-jvm-parameters.md) |
 | **Image backends & overrides** | [Image generation](docs/using-and-extending/image-generation.md) |
