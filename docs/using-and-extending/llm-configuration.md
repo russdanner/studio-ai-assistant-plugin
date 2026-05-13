@@ -1,13 +1,5 @@
 # Supported LLMs (`<llm>`) — ids, configuration, behavior
 
-**Primary authoring path:** **OpenAI-wire** providers (**`openAI`**, **`xAI`**, **`deepSeek`**, **`llama`**, **`gemini`/`genesis`**) and **`claude`** run the **CMS tool loop** (repository read/write, **GenerateImage** when configured, optional expert skills). That is what most sites should configure first.
-
-This page also documents **optional** hosted **SaaS-only** chat (**`crafterQ`**) — remote conversation **without** CMS tools on that adapter — and **`script:{id}`** Groovy backends.
-
-For each backend: **`<llm>` wire value** (and aliases), **`ui.xml`**, and **environment variables** on the Studio host (preferred over secrets in XML).
-
-**JVM system properties (`-D…`)** are **not** listed here — see **[studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md)**.
-
 **For site operators:** [configuration-guide.md](configuration-guide.md)  
 **For CMS tools, SSE, optional hosted SaaS API identity, and troubleshooting:** [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md)  
 **For script LLMs and `user-tools/`:** [studio-plugins-guide.md](studio-plugins-guide.md)  
