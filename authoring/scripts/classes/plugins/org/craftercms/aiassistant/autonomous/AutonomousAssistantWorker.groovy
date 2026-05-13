@@ -17,16 +17,21 @@ import java.util.Set
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import plugins.org.craftercms.aiassistant.llm.StudioAiLlmKind
+import plugins.org.craftercms.aiassistant.llm.StudioAiLlmRuntimeFactory
+import plugins.org.craftercms.aiassistant.llm.StudioAiRuntimeBuildRequest
 import plugins.org.craftercms.aiassistant.orchestration.AiOrchestration
 import plugins.org.craftercms.aiassistant.rag.ExpertSkillVectorRegistry
 import plugins.org.craftercms.aiassistant.tools.AiOrchestrationTools
 import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
 
 /**
- * Runs a single autonomous assistant step. Requires **`llm`** **openAI** (native). Always sends the Studio
- * {@code tools[]} catalog and runs the native tool loop; for plain drafting without CMS reads/writes in the same
- * inner pass, the model should call the {@code GenerateTextNoTools} tool. Empty catalog, missing
- * {@link AutonomousAssistantRuntimeHooks} context, or tool/OpenAI errors propagate.
+ * Runs a single autonomous assistant step. Requires an **OpenAI-wire** session: built-in {@code openAI} / xAI /
+ * DeepSeek / llama / genesis (gemini), or {@code script:…} site Groovy whose {@code buildSessionBundle} returns
+ * {@code openAiApiKeyResolved}, {@code resolvedChatModel}, and {@code openAiWireBaseUrl}. **Claude** is not supported
+ * for autonomous runs yet.
+ * Always sends the Studio {@code tools[]} catalog and runs the native tool loop; for plain drafting without CMS
+ * reads/writes in the same inner pass, the model should call the {@code GenerateTextNoTools} tool. Empty catalog,
+ * missing {@link AutonomousAssistantRuntimeHooks} context, or LLM errors propagate.
  */
 final class AutonomousAssistantWorker {
 
@@ -54,8 +59,17 @@ final class AutonomousAssistantWorker {
     ensureHumanTaskOwners(state, fullAgentId)
     AutonomousAssistantStateStore.putState(fullAgentId, state)
     try {
-      String apiKey = AiOrchestration.resolveOpenAiApiKey(definition?.openAiApiKey)
-      String model = (definition?.llmModel ?: AiOrchestration.resolveOpenAiModel(null))?.toString()
+      String llm = (definition?.llm ?: 'openAI').toString().trim()
+      String normLlm = StudioAiLlmKind.normalize(llm)
+      if (!StudioAiLlmKind.supportsAutonomousNativeTools(normLlm)) {
+        throw new IllegalStateException(
+          "AutonomousAssistantWorker requires an OpenAI-wire llm (openAI, xAI, deepSeek, llama, genesis/gemini) or script:… site Groovy LLM with an OpenAI-wire bundle; got llm='${llm}' (normalized='${normLlm}'). Claude (claude) is not supported for autonomous runs yet."
+        )
+      }
+      String openAiImageExpertKey = AiOrchestration.resolveOpenAiApiKey(definition?.openAiApiKey)
+      String chatApiKey = ''
+      String model = ''
+      String wireBaseUrl = ''
       String basePrompt = (definition?.prompt ?: 'You are a helpful assistant.').toString()
       boolean manageOtherAgentsHumanTasks = parseJsonBool(definition?.get('manageOtherAgentsHumanTasks'))
       String ownershipNote = manageOtherAgentsHumanTasks
@@ -107,13 +121,6 @@ final class AutonomousAssistantWorker {
         'Site: ' + (siteId ?: '') + '\nAgent id: ' + fullAgentId +
         '\nStored state JSON (summarized for prompt size; full state is kept server-side):\n' + stateJson +
         '\n\n--- Site index digest (Studio authoring OpenSearch) ---\n' + digest
-      String llm = (definition?.llm ?: 'openAI').toString().trim()
-      String normLlm = StudioAiLlmKind.normalize(llm)
-      if (StudioAiLlmKind.OPENAI_NATIVE != normLlm) {
-        throw new IllegalStateException(
-          "AutonomousAssistantWorker requires llm openAI (native tools); got llm='${llm}' (normalized='${normLlm}')."
-        )
-      }
       String assistant
       AutonomousAssistantRuntimeHooks.runWithCapturedSecurity {
         def app = AutonomousAssistantRuntimeHooks.applicationContext()
@@ -132,11 +139,39 @@ final class AutonomousAssistantWorker {
           8000
         )
         List<Map> exNorm = ExpertSkillVectorRegistry.normalizeRequestExpertSkills(definition?.get('expertSkills'))
+        AiOrchestration orch = new AiOrchestration(null, null, app, [siteId: (siteId ?: '').toString()], null)
+        // Bundle only resolves API key / model / wire URL; tools are built below via buildWithDefaultWireConverter.
+        // enableTools false avoids referencing Spring AI ToolCallResultConverter on the Studio script compile classpath.
+        StudioAiRuntimeBuildRequest bundleReq = new StudioAiRuntimeBuildRequest(
+          orchestration: orch,
+          toolResultConverter: null,
+          studioOps: studioOps,
+          crafterQServletRequest: null,
+          agentId: fullAgentId,
+          chatId: null,
+          llmNormalized: normLlm,
+          openAiModelParam: definition?.llmModel?.toString(),
+          openAiApiKeyFromRequest: definition?.openAiApiKey?.toString(),
+          toolProgressListener: null,
+          imageModelParam: definition?.imageModel?.toString(),
+          fullSuppressRepoWrites: false,
+          protectedFormItemPath: null,
+          enableTools: false
+        )
+        Map bundle = StudioAiLlmRuntimeFactory.runtimeFor(normLlm).buildSessionBundle(bundleReq)
+        chatApiKey = (bundle?.get('openAiApiKeyResolved') ?: '').toString()
+        model = (bundle?.get('resolvedChatModel') ?: '').toString()
+        wireBaseUrl = (bundle?.get('openAiWireBaseUrl') ?: '').toString()
+        if (!chatApiKey.trim() || !model.trim() || !wireBaseUrl.trim()) {
+          throw new IllegalStateException(
+            'Autonomous assistant requires an OpenAI-wire session (resolved API key, chat model, and openAiWireBaseUrl). For script LLM, return these keys from buildSessionBundle.'
+          )
+        }
         String authoringStack = AiOrchestration.openAiAuthoringSystemOnlyForHeadless(
           (siteId ?: '').toString(),
           user,
           studioOps,
-          apiKey,
+          openAiImageExpertKey,
           false,
           null,
           true,
@@ -154,7 +189,7 @@ final class AutonomousAssistantWorker {
         List tools = AiOrchestrationTools.buildWithDefaultWireConverter(
           studioOps,
           null,
-          apiKey,
+          openAiImageExpertKey,
           imageModel ?: null,
           false,
           null,
@@ -167,7 +202,7 @@ final class AutonomousAssistantWorker {
           )
         }
         assistant = AiOrchestration.openAiHeadlessNativeToolsCompletion(
-          apiKey,
+          chatApiKey,
           model,
           systemForTools,
           user,
@@ -175,7 +210,8 @@ final class AutonomousAssistantWorker {
           fullAgentId,
           8192,
           180_000,
-          'AutonomousAssistant'
+          'AutonomousAssistant',
+          wireBaseUrl
         )
       }
       Map parsed = tryParseJsonObject(assistant)

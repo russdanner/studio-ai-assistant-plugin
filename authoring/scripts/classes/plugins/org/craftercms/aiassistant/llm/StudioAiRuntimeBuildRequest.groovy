@@ -3,8 +3,6 @@ package plugins.org.craftercms.aiassistant.llm
 import plugins.org.craftercms.aiassistant.orchestration.AiOrchestration
 import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
 
-import org.springframework.ai.tool.execution.ToolCallResultConverter
-
 /**
  * Inputs for {@link StudioAiLlmRuntime#buildSessionBundle(StudioAiRuntimeBuildRequest)} — shared servlet-thread context
  * plus pre-built {@link StudioToolOperations} (security context, CrafterQ caps).
@@ -12,7 +10,8 @@ import org.springframework.ai.tool.execution.ToolCallResultConverter
 class StudioAiRuntimeBuildRequest {
 
   AiOrchestration orchestration
-  ToolCallResultConverter toolResultConverter
+  /** Spring AI {@code ToolCallResultConverter} or Groovy closure; typed as {@code Object} so site Groovy compiles without that class on the script classpath. */
+  Object toolResultConverter
   StudioToolOperations studioOps
   /** Studio chat/stream servlet request (CrafterQ adapter forwards headers/cookies). */
   Object crafterQServletRequest

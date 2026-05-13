@@ -13,7 +13,6 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.springframework.ai.tool.execution.ToolCallResultConverter
 import org.springframework.ai.tool.function.FunctionToolCallback
 import org.w3c.dom.Document
 import org.w3c.dom.Element
@@ -234,6 +233,10 @@ class AiOrchestrationTools {
     '{"type":"object","properties":{"topic":{"type":"string","description":"Optional focus keyword for future use; full playbook is returned regardless."}}}'
   private static final String SCHEMA_CONSULT_CRAFTERQ_EXPERT =
     '{"type":"object","properties":{"question":{"type":"string","description":"What to ask the CrafterQ content expert (e.g. headline options, body copy, tone, SEO, section ideas)"},"context":{"type":"string","description":"Optional grounding: audience, page purpose, current field, or short draft excerpt"}},"required":["question"]}'
+  private static final String SCHEMA_LIST_CRAFTERQ_AGENT_CHATS =
+    '{"type":"object","properties":{"agentId":{"type":"string","description":"CrafterQ API agent UUID. Omit to use this chat session agent (from agent ui.xml / stream agentId)."},"startDate":{"type":"string","description":"ISO-8601 UTC lower bound (inclusive), e.g. 2026-04-27T04:00:00.000Z. Optional if endDate is set alone (then start = end minus 30 days) or if both startDate and endDate are omitted (server uses last 30 days ending now)."},"endDate":{"type":"string","description":"ISO-8601 UTC upper bound (inclusive). Optional if startDate is set alone (then end = now UTC) or if both are omitted (server uses last 30 days ending now)."},"limit":{"type":"integer","description":"Max chats to return (1–100, default 20)"}},"required":[]}'
+  private static final String SCHEMA_GET_CRAFTERQ_AGENT_CHAT =
+    '{"type":"object","properties":{"chatId":{"type":"string","description":"CrafterQ chat UUID from ListCrafterQAgentChats or the hosted app"},"agentId":{"type":"string","description":"CrafterQ API agent UUID. Omit to use this chat widget session agent."}},"required":["chatId"]}'
   /** Shared shape for authoring helpers (update_*, analyze, publish, revert). */
   private static final String SCHEMA_CMS_LOOSE =
     '{"type":"object","properties":{"siteId":{"type":"string"},"site_id":{"type":"string"},"path":{"type":"string"},"contentPath":{"type":"string"},"templatePath":{"type":"string"},"contentType":{"type":"string"},"contentTypeId":{"type":"string"},"instructions":{"type":"string"},"date":{"type":"string"},"publishingTarget":{"type":"string"},"revertType":{"type":"string"},"version":{"type":"string","description":"Studio ItemVersion versionNumber from GetContentVersionHistory"},"revertToPrevious":{"type":"boolean","description":"If true, revert to the immediate prior revertible version (no version string needed)"}}}'
@@ -251,6 +254,10 @@ class AiOrchestrationTools {
 
   private static final String SCHEMA_TRANSLATE_CONTENT_BATCH =
     '{"type":"object","properties":{"siteId":{"type":"string"},"instructions":{"type":"string","description":"Same instruction for every path (e.g. translate author-visible copy to French fr-FR)"},"paths":{"type":"array","items":{"type":"string"},"description":"List of /site/.../*.xml paths"},"contentPaths":{"type":"array","items":{"type":"string"},"description":"Alias for paths"},"pathChunks":{"type":"array","description":"Optional: **pathChunks** from ListContentTranslationScope — same shape as that tool (outer array of chunks; each chunk is an array of path strings). Server flattens to paths.","items":{"type":"array","items":{"type":"string","description":"/site/.../*.xml repository path"}}},"maxConcurrency":{"type":"integer","description":"Parallel workers for this batch only (default from agent ui.xml translateBatchConcurrency, else 25; hard cap 64)"},"writeResults":{"type":"boolean"},"unlock":{"type":"string"},"llmModel":{"type":"string"},"model":{"type":"string"},"readTimeoutMs":{"type":"integer"}},"required":["siteId","instructions"]}'
+
+  /** Site sandbox Groovy under {@code config/studio/scripts/aiassistant/user-tools/} (manifest {@code registry.json}). */
+  private static final String SCHEMA_INVOKE_SITE_USER_TOOL =
+    '{"type":"object","properties":{"toolId":{"type":"string","description":"Registered id from the site registry.json tools[] array."},"args":{"type":"object","description":"Optional map passed to the script as binding variable args.","additionalProperties":true}},"required":["toolId"]}'
 
   private static final int TRANSLATE_BATCH_MAX_PATHS = 100
 
@@ -1638,9 +1645,9 @@ class AiOrchestrationTools {
   }
 
   /**
-   * Same as {@link #build} but supplies the standard {@link ToolCallResultConverter} that delegates to
-   * {@link AiOrchestration#toolResultToWireString}. Use from Groovy that compiles in Studio sandbox classpath
-   * without {@code org.springframework.ai} on the compile path (e.g. {@code AutonomousAssistantWorker} under site scripts).
+   * Same as {@link #build} but supplies the standard wire converter closure that delegates to
+   * {@link AiOrchestration#toolResultToWireString}. Use from Groovy that must not reference Spring AI's
+   * {@code ToolCallResultConverter} type on the Studio script compile classpath (e.g. {@code AutonomousAssistantWorker}).
    */
   static List buildWithDefaultWireConverter(
     StudioToolOperations ops,
@@ -1652,8 +1659,8 @@ class AiOrchestrationTools {
     List<Map> expertSkillSpecs = null,
     String openAiTextModel = null
   ) {
-    ToolCallResultConverter converter =
-      { Object result, java.lang.reflect.Type rt -> AiOrchestration.toolResultToWireString(result, rt) } as ToolCallResultConverter
+    def converter =
+      { Object result, java.lang.reflect.Type rt -> AiOrchestration.toolResultToWireString(result, rt) }
     return build(
       converter,
       ops,
@@ -1668,7 +1675,7 @@ class AiOrchestrationTools {
   }
 
   /**
-   * @param converter Tool result converter
+   * @param converter Spring AI tool result converter or Groovy closure {@code (Object result, Type returnType) -> String}; passed via {@code invokeMethod} so site Groovy compiles without {@code ToolCallResultConverter} on the script classpath
    * @param ops Studio tool operations
    * @param toolProgressListener optional progress callback for streaming chat (see {@link #runWithToolProgress})
    * @param openAiApiKeyForImages when set (OpenAI path), registers {@code GenerateImage}; omitted for CrafterQ-only clients
@@ -1677,11 +1684,11 @@ class AiOrchestrationTools {
    * @param protectedFormItemPath normalized repo path of the open form item — when set (and not full suppress), write/publish/revert stay registered but are rejected only for this path; {@code update_content} for this path steers toward {@code crafterqFormFieldUpdates}
    * @param expertSkillSpecs normalized maps {@code skillId},{@code name},{@code url},{@code description} from the chat request; when non-empty and an OpenAI API key is available, registers {@code QueryExpertGuidance}
    * @param openAiTextModel resolved OpenAI chat model id for inner completions ({@code TranslateContentItem} / bulk subgraph when enabled) default {@code llmModel}; ignored when no API key
-   * <p>{@code ConsultCrafterQExpert} is registered only when {@link StudioToolOperations#isCrafterqAgentIdPresent()} is true
+   * <p>{@code ConsultCrafterQExpert}, {@code ListCrafterQAgentChats}, and {@code GetCrafterQAgentChat} are registered only when {@link StudioToolOperations#isCrafterqAgentIdPresent()} is true
    * (agent {@code <crafterQAgentId>} in ui.xml — the CrafterQ API agent id).</p>
    */
   static List build(
-    ToolCallResultConverter converter,
+    Object converter,
     StudioToolOperations ops,
     Closure toolProgressListener = null,
     String openAiApiKeyForImages = null,
@@ -1785,7 +1792,7 @@ class AiOrchestrationTools {
         .description(ToolPrompts.getDESC_GENERATE_TEXT_NO_TOOLS())
         .inputSchema(SCHEMA_GENERATE_TEXT_NO_TOOLS)
         .inputType(Map.class)
-        .toolCallResultConverter(converter)
+        .invokeMethod('toolCallResultConverter', converter)
         .build()
     }
 
@@ -1819,7 +1826,7 @@ class AiOrchestrationTools {
         .description(ToolPrompts.getDESC_TRANSLATE_CONTENT_BATCH())
         .inputSchema(SCHEMA_TRANSLATE_CONTENT_BATCH)
         .inputType(Map.class)
-        .toolCallResultConverter(converter)
+        .invokeMethod('toolCallResultConverter', converter)
         .build()
       translateContentItemTool = FunctionToolCallback.builder('TranslateContentItem', new Function<Map, Map>() {
         @Override Map apply(Map input) {
@@ -1844,7 +1851,7 @@ class AiOrchestrationTools {
         .description(ToolPrompts.getDESC_TRANSLATE_CONTENT_ITEM())
         .inputSchema(SCHEMA_TRANSLATE_CONTENT_ITEM)
         .inputType(Map.class)
-        .toolCallResultConverter(converter)
+        .invokeMethod('toolCallResultConverter', converter)
         .build()
       if (ENABLE_TRANSFORM_CONTENT_SUBGRAPH_BULK) {
         transformContentSubgraphTool = FunctionToolCallback.builder('TransformContentSubgraph', new Function<Map, Map>() {
@@ -1858,7 +1865,7 @@ class AiOrchestrationTools {
           .description(ToolPrompts.getDESC_TRANSFORM_CONTENT_SUBGRAPH())
           .inputSchema(SCHEMA_TRANSFORM_CONTENT_SUBGRAPH)
           .inputType(Map.class)
-          .toolCallResultConverter(converter)
+          .invokeMethod('toolCallResultConverter', converter)
           .build()
         getContentSubgraphAliasTool = FunctionToolCallback.builder('GetContentSubgraph', new Function<Map, Map>() {
           @Override Map apply(Map input) {
@@ -1871,7 +1878,7 @@ class AiOrchestrationTools {
           .description(ToolPrompts.getDESC_TRANSFORM_CONTENT_SUBGRAPH())
           .inputSchema(SCHEMA_TRANSFORM_CONTENT_SUBGRAPH)
           .inputType(Map.class)
-          .toolCallResultConverter(converter)
+          .invokeMethod('toolCallResultConverter', converter)
           .build()
       }
     }
@@ -1890,7 +1897,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_GET_CONTENT)
       .inputSchema(SCHEMA_GET_CONTENT)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def listContentTranslationScopeTool = FunctionToolCallback.builder('ListContentTranslationScope', new Function<Map, Map>() {
@@ -1938,7 +1945,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_LIST_CONTENT_TRANSLATION_SCOPE)
       .inputSchema(SCHEMA_LIST_CONTENT_TRANSLATION_SCOPE)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def listStudioContentTypesTool = FunctionToolCallback.builder('ListStudioContentTypes', new Function<Map, Map>() {
@@ -1956,7 +1963,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_LIST_STUDIO_CONTENT_TYPES)
       .inputSchema(SCHEMA_LIST_STUDIO_CONTENT_TYPES)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def getContentTypeTool = FunctionToolCallback.builder('GetContentTypeFormDefinition', new Function<Map, Map>() {
@@ -1997,7 +2004,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_GET_CONTENT_TYPE_FORM_DEFINITION)
       .inputSchema(SCHEMA_GET_CONTENT_TYPE)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def getContentVersionHistoryTool = FunctionToolCallback.builder('GetContentVersionHistory', new Function<Map, Map>() {
@@ -2021,7 +2028,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_GET_CONTENT_VERSION_HISTORY)
       .inputSchema(SCHEMA_GET_CONTENT_VERSION_HISTORY)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def getPreviewHtmlTool = FunctionToolCallback.builder('GetPreviewHtml', new Function<Map, Map>() {
@@ -2040,7 +2047,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_GET_PREVIEW_HTML)
       .inputSchema(SCHEMA_GET_PREVIEW_HTML)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def fetchHttpUrlTool = FunctionToolCallback.builder('FetchHttpUrl', new Function<Map, Map>() {
@@ -2070,7 +2077,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_FETCH_HTTP_URL)
       .inputSchema(SCHEMA_FETCH_HTTP_URL)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def queryExpertGuidanceTool = null
@@ -2103,7 +2110,7 @@ class AiOrchestrationTools {
         .description(ToolPrompts.DESC_QUERY_EXPERT_GUIDANCE)
         .inputSchema(SCHEMA_QUERY_EXPERT_GUIDANCE)
         .inputType(Map.class)
-        .toolCallResultConverter(converter)
+        .invokeMethod('toolCallResultConverter', converter)
         .build()
     }
 
@@ -2133,7 +2140,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_WRITE_CONTENT)
       .inputSchema(SCHEMA_WRITE_CONTENT)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def listPagesTool = FunctionToolCallback.builder('ListPagesAndComponents', new Function<Map, Map>() {
@@ -2147,7 +2154,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_LIST_PAGES_AND_COMPONENTS)
       .inputSchema(SCHEMA_LIST_PAGES)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def updateTemplateTool = FunctionToolCallback.builder('update_template', new Function<Map, Map>() {
@@ -2184,7 +2191,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_UPDATE_TEMPLATE)
       .inputSchema(SCHEMA_CMS_LOOSE)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def updateContentTool = FunctionToolCallback.builder('update_content', new Function<Map, Map>() {
@@ -2245,7 +2252,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_UPDATE_CONTENT)
       .inputSchema(SCHEMA_CMS_LOOSE)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def updateContentTypeTool = FunctionToolCallback.builder('update_content_type', new Function<Map, Map>() {
@@ -2283,7 +2290,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_UPDATE_CONTENT_TYPE)
       .inputSchema(SCHEMA_CMS_LOOSE)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def analyzeTemplateTool = FunctionToolCallback.builder('analyze_template', new Function<Map, Map>() {
@@ -2314,7 +2321,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_ANALYZE_TEMPLATE)
       .inputSchema(SCHEMA_CMS_LOOSE)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def publishContentTool = FunctionToolCallback.builder('publish_content', new Function<Map, Map>() {
@@ -2362,10 +2369,12 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_PUBLISH_CONTENT)
       .inputSchema(SCHEMA_CMS_LOOSE)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def consultCrafterQExpertTool = null
+    def listCrafterQAgentChatsTool = null
+    def getCrafterQAgentChatTool = null
     if (ops.isCrafterqAgentIdPresent()) {
       consultCrafterQExpertTool = FunctionToolCallback.builder('ConsultCrafterQExpert', new Function<Map, Map>() {
         @Override Map apply(Map input) {
@@ -2383,7 +2392,35 @@ class AiOrchestrationTools {
         .description(ToolPrompts.DESC_CONSULT_CRAFTERQ_EXPERT)
         .inputSchema(SCHEMA_CONSULT_CRAFTERQ_EXPERT)
         .inputType(Map.class)
-        .toolCallResultConverter(converter)
+        .invokeMethod('toolCallResultConverter', converter)
+        .build()
+
+      listCrafterQAgentChatsTool = FunctionToolCallback.builder('ListCrafterQAgentChats', new Function<Map, Map>() {
+        @Override Map apply(Map input) {
+          runWithToolProgress('ListCrafterQAgentChats', input, toolProgressListener, {
+            logToolInvocation('ListCrafterQAgentChats', (Map) (input ?: [:]))
+            ops.listCrafterQAgentChats((Map) (input ?: [:]))
+          })
+        }
+      })
+        .description(ToolPrompts.DESC_LIST_CRAFTERQ_AGENT_CHATS)
+        .inputSchema(SCHEMA_LIST_CRAFTERQ_AGENT_CHATS)
+        .inputType(Map.class)
+        .invokeMethod('toolCallResultConverter', converter)
+        .build()
+
+      getCrafterQAgentChatTool = FunctionToolCallback.builder('GetCrafterQAgentChat', new Function<Map, Map>() {
+        @Override Map apply(Map input) {
+          runWithToolProgress('GetCrafterQAgentChat', input, toolProgressListener, {
+            logToolInvocation('GetCrafterQAgentChat', (Map) (input ?: [:]))
+            ops.getCrafterQAgentChat((Map) (input ?: [:]))
+          })
+        }
+      })
+        .description(ToolPrompts.DESC_GET_CRAFTERQ_AGENT_CHAT)
+        .inputSchema(SCHEMA_GET_CRAFTERQ_AGENT_CHAT)
+        .inputType(Map.class)
+        .invokeMethod('toolCallResultConverter', converter)
         .build()
     }
 
@@ -2412,7 +2449,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_GET_CRAFTERIZING_PLAYBOOK)
       .inputSchema(SCHEMA_CRAFTERIZING_PLAYBOOK)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def revertChangeTool = FunctionToolCallback.builder('revert_change', new Function<Map, Map>() {
@@ -2478,7 +2515,7 @@ class AiOrchestrationTools {
       .description(ToolPrompts.DESC_REVERT_CHANGE)
       .inputSchema(SCHEMA_CMS_LOOSE)
       .inputType(Map.class)
-      .toolCallResultConverter(converter)
+      .invokeMethod('toolCallResultConverter', converter)
       .build()
 
     def tools = [
@@ -2516,6 +2553,8 @@ class AiOrchestrationTools {
     tools.add(listPagesTool)
     if (consultCrafterQExpertTool != null) {
       tools.add(consultCrafterQExpertTool)
+      tools.add(listCrafterQAgentChatsTool)
+      tools.add(getCrafterQAgentChatTool)
     }
     tools.addAll([
       getCrafterizingPlaybookTool,
@@ -2543,9 +2582,51 @@ class AiOrchestrationTools {
         .description(ToolPrompts.DESC_GENERATE_IMAGE)
         .inputSchema(SCHEMA_GENERATE_IMAGE)
         .inputType(Map.class)
-        .toolCallResultConverter(converter)
+        .invokeMethod('toolCallResultConverter', converter)
         .build()
       tools.add(generateImageTool)
+    }
+
+    List<Map> siteUserToolEntries = StudioAiUserSiteTools.loadRegistryEntries(ops)
+    if (!siteUserToolEntries.isEmpty()) {
+      StringBuilder desc = new StringBuilder(512)
+      desc.append(
+        'Runs a **site-defined** Groovy tool from sandbox `config/studio/scripts/aiassistant/user-tools/` (see `registry.json` in that folder). '
+      )
+      desc.append('Pass **toolId** exactly as registered. Scripts receive binding variables: **studio** (StudioToolOperations), **args** (map from this call), **toolId**, **siteId**, **log** (SLF4J). Return a Map (e.g. ok, message, data). Registered tools: ')
+      int i = 0
+      for (Map e : siteUserToolEntries) {
+        if (i++ > 0) {
+          desc.append('; ')
+        }
+        desc.append(e.id)
+        String d = e.description?.toString()?.trim()
+        if (d) {
+          desc.append(' — ').append(d.length() > 200 ? d.substring(0, 200) + '…' : d)
+        }
+      }
+      if (desc.length() > 8000) {
+        desc.setLength(7997)
+        desc.append('…')
+      }
+      final String invokeSiteUserToolDescription = desc.toString()
+      def invokeSiteUserTool = FunctionToolCallback.builder('InvokeSiteUserTool', new Function<Map, Map>() {
+        @Override Map apply(Map input) {
+          runWithToolProgress('InvokeSiteUserTool', input, toolProgressListener, {
+            logToolInvocation('InvokeSiteUserTool', (Map) (input ?: [:]))
+            Map m = new LinkedHashMap<>((Map) (input ?: [:]))
+            String tid = m.toolId?.toString()?.trim()
+            Map args = (m.args instanceof Map) ? (Map) m.args : [:]
+            StudioAiUserSiteTools.invokeRegisteredTool(ops, tid, args)
+          })
+        }
+      })
+        .description(invokeSiteUserToolDescription)
+        .inputSchema(SCHEMA_INVOKE_SITE_USER_TOOL)
+        .inputType(Map.class)
+        .invokeMethod('toolCallResultConverter', converter)
+        .build()
+      tools.add(invokeSiteUserTool)
     }
 
     return tools

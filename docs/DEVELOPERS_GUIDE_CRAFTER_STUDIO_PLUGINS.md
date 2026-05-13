@@ -99,7 +99,7 @@ Then, after install, Studio will find them at the same relative path under `conf
 
 The **element** is merged under the parent. For example, to add a widget to the **Tools Panel** sidebar, the element is typically:
 
-- `configuration` → `widgets` → `widget` (with `id`, and child `plugin` with `id`, `type`, `name`, `file`).
+- `configuration` → `widgets` → `widget` (with `id`, and child `plugin` with `id`, `type`, `name`, `file`). **Do not** use a bare `widget` as the root of `element` for Tools Panel installs — Studio expects the same `configuration` → `widgets` → `widget` nesting as the [sidebar plugin example](https://craftercms.com/docs/current/by-role/developer/composable/extensions/resources/plugin-sidebar-example.html); otherwise the widget may not show up in the left tools list.
 
 To add a widget to the **Preview Toolbar** (e.g. top bar next to the address bar), add a second installation entry with:
 
@@ -201,7 +201,7 @@ Studio’s UI layer deserializes `ui.xml` into JS objects and passes widget conf
 - **Spread config** (very common): the contents of `<configuration>` are spread onto props as **top-level keys**
   - Example: `<configuration><agents>...</agents></configuration>` may appear as `props.agents`
   - Example: `<configuration ui="IconButton">` may appear as `props.ui` or as an attribute key like `props['@_ui']`
-  - Example (CrafterQ): per-agent **`<openAsPopup>true</openAsPopup>`** keeps the legacy floating dialog; omitted or **`false`** opens chat in the Experience Builder **ICE** (right) tools panel and turns **edit mode** on.
+  - Example (default remote chat / legacy popup): per-agent **`<openAsPopup>true</openAsPopup>`** keeps the legacy floating dialog; omitted or **`false`** opens chat in the Experience Builder **ICE** (right) tools panel and turns **edit mode** on.
 
 **Recommendation:** When reading config in widgets, check both:
 
@@ -239,7 +239,7 @@ Studio serves plugin assets from an endpoint like:
 Example:
 
 ```text
-/studio/1/plugin/file?siteId=ebay-ai&pluginId=org.craftercms.aiassistant.studio&type=aiassistant&name=components&file=index.js
+/studio/1/plugin/file?siteId=new-demo&pluginId=org.craftercms.aiassistant.studio&type=aiassistant&name=components&file=index.js
 ```
 
 ### Authentication required
@@ -280,7 +280,7 @@ Example (this plugin’s streaming endpoint):
 - **UI calls**:
 
 ```text
-POST /studio/api/2/plugin/script/plugins/org/craftercms/aiassistant/studio/aiassistant/ai/stream?siteId=ebay-ai
+POST /studio/api/2/plugin/script/plugins/org/craftercms/aiassistant/studio/aiassistant/ai/stream?siteId=new-demo
 ```
 
 - **Script lives in plugin repo** (and must be copied into the site sandbox at install time):
@@ -360,7 +360,62 @@ async function callPluginScriptJson<T>(siteId: string, scriptPath: string, body:
   - Script path doesn’t include plugin id segments (use Trello pattern).
   - `authoring/scripts/classes` wasn’t copied + committed into `{siteRepo}/config/studio/scripts/classes`.
 
----
+#### User-authored **tools** (site Groovy, survives plugin reinstall)
+
+**Convention (AI Assistant plugin):** Site-specific **tool code** (Groovy the model or plugin may invoke—not prompt/RAG “skills”) lives under the sandbox at:
+
+```text
+{siteRepo}/config/studio/scripts/aiassistant/user-tools/
+```
+
+- **Why here:** Under `config/studio/scripts/` with an `aiassistant/` segment, it is clearly **Studio script territory**, not `static-assets` (which plugin installs often refresh). Keep **plugin-shipped** REST scripts under `config/studio/scripts/rest/plugins/...` as today; keep **author-maintained** tool implementations in `user-tools/` so reinstall/copy-plugin does not replace them (`scripts/install-plugin.sh` only copies `authoring/scripts/classes` → `config/studio/scripts/classes` and does not remove sibling directories under `config/studio/scripts/`).
+- **Naming:** Use **tools** for executable code; reserve **skills** for prompt- or retrieval-oriented behavior (e.g. expert markdown / embeddings) so docs and `ui.xml` stay unambiguous.
+
+**Convention (AI Assistant — custom LLM):** `config/studio/scripts/aiassistant/llm/{id}/runtime.groovy` (or `llm.groovy`) implements **`StudioAiLlmRuntime`** or a **Map** with **`buildSessionBundle`** for **`&lt;llm&gt;script:{id}&lt;/llm&gt;`**. Same install survivability as **user-tools/** (sibling under `config/studio/scripts/aiassistant/`). See **`docs/LLM_CONFIGURATION.md`** and **`docs/examples/aiassistant-llm/demo/runtime.groovy`**.
+
+**Runtime wiring (shipped in plugin classes):** When `registry.json` exists and lists at least one tool, the Spring AI tool list includes **`InvokeSiteUserTool`**. The model calls it with:
+
+- **`toolId`** — must match an `id` from `registry.json`.
+- **`args`** — optional JSON object; passed to the script as binding variable **`args`** (a `Map`).
+
+**Manifest — `registry.json`** (Studio configuration path `/scripts/aiassistant/user-tools/registry.json`):
+
+```json
+{
+  "tools": [
+    {
+      "id": "hello",
+      "script": "hello.groovy",
+      "description": "Example: returns a greeting; optional args.name"
+    }
+  ]
+}
+```
+
+Each entry needs **`id`** (letters, digits, `_`, `-`, max 64 chars) and **`script`** (or **`file`**) — a filename matching `^[A-Za-z0-9][A-Za-z0-9_.-]*\\.groovy$` in the same folder. Optional **`description`** is shown in the tool description sent to the model.
+
+**Script bindings** (site Groovy body evaluated by `GroovyShell`):
+
+| Variable | Meaning |
+|----------|---------|
+| `studio` | `StudioToolOperations` — same CMS helpers as built-in tools (`getContent`, `writeContent`, …). |
+| `args` | Map from the `InvokeSiteUserTool` call (may be empty). |
+| `toolId` | Registered id string. |
+| `siteId` | Effective Studio site id (`studio.resolveEffectiveSiteId('')`). |
+| `log` | SLF4J logger for the user-tool runner. |
+
+**Return value:** The script’s **last expression** should be a **Map** (e.g. `ok`, `message`, custom fields). Non-Map results are wrapped as `{ ok: true, result: … }`.
+
+**Copy-paste examples** live in this repo under:
+
+```text
+docs/examples/aiassistant-user-tools/
+```
+
+Copy `registry.json` and `hello.groovy` into the site sandbox folder above, commit, and refresh Studio configuration if needed. After that, **`InvokeSiteUserTool`** appears for agents with tools enabled; the model can call `toolId: "hello"` and optional `args: { "name": "Team" }`.
+
+**Security note:** Anyone who can commit to `config/studio/scripts/aiassistant/user-tools/` can run arbitrary Groovy in the Studio JVM with the author’s security context. Treat that path like production code access.
+
 
 ### Calling Crafter Studio services in-process from Groovy (preferred for “tools”)
 
@@ -435,8 +490,10 @@ Keep experiments non-fatal (log + continue) so streaming endpoints aren’t brok
 - In `ui.xml`, TinyMCE’s `external_plugins` must point at the **plugin file URL** with the **correct pluginId**:
 
   ```text
-  /studio/1/plugin/file?siteId=YOUR_SITE_ID&pluginId=org.craftercms.aiassistant.studio&type=aiassistant&name=tinymce&file=craftercms_aiassistant.js
+  /studio/1/plugin/file?siteId=new-demo&pluginId=org.craftercms.aiassistant.studio&type=aiassistant&name=tinymce&file=craftercms_aiassistant.js
   ```
+
+  Substitute `new-demo` with your Studio site id (e.g. `qtest`) when different.
 
 - Use `file=...` (not `filename=...`) in the query string if that’s what Studio expects.
 
@@ -463,7 +520,7 @@ Edits belong in **`sources/`**. Most paths under **`authoring/static-assets/`** 
 
 ### From local plugin repo
 
-- **API:** `POST /studio/api/2/marketplace/copy` with body e.g. `{ "siteId": "YOUR_SITE_ID", "path": "/absolute/path/to/plugin/repo" }`. Use the same auth (e.g. Bearer token) as for Studio.
+- **API:** `POST /studio/api/2/marketplace/copy` with body e.g. `{ "siteId": "new-demo", "path": "/absolute/path/to/plugin/repo" }` (substitute your site id). Use the same auth (e.g. Bearer token) as for Studio.
 - **CLI:** e.g. `crafter-cli copy-plugin -e <env> -s <siteId> --path /path/to/plugin/repo`.
 
 Installation copies `authoring/static-assets/*` into the site’s `config/studio/static-assets/plugins/<pluginId-path>/` and runs the descriptor’s **installation** steps to merge into `config/studio/ui.xml`. The **scripts** that Studio runs for plugin REST endpoints are typically copied from `authoring/scripts/rest`. The **`authoring/scripts/classes`** folder may not be copied by marketplace/copy; this plugin requires it for Spring AI and tools. If after install the stream fails with “unable to resolve class”, copy `authoring/scripts/classes` to the site’s `config/studio/scripts/classes` manually.
@@ -475,6 +532,14 @@ Studio reads UI configuration from the site repository under:
 ```text
 {crafter-install}/crafter-authoring/data/repos/sites/<siteId>/sandbox/config/studio/ui.xml
 ```
+
+**Concrete example (this maintainer’s local Authoring 4.4.xE install, site `new-demo`):**
+
+```text
+/home/russdanner/crafter-installs/4-4-xE/crafter-authoring/data/repos/sites/new-demo/sandbox/config/studio/ui.xml
+```
+
+Same install, alternate site id **`qtest`**: `/home/russdanner/crafter-installs/4-4-xE/crafter-authoring/data/repos/sites/qtest/sandbox/config/studio/ui.xml` (install with `./scripts/install-plugin.sh qtest`).
 
 In practice, changes to `ui.xml` are most reliable in Studio after they are **committed** to the site’s `sandbox` git repository (this is also consistent with other Studio behaviors like indexing).
 
@@ -490,7 +555,7 @@ In practice, changes to `ui.xml` are most reliable in Studio after they are **co
 This repo provides **`scripts/install-plugin.sh`** to package and install in one step so you can test changes quickly:
 
 ```bash
-./scripts/install-plugin.sh [siteId=ebay-ai] [studioUrl] [pluginRepoPath]
+./scripts/install-plugin.sh [siteId=new-demo] [studioUrl] [pluginRepoPath]
 ```
 
 Examples:
@@ -498,9 +563,9 @@ Examples:
 ```bash
 ./scripts/install-plugin.sh
 # same as:
-./scripts/install-plugin.sh ebay-ai
-# Or with custom Studio URL:
-./scripts/install-plugin.sh ebay-ai http://localhost:8080
+./scripts/install-plugin.sh new-demo
+# Another site (e.g. qtest) on the same CRAFTER_DATA install:
+./scripts/install-plugin.sh qtest http://localhost:8080
 ```
 
 The script (edit `CRAFTER_DATA` at the top for your machine):
@@ -533,7 +598,9 @@ The install script **copies and commits** `authoring/scripts/classes` into the s
 
 ### Groovy scripting sandbox
 
-Plugin REST scripts and Groovy classes run inside Crafter Studio’s **scripting sandbox**. Some operations (e.g. Spring AI’s `ToolCallResultConverter` invoked via a Groovy closure) can be blocked with an error like:
+Plugin REST scripts and Groovy classes run inside Crafter Studio’s **scripting sandbox**. The AI Assistant plugin avoids a **compile-time** reference to `org.springframework.ai.tool.execution.ToolCallResultConverter` (it is often absent from the **site Groovy script compile classpath** even when Spring AI is present at runtime). `AiOrchestrationTools` passes tool wire converters through `invokeMethod('toolCallResultConverter', …)` on `FunctionToolCallback` builders so site scripts compile; runtime still uses Spring AI as usual.
+
+Some operations (e.g. Spring AI types invoked via Groovy `invokeMethod` or closures) can be blocked with an error like:
 
 ```text
 Insecure call to 'method groovy.lang.GroovyObject invokeMethod ...' you can tweak the security sandbox to allow it.

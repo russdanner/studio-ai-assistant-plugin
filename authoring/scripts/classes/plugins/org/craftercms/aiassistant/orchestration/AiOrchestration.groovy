@@ -13,6 +13,7 @@ import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
 
 @Grab(group='org.springframework.ai', module='spring-ai-core', version='1.0.0-M6', initClass=false)
 @Grab(group='org.springframework.ai', module='spring-ai-openai', version='1.0.0-M6', initClass=false)
+@Grab(group='org.springframework.ai', module='spring-ai-anthropic', version='1.0.0-M6', initClass=false)
 @Grab(group='io.projectreactor', module='reactor-core', version='3.6.6', initClass=false)
 
 import groovy.json.JsonOutput
@@ -29,7 +30,6 @@ import org.springframework.ai.openai.api.OpenAiApi
 import org.springframework.ai.openai.api.OpenAiApi.ChatCompletionMessage
 import org.springframework.ai.openai.api.OpenAiApi.ChatCompletionRequest
 import org.springframework.ai.openai.api.common.OpenAiApiConstants
-import org.springframework.ai.tool.execution.ToolCallResultConverter
 import org.springframework.ai.tool.function.FunctionToolCallback
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
@@ -54,6 +54,7 @@ import java.util.Locale
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 import java.util.ArrayList
+import java.util.Set
 import java.util.concurrent.Callable
 import java.util.concurrent.CancellationException
 import java.util.concurrent.CountDownLatch
@@ -73,9 +74,11 @@ import reactor.core.publisher.Flux
  * Central place for server-side orchestration for the <strong>Studio AI Assistant</strong> plugin.
  *
  * <p><strong>LLM adapters:</strong> Chat sessions are built through {@link StudioAiLlmRuntime} implementations
- * ({@link OpenAiSpringAiLlmRuntime}, {@link ExpertApiLlmRuntime}). {@code CrafterQ} in agent config refers to the
- * <strong>remote CrafterQ API</strong> adapter; OpenAI is a separate native-tools path. Additional providers should
- * implement {@link StudioAiLlmRuntime}, register in {@link StudioAiLlmRuntimeFactory}, and extend {@link StudioAiLlmKind}.</p>
+ * ({@link OpenAiSpringAiLlmRuntime}, {@link ExpertApiLlmRuntime}, {@link StudioAiScriptLlmContainerRuntime} for
+ * {@code script:…} site Groovy). The token {@link StudioAiLlmKind#CRAFTERRQ_REMOTE_API} ({@code llm=crafterQ}) selects the
+ * <strong>remote hosted chat</strong> adapter; OpenAI-wire, Claude, and script LLMs are separate paths. Additional
+ * providers should implement {@link StudioAiLlmRuntime}, register in {@link StudioAiLlmRuntimeFactory}, and extend
+ * {@link StudioAiLlmKind}.</p>
  *
  * <p>Provider-specific wire/stream logic (e.g. OpenAI RestClient tool loops) still lives here until split into
  * per-provider transports.</p>
@@ -326,9 +329,14 @@ class AiOrchestration {
     return rf
   }
 
-  private static RestClient.Builder openAiRestClientBuilder(String apiKey) {
+  private static RestClient.Builder openAiRestClientBuilder(String apiKey, String wireBaseUrl = null) {
+    String base = (wireBaseUrl ?: '').toString().trim()
+    if (!base) {
+      base = (OpenAiApiConstants.DEFAULT_BASE_URL ?: 'https://api.openai.com').toString().trim()
+    }
+    base = base.replaceAll(/\/+$/, '')
     RestClient.builder()
-      .baseUrl(OpenAiApiConstants.DEFAULT_BASE_URL)
+      .baseUrl(base)
       .defaultHeader(HttpHeaders.AUTHORIZATION, 'Bearer ' + apiKey)
       .requestFactory(openAiRestRequestFactory())
   }
@@ -340,8 +348,11 @@ class AiOrchestration {
    * <strong>404</strong>. Always normalize so {@link #openAiSimpleCompletionAssistantText} hits the same host/path as
    * {@link #openAiHttpPostChatCompletionsReadBody}.
    */
-  private static String resolveOpenAiSyncChatCompletionsUrl() {
-    String b = (OpenAiApiConstants.DEFAULT_BASE_URL?.toString()?.trim() ?: 'https://api.openai.com')
+  private static String resolveOpenAiSyncChatCompletionsUrl(String wireBaseUrl = null) {
+    String b = (wireBaseUrl ?: '').toString().trim()
+    if (!b) {
+      b = (OpenAiApiConstants.DEFAULT_BASE_URL?.toString()?.trim() ?: 'https://api.openai.com')
+    }
     b = b.replaceAll(/\/+$/, '')
     if (b.endsWith('/v1')) {
       return b + '/chat/completions'
@@ -508,7 +519,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
   }
 
   /**
-   * Shared tool callback → wire string (Spring {@link ToolCallResultConverter}) for chat and headless runs.
+   * Shared tool callback → wire string (Spring AI tool result converter) for chat and headless runs.
    */
   static String toolResultToWireString(Object result, java.lang.reflect.Type returnType) {
     if (result instanceof Map) {
@@ -946,7 +957,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     return canon
   }
 
-  /** CrafterQ prompt size limit (chars). Override with JVM {@code -Dcrafterq.maxPromptChars=8000} (plugin descriptor cannot declare custom param names for this in all Studio versions). */
+  /** Per-request expert skill URLs from the client (see {@code crafterq.expertSkills} request attribute). */
   List<Map> readExpertSkillSpecsFromRequest() {
     try {
       def v = request?.getAttribute('crafterq.expertSkills')
@@ -963,6 +974,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     return []
   }
 
+  /** Max merged prompt length for remote hosted chat and {@code ConsultCrafterQExpert} (chars). JVM {@code -Dcrafterq.maxPromptChars} (plugin descriptor cannot declare this name in all Studio versions). */
   int resolveMaxCrafterQPromptChars() {
     try {
       def p = System.getProperty('crafterq.maxPromptChars')
@@ -990,7 +1002,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     String protectedFormItemPath = null,
     boolean enableTools = true
   ) {
-    def converter = { Object result, java.lang.reflect.Type returnType -> toolResultToWireString(result, returnType) } as ToolCallResultConverter
+    def converter = { Object result, java.lang.reflect.Type returnType -> toolResultToWireString(result, returnType) }
     /** Spring AI tool callbacks run on Reactor/HTTP-client threads; copy servlet SecurityContext for Studio permission checks. */
     def securityContextForTools = null
     try {
@@ -1067,6 +1079,17 @@ For **content XML** (pages/components): do not invent a new element tree — pre
       if (exList != null && !exList.isEmpty()) {
         sys += ToolPrompts.expertSkillsRagAppendix(exList)
       }
+    }
+    if (toolSchemasOnApi && studioOps != null) {
+      try {
+        if (studioOps.isCrafterqAgentIdPresent()) {
+          String cq = studioOps.crafterqApiAgentId()
+          sys +=
+            '\n\n**CrafterQ hosted-chat tools:** **ListCrafterQAgentChats** and **GetCrafterQAgentChat** are on the wire for this session. Default **agentId** = "' +
+            cq +
+            '" (from agent configuration) — **omit agentId** in tool arguments unless overriding. **ListCrafterQAgentChats:** you may pass **no arguments** (empty object) or only **limit** — the server fills **startDate**/**endDate** as the **last 30 days UTC** when both are omitted. **Hard match:** your **`tool_calls`** in the first tool round must include **ListCrafterQAgentChats** for hosted-chat analytics asks — **never** substitute **ListContentTranslationScope** or **GetContent** for that intent.'
+        }
+      } catch (Throwable ignored) {}
     }
     if (toolSchemasOnApi) {
       sys += PlanOrchestration.machineInstructionsAddendum()
@@ -1748,10 +1771,15 @@ For **content XML** (pages/components): do not invent a new element tree — pre
    * POST {@code /v1/chat/completions} with {@code stream:false} and return the raw JSON body (UTF-8).
    * Bypasses {@link org.springframework.ai.openai.api.OpenAiApi#chatCompletionEntity} / Jackson binding.
    */
-  private static String openAiHttpPostChatCompletionsReadBody(String apiKey, String jsonBody, boolean logFailuresAsWarn = false) {
+  private static String openAiHttpPostChatCompletionsReadBody(
+    String apiKey,
+    String jsonBody,
+    boolean logFailuresAsWarn = false,
+    String wireBaseUrl = null
+  ) {
     jsonBody = openAiChatCompletionsWireBodyApplyNeoTemperaturePolicy(jsonBody)
     crafterQToolWorkerDiagPhase("native_tools_RestClient_POST_/v1/chat/completions stream=false jsonChars=${(jsonBody ?: '').toString().length()}")
-    openAiRestClientBuilder(apiKey)
+    openAiRestClientBuilder(apiKey, wireBaseUrl)
       .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
       .build()
       .post()
@@ -1812,7 +1840,8 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     String userText,
     int maxOutTokens,
     int readTimeoutMs = 600_000,
-    String workerPhasePrefix = null
+    String workerPhasePrefix = null,
+    String wireBaseUrl = null
   ) {
     String phasePfx = (workerPhasePrefix != null && workerPhasePrefix.toString().trim())
       ? workerPhasePrefix.toString().trim() + '_'
@@ -1845,13 +1874,13 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     ]
     reqMap.putAll(openAiChatCompletionOutputLimitParams(model, effMaxOut))
     String jsonBody = openAiChatCompletionsWireBodyApplyNeoTemperaturePolicy(JsonOutput.toJson(reqMap))
-    String urlStr = resolveOpenAiSyncChatCompletionsUrl()
+    String urlStr = resolveOpenAiSyncChatCompletionsUrl(wireBaseUrl)
     crafterQToolWorkerDiagPhase(
       phasePfx +
         "simple_completion_HttpURLConnection_POST_/v1/chat/completions model=${model} wireJsonChars=${jsonBody.length()} userMsgChars=${(userText ?: '').toString().length()} readTimeoutMs=${readTimeoutMs}"
     )
     log.debug(
-      'CrafterQ LLM → POST /v1/chat/completions phase=simple_completion worker={} model={} systemChars={} userChars={} maxOutTokens={} readTimeoutMs={} wireJsonChars={} urlTail={}',
+      'OpenAI-wire → POST /v1/chat/completions phase=simple_completion worker={} model={} systemChars={} userChars={} maxOutTokens={} readTimeoutMs={} wireJsonChars={} urlTail={}',
       (workerPhasePrefix ?: '(none)'),
       model,
       (systemText ?: '').length(),
@@ -1951,7 +1980,8 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     String agentIdForLogs,
     int maxOutTokens = 8192,
     int readTimeoutMs = 600_000,
-    String workerPhasePrefix = 'HeadlessOpenAi'
+    String workerPhasePrefix = 'HeadlessOpenAi',
+    String wireBaseUrl = null
   ) {
     if (tools == null || tools.isEmpty()) {
       throw new IllegalStateException(
@@ -1971,7 +2001,8 @@ For **content XML** (pages/components): do not invent a new element tree — pre
       (agentIdForLogs ?: '').toString(),
       null,
       null,
-      null
+      null,
+      wireBaseUrl
     )
   }
 
@@ -2090,7 +2121,7 @@ ${af}"""
     def jsonBody =
       openAiChatCompletionsWireBodyApplyNeoTemperaturePolicy(JsonOutput.toJson(reqMap))
     log.debug(
-      'CrafterQ LLM → POST /v1/chat/completions phase=post_tool_review agentId={} model={} wireJsonChars={} neoWire={}',
+      'OpenAI-wire → POST /v1/chat/completions phase=post_tool_review agentId={} model={} wireJsonChars={} neoWire={}',
       agentId,
       model,
       jsonBody.length(),
@@ -2183,7 +2214,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
   }
 
   /**
-   * Detects memorized lazy “execute the request / CMS tools …” slop (older CrafterQ builds quoted it in {@code [TOOL-GUARD]}).
+   * Detects memorized lazy “execute the request / CMS tools …” slop (older assistant builds quoted it in {@code [TOOL-GUARD]}).
    * Used only to strip matching lines from streamed assistant text — the native tool loop does **not** block on plan shape.
    */
   private static boolean openAiContainsKnownForbiddenMetaPlan(String t) {
@@ -2268,6 +2299,135 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     return joined.replaceAll(/(?m)\n{3,}/, '\n\n').trim()
   }
 
+  /** CMS tools that must not run when the author only asked about CrafterQ hosted chat logs (api.crafterq.ai). */
+  private static final Set<String> CRAFTERRQ_HOSTED_CHAT_BLOCKED_TOOL_NAMES =
+    [
+      'ListContentTranslationScope',
+      'TranslateContentBatch',
+      'TranslateContentItem'
+    ].toSet()
+
+  /** First planned tool name from {@code <!--CRAFTERRQ_ORCH ... -->} when present. */
+  private static String openAiPlannedFirstToolNameFromOrch(String assistantRaw) {
+    List<Map> steps = PlanOrchestration.parseOrchestrationSteps(assistantRaw ?: '')
+    if (steps.isEmpty()) {
+      return ''
+    }
+    Map st0 = steps[0] as Map
+    def tls = st0.get('tools')
+    if (tls instanceof List && !((List) tls).isEmpty()) {
+      return ((List) tls).get(0)?.toString()?.trim() ?: ''
+    }
+    def one = st0.get('tool')
+    return one != null ? one.toString().trim() : ''
+  }
+
+  private static String openAiToolCallNameAt(List runList, int index) {
+    if (runList == null || index < 0 || index >= runList.size()) {
+      return ''
+    }
+    def tcObj = runList.get(index)
+    if (!(tcObj instanceof Map)) {
+      return ''
+    }
+    def fn = ((Map) tcObj).get('function')
+    if (!(fn instanceof Map)) {
+      return ''
+    }
+    return fn.get('name')?.toString()?.trim() ?: ''
+  }
+
+  /**
+   * True when the user message is about **hosted CrafterQ chat** analytics (not CMS page work).
+   * Conservative: requires {@code crafterq} plus at least one analytics phrase.
+   */
+  private static boolean openAiCrafterqHostedChatAnalyticsIntent(String userText) {
+    String n = openAiPlanGateNormalizeForScan(userText)
+    if (!n || !n.contains('crafterq')) {
+      return false
+    }
+    return n.contains('number one') ||
+      n.contains('top question') ||
+      n.contains('what people') ||
+      n.contains('people ask') ||
+      n.contains('people asked') ||
+      n.contains('hosted chat') ||
+      n.contains('chat log') ||
+      n.contains('chat analytics') ||
+      n.contains('dislike') ||
+      n.contains('most common') ||
+      n.contains('most frequent') ||
+      n.contains('most asked') ||
+      n.contains('frequent question') ||
+      (n.contains('question') && (n.contains(' in crafterq') || n.contains('from crafterq')))
+  }
+
+  private static Map openAiSyntheticSameIdToolCall(Map original, String newToolName, String newArgumentsJson) {
+    Map tc = new LinkedHashMap((Map) original)
+    Map fn = new LinkedHashMap()
+    def oldFn = original.get('function')
+    if (oldFn instanceof Map) {
+      fn.putAll((Map) oldFn)
+    }
+    fn.put('name', newToolName)
+    fn.put('arguments', newArgumentsJson != null ? newArgumentsJson : '{}')
+    tc.put('function', fn)
+    tc
+  }
+
+  /**
+   * Round 0 only: if the model’s first tool is a common CMS mis-route for CrafterQ hosted-chat questions,
+   * replace it with {@code ListCrafterQAgentChats} and drop sibling translate/scope calls in the same assistant turn.
+   */
+  private static List openAiRepairToolCallsForCrafterqHostedChatIntent(
+    int round,
+    List runList,
+    String assistantRawForOrchestration,
+    String agentId
+  ) {
+    if (runList == null || runList.isEmpty() || round != 0) {
+      return runList
+    }
+    List out = new ArrayList(runList)
+    String plannedFirst = openAiPlannedFirstToolNameFromOrch(assistantRawForOrchestration)
+    String firstName = openAiToolCallNameAt(out, 0)
+    boolean cmsMisrouteFirst =
+      'ListContentTranslationScope'.equals(firstName) ||
+        ('ListCrafterQAgentChats'.equals(plannedFirst) &&
+          firstName &&
+          !'ListCrafterQAgentChats'.equals(firstName) &&
+          !'GetCrafterQAgentChat'.equals(firstName) &&
+          (
+            'ListPagesAndComponents'.equals(firstName) ||
+              'ListStudioContentTypes'.equals(firstName) ||
+              'GetContent'.equals(firstName) ||
+              'GetContentTypeFormDefinition'.equals(firstName) ||
+              'GetPreviewHtml'.equals(firstName) ||
+              'analyze_template'.equals(firstName)
+          ))
+    if (cmsMisrouteFirst && out.get(0) instanceof Map) {
+      out.set(0, openAiSyntheticSameIdToolCall((Map) out.get(0), 'ListCrafterQAgentChats', '{}'))
+      log.warn(
+        'OpenAI tools-on: repaired first tool call to ListCrafterQAgentChats for CrafterQ hosted-chat analytics intent agentId={} was={} plannedOrchFirst={}',
+        agentId,
+        firstName,
+        plannedFirst
+      )
+    }
+    for (int i = out.size() - 1; i >= 1; i--) {
+      String n = openAiToolCallNameAt(out, i)
+      if (CRAFTERRQ_HOSTED_CHAT_BLOCKED_TOOL_NAMES.contains(n)) {
+        out.remove(i)
+        log.warn(
+          'OpenAI tools-on: removed same-round {} after CrafterQ hosted-chat repair agentId={}',
+          n,
+          agentId
+        )
+      }
+    }
+    return out
+  }
+
   private static String openAiTruncateNativeToolWireContent(String fnName, Object toolOutRaw) {
     String s = toolOutRaw != null ? toolOutRaw.toString() : ''
     if (s.length() <= OPENAI_NATIVE_TOOL_WIRE_MAX_CHARS) {
@@ -2291,7 +2451,8 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     int maxRounds,
     boolean logFirstPostChars,
     OutputStream ssePreToolAssistantText = null,
-    AtomicBoolean cancelRequested = null
+    AtomicBoolean cancelRequested = null,
+    String wireBaseUrl = null
   ) {
     def slurper = new JsonSlurper()
     String assistantAccum = ''
@@ -2326,7 +2487,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
         Thread.currentThread().interrupt()
         throw new InterruptedException(CRAFTQ_PIPELINE_CANCELLED)
       }
-      String raw = openAiHttpPostChatCompletionsReadBody(apiKey, jsonBody)
+      String raw = openAiHttpPostChatCompletionsReadBody(apiKey, jsonBody, false, wireBaseUrl)
       if (cancelRequested != null && cancelRequested.get()) {
         Thread.currentThread().interrupt()
         throw new InterruptedException(CRAFTQ_PIPELINE_CANCELLED)
@@ -2386,15 +2547,21 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
       String assistantPreTool = assistantApiFlatForDebug
       boolean hasTc = openAiChoiceMessageHasToolCalls(msgCopy)
       String assistantRawForOrchestration = assistantApiFlatForDebug
-      List toolCallOrderOverride = null
       if (hasTc) {
         def tcl0 = msgCopy.get('tool_calls')
         if (tcl0 instanceof List) {
-          toolCallOrderOverride = PlanOrchestration.reorderToolCallsByPlan((List) tcl0, assistantRawForOrchestration)
-          if (toolCallOrderOverride != null) {
+          List tcl = (List) tcl0
+          List ordered = PlanOrchestration.reorderToolCallsByPlan(new ArrayList(tcl), assistantRawForOrchestration)
+          List runListPrep = ordered != null ? ordered : new ArrayList(tcl)
+          String guardPre = openAiLastUserWireMessage(wireMessages)?.get('content')?.toString() ?: ''
+          if (openAiCrafterqHostedChatAnalyticsIntent(guardPre) && byName.containsKey('ListCrafterQAgentChats')) {
+            runListPrep = openAiRepairToolCallsForCrafterqHostedChatIntent(round, runListPrep, assistantRawForOrchestration, agentId)
+          }
+          msgCopy.put('tool_calls', runListPrep)
+          if (ordered != null) {
             log.info(
               'OpenAI tools-on: plan orchestrator reordered {} tool_calls to match CRAFTERRQ_ORCH block agentId={}',
-              toolCallOrderOverride.size(),
+              ordered.size(),
               agentId
             )
           }
@@ -2434,9 +2601,11 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
       }
       wireMessages << msgCopy
       if (hasTc) {
-        def tclist = msgCopy.get('tool_calls') as List
-        def runList = (toolCallOrderOverride != null) ? toolCallOrderOverride : tclist
+        def runList = msgCopy.get('tool_calls') as List
         boolean repoMutationThisRound = false
+        String guardLoop = openAiLastUserWireMessage(wireMessages)?.get('content')?.toString() ?: ''
+        boolean cqHostChatGuard =
+          openAiCrafterqHostedChatAnalyticsIntent(guardLoop) && byName.containsKey('ListCrafterQAgentChats')
         for (def tcObj : runList) {
           if (cancelRequested != null && cancelRequested.get()) {
             Thread.currentThread().interrupt()
@@ -2450,7 +2619,14 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
           def fn = tc.get('function') as Map
           String fnName = fn instanceof Map ? (fn.get('name')?.toString() ?: '') : ''
           String argsStr = fn instanceof Map ? (fn.get('arguments')?.toString() ?: '{}') : '{}'
-          if (fnName == 'WriteContent' ||
+          boolean blockedCqMisroute = cqHostChatGuard && CRAFTERRQ_HOSTED_CHAT_BLOCKED_TOOL_NAMES.contains(fnName)
+          if (blockedCqMisroute) {
+            log.warn(
+              'OpenAI tools-on: blocked {} for CrafterQ hosted-chat analytics user intent (use ListCrafterQAgentChats / GetCrafterQAgentChat) agentId={}',
+              fnName,
+              agentId
+            )
+          } else if (fnName == 'WriteContent' ||
             fnName == 'publish_content' ||
             fnName == 'TranslateContentItem' ||
             fnName == 'TranslateContentBatch' ||
@@ -2462,7 +2638,16 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
           crafterQToolWorkerDiagPhase(
             "native_tool_loop_round_${round}_repository_tool name=${fnName ?: '?'} argsChars=${(argsStr ?: '').length()}"
           )
-          if (tcb == null) {
+          if (blockedCqMisroute) {
+            toolOut = JsonOutput.toJson([
+              ok                           : false,
+              tool                         : fnName,
+              blockedForCrafterqHostedChatIntent: true,
+              message                      :
+                'Tool not executed: the author asked about CrafterQ hosted chat logs (api.crafterq.ai), not CMS translation or scope walks. Call ListCrafterQAgentChats (arguments may be {}) then GetCrafterQAgentChat with a chatId from the listing.',
+              hint                         : 'ListCrafterQAgentChats'
+            ])
+          } else if (tcb == null) {
             toolOut = JsonOutput.toJson([ok: false, error: 'unknown_tool', tool: fnName])
             log.warn('OpenAI tools-on: unknown tool {} agentId={}', fnName, agentId)
           } else {
@@ -2525,7 +2710,8 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     String agentId,
     OutputStream sseOut = null,
     Map toolTimingCtx = null,
-    AtomicBoolean cancelRequested = null
+    AtomicBoolean cancelRequested = null,
+    String wireBaseUrl = null
   ) {
     markPipelineWallStart(toolTimingCtx)
     if (cancelRequested != null && cancelRequested.get()) {
@@ -2554,7 +2740,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     Map wmUser = openAiLastUserWireMessage(wireMessages)
     def origUser = wmUser?.get('content')?.toString() ?: ''
     String assistantAccum = openAiRunNativeToolLoopToAssistantText(
-      apiKey, model, wireMessages, wireTools, byName, agentId, 40, true, sseOut, cancelRequested)
+      apiKey, model, wireMessages, wireTools, byName, agentId, 40, true, sseOut, cancelRequested, wireBaseUrl)
     if (openAiPostToolReviewEnabled() && (cancelRequested == null || !cancelRequested.get())) {
       try {
         openAiEmitSseToolProgressLine(
@@ -2579,7 +2765,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
             )
             wireMessages << [role: 'user', content: openAiBuildPostReviewCorrectionUserMessage(rev)]
             assistantAccum = openAiRunNativeToolLoopToAssistantText(
-              apiKey, model, wireMessages, wireTools, byName, agentId, 15, false, sseOut, cancelRequested)
+              apiKey, model, wireMessages, wireTools, byName, agentId, 15, false, sseOut, cancelRequested, wireBaseUrl)
           }
         }
       } catch (Throwable tre) {
@@ -2621,17 +2807,18 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     String agentId,
     Map toolTimingCtx = null,
     AtomicBoolean cancelRequested = null,
-    AtomicBoolean terminalEmitted = null
+    AtomicBoolean terminalEmitted = null,
+    String wireBaseUrl = null
   ) {
     crafterQToolWorkerDiagPhase("openai_tools_worker_start agentId=${agentId ?: ''} model=${model ?: ''}")
     try {
       String text
       try {
         text = openAiExecuteNativeToolsViaRestClientReturnText(
-          apiKey, model, openAiPrompt, tools, agentId, out, toolTimingCtx, cancelRequested)
+          apiKey, model, openAiPrompt, tools, agentId, out, toolTimingCtx, cancelRequested, wireBaseUrl)
       } catch (InterruptedException ie) {
         log.warn(
-          'CrafterQ chat stream: OpenAI tools worker stopped after cancel (client abort / Stop). agentId={} reason={}',
+          'AI Assistant chat stream: OpenAI tools worker stopped after cancel (client abort / Stop). agentId={} reason={}',
           agentId,
           ie.message
         )
@@ -2653,7 +2840,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
       } catch (Throwable io) {
         if (isSseClientDisconnected(io)) {
           log.warn(
-            'CrafterQ chat stream: CLIENT_ABORT — final SSE not written (connection already closed). agentId={} detail={}',
+            'AI Assistant chat stream: CLIENT_ABORT — final SSE not written (connection already closed). agentId={} detail={}',
             agentId,
             io.message
           )
@@ -2673,17 +2860,18 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
    */
   private void writeOpenAiToolsOffViaChatCompletionEntity(
     OutputStream out,
-    String openAiApiKeyFromRequest,
-    String openAiModelParam,
+    String apiKey,
+    String model,
     Prompt openAiPrompt,
-    String agentId
+    String agentId,
+    String wireBaseUrl = null
   ) {
-    def apiKey = resolveOpenAiApiKey(openAiApiKeyFromRequest)
     if (!apiKey) {
-      throw new IllegalStateException(
-        'LLM is set to OpenAI but no API key was found. Set OPENAI_API_KEY or JVM crafter.openai.apiKey on Studio.')
+      throw new IllegalStateException('OpenAI-compatible tools-off chat: API key missing')
     }
-    def model = resolveOpenAiModel(openAiModelParam)
+    if (!model?.toString()?.trim()) {
+      throw new IllegalStateException('OpenAI-compatible tools-off chat: model missing')
+    }
     def msgs = openAiChatCompletionMessagesForApi(openAiPrompt)
     // Groovy cannot resolve `new ChatCompletionRequest(msgs, model, null, true)` reliably: `null` matches
     // both (..., Double, boolean) and (..., List tools, Object toolChoice) → wrong ctor or wrong wire JSON.
@@ -2708,7 +2896,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
       msgs.size()
     )
     try {
-      openAiRestClientBuilder(apiKey)
+      openAiRestClientBuilder(apiKey, wireBaseUrl)
         .defaultHeader(HttpHeaders.ACCEPT, 'text/event-stream, application/json')
         .build()
         .post()
@@ -2796,7 +2984,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     return txt != null ? txt.toString() : ''
   }
 
-  /** Unwrap ExecutionException; user-friendly text when CrafterQ returns 5xx. */
+  /** Unwrap ExecutionException; user-friendly text when the remote hosted chat API returns 5xx. */
   private static Throwable unwrapThrowable(Throwable t) {
     if (t instanceof java.util.concurrent.ExecutionException && t.cause != null) return t.cause
     return t
@@ -2834,16 +3022,16 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
       return 'OpenAI request failed. HTTP detail: ' + elided
     }
     if (msg.contains('HTTP 5') && msg.contains('api.crafterq.ai')) {
-      return '''CrafterQ returned a server error (HTTP 5xx). The Studio plugin is working; the failure is on the CrafterQ API side.
+      return '''The remote chat service (api.crafterq.ai) returned a server error (HTTP 5xx). The Studio plugin is working; the failure is upstream.
 
-If Studio logs show a small prompt (well under the configured max), this is not the prompt-length limit—check agent ID, CrafterQ service health, and upstream logs. The plugin forwards nearly all inbound request headers to CrafterQ (except hop-by-hop and outbound Content-Type/Accept/Length).
+If Studio logs show a small prompt (well under the configured max), this is not the prompt-length limit—check agent ID, remote service health, and upstream logs. The plugin forwards nearly all inbound request headers to the remote API (except hop-by-hop and outbound Content-Type/Accept/Length).
 
-Please try again or contact your CrafterQ administrator.
+Please try again or contact your administrator.
 
 Technical detail: ''' + msg
     }
     if (msg.contains('timed out') || msg.contains('Timed out')) {
-      return 'The request to CrafterQ timed out. Please try again.'
+      return 'The request to the remote chat service timed out. Please try again.'
     }
     return 'Error: ' + msg
   }
@@ -2874,9 +3062,9 @@ Technical detail: ''' + msg
         }
       }
       def springAi = buildSpringAiChatClient(agentId, chatId, llm, openAiModel, openAiApiKey, null, imageModel, fullSuppress, protNorm, enableTools)
-      if (formEngineClientForward && !StudioAiLlmKind.isOpenAiNative(springAi.llm)) {
+      if (formEngineClientForward && !StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi)) {
         log.warn(
-          'Form-engine client-apply: llm is {} (not OpenAI native). Use OpenAI on this agent for native tools + best compliance with crafterqFormFieldUpdates.',
+          'Form-engine client-apply: llm is {} (not OpenAI-wire native tools). Use openAI / xAI / deepSeek / llama / genesis (gemini) on this agent for native RestClient tools + best compliance with crafterqFormFieldUpdates.',
           springAi.llm
         )
       }
@@ -2884,7 +3072,7 @@ Technical detail: ''' + msg
       def userText = springAi.useTools ? addToolRequiredGuard(bodyPrompt, fullSuppress, protNorm) : bodyPrompt
       Prompt openAiPrompt = null
       def callSpec
-      if (StudioAiLlmKind.isOpenAiNative(springAi.llm)) {
+      if (StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi)) {
         openAiPrompt = openAiAuthoringPrompt(
           userText,
           fullSuppress,
@@ -2893,7 +3081,12 @@ Technical detail: ''' + msg
           springAi.studioOps,
           springAi.openAiApiKeyResolved
         )
-        logOpenAiChatCompletionsPayloadApprox(agentId, resolveOpenAiModel(openAiModel), openAiPrompt, springAi.tools)
+        logOpenAiChatCompletionsPayloadApprox(
+          agentId,
+          (springAi.resolvedChatModel ?: resolveOpenAiModel(openAiModel)),
+          openAiPrompt,
+          springAi.tools
+        )
         if (springAi.useTools) {
           // Native tools are executed via RestClient (see openAiExecuteNativeToolsViaRestClientReturnText), not OpenAiChatModel.
           callSpec = null
@@ -2901,18 +3094,22 @@ Technical detail: ''' + msg
           callSpec = springAi.chatClient.prompt(openAiPrompt)
         }
       } else {
-        callSpec = springAi.chatClient.prompt().user(userText)
+        callSpec = springAi.useTools
+          ? springAi.chatClient.prompt().user(userText).tools(*springAi.tools)
+          : springAi.chatClient.prompt().user(userText)
       }
       String content
-      if (StudioAiLlmKind.isOpenAiNative(springAi.llm) && springAi.useTools) {
+      if (StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi) && springAi.useTools) {
         content = openAiExecuteNativeToolsViaRestClientReturnText(
-          resolveOpenAiApiKey(openAiApiKey),
-          resolveOpenAiModel(openAiModel),
+          springAi.openAiApiKeyResolved,
+          (springAi.resolvedChatModel ?: resolveOpenAiModel(openAiModel)),
           openAiPrompt,
           springAi.tools,
           agentId,
           null,
-          null
+          null,
+          null,
+          springAi.openAiWireBaseUrl
         )
       } else {
         def callResult = callSpec.call()
@@ -2951,6 +3148,8 @@ Technical detail: ''' + msg
       case 'QueryExpertGuidance':
       case 'ListPagesAndComponents':
       case 'GetCrafterizingPlaybook':
+      case 'ListCrafterQAgentChats':
+      case 'GetCrafterQAgentChat':
         return '🔍'
       case 'OpenAI':
         // Waiting on chat.completions between tool rounds — not a repo read; distinct from 🔍 tools.
@@ -3007,7 +3206,7 @@ Technical detail: ''' + msg
     boolean previousRoundHadRepoMutation = false
   ) {
     log.debug(
-      'CrafterQ LLM → POST /v1/chat/completions phase=native_tool_loop round={} agentId={} model={} wireJsonChars={}',
+      'OpenAI-wire → POST /v1/chat/completions phase=native_tool_loop round={} agentId={} model={} wireJsonChars={}',
       zeroBasedRound + 1,
       agentId,
       model,
@@ -3253,7 +3452,7 @@ Technical detail: ''' + msg
   }
 
   /**
-   * Browser closed the tab, aborted fetch, or proxy dropped the SSE connection — not a CrafterQ/OpenAI logic failure.
+   * Browser closed the tab, aborted fetch, or proxy dropped the SSE connection — not an LLM or upstream logic failure by itself.
    */
   private static boolean isSseClientDisconnected(Throwable t) {
     if (t == null) {
@@ -3415,7 +3614,7 @@ Technical detail: ''' + msg
       return
     }
     try {
-      log.warn('CrafterQ SSE: forcing terminal completed frame (UI would hang otherwise) — {}', reasonForLog)
+      log.warn('AI Assistant SSE: forcing terminal completed frame (UI would hang otherwise) — {}', reasonForLog)
       synchronized (out) {
         def doneMeta = new LinkedHashMap()
         doneMeta.completed = true
@@ -3472,9 +3671,9 @@ Technical detail: ''' + msg
         }
       }
       def springAi = buildSpringAiChatClient(agentId, chatId, llm, openAiModel, openAiApiKey, toolProgressListener, imageModel, fullSuppress, protNorm, enableTools)
-      if (formEngineClientForward && !StudioAiLlmKind.isOpenAiNative(springAi.llm)) {
+      if (formEngineClientForward && !StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi)) {
         log.warn(
-          'Form-engine client-apply: llm is {} (not OpenAI native). Use OpenAI on this agent for native tools + best compliance with crafterqFormFieldUpdates.',
+          'Form-engine client-apply: llm is {} (not OpenAI-wire native tools). Use openAI / xAI / deepSeek / llama / genesis (gemini) on this agent for native RestClient tools + best compliance with crafterqFormFieldUpdates.',
           springAi.llm
         )
       }
@@ -3489,7 +3688,7 @@ Technical detail: ''' + msg
       // use RestClient + stream:false + JsonSlurper tool loop on a worker thread with the same await budget.
       Prompt openAiPrompt = null
       def promptSpec
-      if (StudioAiLlmKind.isOpenAiNative(springAi.llm)) {
+      if (StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi)) {
         openAiPrompt = openAiAuthoringPrompt(
           userText,
           fullSuppress,
@@ -3498,16 +3697,30 @@ Technical detail: ''' + msg
           springAi.studioOps,
           springAi.openAiApiKeyResolved
         )
-        logOpenAiChatCompletionsPayloadApprox(agentId, resolveOpenAiModel(openAiModel), openAiPrompt, springAi.tools)
+        logOpenAiChatCompletionsPayloadApprox(
+          agentId,
+          (springAi.resolvedChatModel ?: resolveOpenAiModel(openAiModel)),
+          openAiPrompt,
+          springAi.tools
+        )
         if (!springAi.useTools) {
-          writeOpenAiToolsOffViaChatCompletionEntity(out, openAiApiKey, openAiModel, openAiPrompt, agentId)
+          writeOpenAiToolsOffViaChatCompletionEntity(
+            out,
+            springAi.openAiApiKeyResolved,
+            (springAi.resolvedChatModel ?: resolveOpenAiModel(openAiModel)),
+            openAiPrompt,
+            agentId,
+            springAi.openAiWireBaseUrl
+          )
           return null
         }
         promptSpec = springAi.chatClient.prompt(openAiPrompt).tools(*springAi.tools)
       } else {
-        promptSpec = springAi.chatClient.prompt().user(userText)
+        promptSpec = springAi.useTools
+          ? springAi.chatClient.prompt().user(userText).tools(*springAi.tools)
+          : springAi.chatClient.prompt().user(userText)
       }
-      def openAiToolsBlockingForStudioStream = (StudioAiLlmKind.isOpenAiNative(springAi.llm) && springAi.useTools)
+      def openAiToolsBlockingForStudioStream = (StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi) && springAi.useTools)
 
       // OpenAI + native tools: RestClient loop streams **## Plan** (or fallback) before repo tool rows. Sending the
       // workflow hint first makes the client treat 🛠️ as the first chunk and clears main text — authors see tools
@@ -3528,7 +3741,7 @@ Technical detail: ''' + msg
         }
       }
 
-      def modelForLog = resolveOpenAiModel(openAiModel)
+      def modelForLog = (springAi.resolvedChatModel ?: resolveOpenAiModel(openAiModel))
 
       def flux = null
       try {
@@ -3601,7 +3814,7 @@ Technical detail: ''' + msg
                 )
               } else if (loggedEmptyAssistantTextDelta.compareAndSet(false, true)) {
                 log.debug(
-                  'chatStreamWithSpringAi: stream delta with empty assistant text (agentId={}, model={}); CrafterQ forwards only chunks with text or completed=true. Newer OpenAI models may stream tool/reasoning segments without text first — the browser stays blank until the first text chunk (this is not proof the HTTP request body was invalid).',
+                  'chatStreamWithSpringAi: stream delta with empty assistant text (agentId={}, model={}); some adapters only emit chunks when there is assistant text or completed=true. Newer OpenAI models may stream tool/reasoning segments without text first — the browser stays blank until the first text chunk (this is not proof the HTTP request body was invalid).',
                   agentId,
                   modelForLog
                 )
@@ -3673,7 +3886,7 @@ Technical detail: ''' + msg
           }
           if (probeSseClientDisconnected(out)) {
             log.warn(
-              'CrafterQ chat stream: CLIENT_ABORT — author stopped chat or browser closed SSE; disposing chatResponse flux subscription. agentId={} model={}',
+              'AI Assistant chat stream: CLIENT_ABORT — author stopped chat or browser closed SSE; disposing chatResponse flux subscription. agentId={} model={}',
               agentId,
               modelForLog
             )
@@ -3692,7 +3905,7 @@ Technical detail: ''' + msg
             modelForLog
           )
           log.debug(
-            'CrafterQ: cancelling Reactor subscription to OpenAI POST /v1/chat/completions (agentId={}, model={}); this closes the outbound HTTP connection so OpenAI receives a client disconnect for this request.',
+            'AI Assistant: cancelling Reactor subscription to OpenAI POST /v1/chat/completions (agentId={}, model={}); this closes the outbound HTTP connection so OpenAI receives a client disconnect for this request.',
             agentId,
             modelForLog
           )
@@ -3742,14 +3955,15 @@ Check Studio logs for Spring AI / WebClient / reactor.netty lines emitted for th
             def fut = pool.submit({
               writeOpenAiToolsOnViaRestClientToolLoop(
                 out,
-                resolveOpenAiApiKey(openAiApiKey),
-                resolveOpenAiModel(openAiModel),
+                springAi.openAiApiKeyResolved,
+                (springAi.resolvedChatModel ?: resolveOpenAiModel(openAiModel)),
                 openAiPrompt,
                 springAi.tools,
                 agentId,
                 toolTimingCtx,
                 cancelRequested,
-                openAiToolsTerminalEmitted
+                openAiToolsTerminalEmitted,
+                springAi.openAiWireBaseUrl
               )
               null
             } as Callable)
@@ -3767,7 +3981,7 @@ Check Studio logs for Spring AI / WebClient / reactor.netty lines emitted for th
                   } catch (Throwable ignored) {
                   }
                   log.warn(
-                    'CrafterQ chat stream: server-side timeout — cancelling OpenAI tool worker ({}s cap). agentId={} model={}',
+                    'AI Assistant chat stream: server-side timeout — cancelling OpenAI tool worker ({}s cap). agentId={} model={}',
                     (CHAT_FLUX_AWAIT_MS / 1000) as int,
                     agentId,
                     modelForLog
@@ -3791,7 +4005,7 @@ If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, Open
                     }
                     stoppedByClient = true
                     log.warn(
-                      'CrafterQ chat stream: CLIENT_ABORT — author stopped chat or browser closed SSE; cancelling OpenAI tool worker (interrupt + executor shutdown). agentId={} model={}',
+                      'AI Assistant chat stream: CLIENT_ABORT — author stopped chat or browser closed SSE; cancelling OpenAI tool worker (interrupt + executor shutdown). agentId={} model={}',
                       agentId,
                       modelForLog
                     )
@@ -3826,7 +4040,7 @@ If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, Open
                 }
                 ensureSseTerminalCompletedIfNeeded(out, toolTimingCtx, openAiToolsTerminalEmitted, 'SSE client gone or Stop — worker cancelled')
                 log.warn(
-                  'CrafterQ chat stream: CLIENT_ABORT — executor shutdownNow() applied after client abort; worker thread interrupted if still running. agentId={}',
+                  'AI Assistant chat stream: CLIENT_ABORT — executor shutdownNow() applied after client abort; worker thread interrupted if still running. agentId={}',
                   agentId
                 )
                 return null
@@ -3835,7 +4049,7 @@ If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, Open
                 fut.get()
               } catch (CancellationException ce) {
                 log.warn(
-                  'CrafterQ chat stream: OpenAI tool Future cancelled (timeout or client abort). agentId={} detail={}',
+                  'AI Assistant chat stream: OpenAI tool Future cancelled (timeout or client abort). agentId={} detail={}',
                   agentId,
                   ce.message
                 )
@@ -3845,7 +4059,7 @@ If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, Open
                 Throwable c = ee.getCause() != null ? ee.getCause() : ee
                 if (c instanceof InterruptedException && CRAFTQ_PIPELINE_CANCELLED == (c.message ?: '').toString()) {
                   log.warn(
-                    'CrafterQ chat stream: OpenAI tool pipeline exited cooperatively after CLIENT_ABORT cancel flag. agentId={}',
+                    'AI Assistant chat stream: OpenAI tool pipeline exited cooperatively after CLIENT_ABORT cancel flag. agentId={}',
                     agentId
                   )
                   ensureSseTerminalCompletedIfNeeded(out, toolTimingCtx, openAiToolsTerminalEmitted, 'pipeline cancelled cooperatively')
@@ -3853,7 +4067,7 @@ If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, Open
                 }
                 if (isSseClientDisconnected(ee) || isSseClientDisconnected(c)) {
                   log.warn(
-                    'CrafterQ chat stream: CLIENT_ABORT during OpenAI tool workflow — {}',
+                    'AI Assistant chat stream: CLIENT_ABORT during OpenAI tool workflow — {}',
                     c?.message ?: ee.message
                   )
                   ensureSseTerminalCompletedIfNeeded(out, toolTimingCtx, openAiToolsTerminalEmitted, 'client disconnect during tool workflow')
@@ -3881,7 +4095,7 @@ If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, Open
               } catch (Throwable ignored) {
               }
               log.warn(
-                'CrafterQ chat stream: servlet thread interrupted while waiting for OpenAI tool worker — cancelling. agentId={}',
+                'AI Assistant chat stream: servlet thread interrupted while waiting for OpenAI tool worker — cancelling. agentId={}',
                 agentId
               )
               ensureSseTerminalCompletedIfNeeded(out, toolTimingCtx, openAiToolsTerminalEmitted, 'servlet thread interrupted')
@@ -3920,7 +4134,7 @@ If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, Open
     } catch (Throwable t) {
       if (isSseClientDisconnected(t)) {
         log.warn(
-          'CrafterQ chat stream: client aborted connection (UI Stop, fetch AbortError, tab closed, or proxy drop) — server pipeline stopped. detail={}',
+          'AI Assistant chat stream: client aborted connection (UI Stop, fetch AbortError, tab closed, or proxy drop) — server pipeline stopped. detail={}',
           t.message
         )
         return null
