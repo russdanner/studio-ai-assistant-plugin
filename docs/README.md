@@ -11,6 +11,7 @@ High-level map; deep dives live in linked files.
 | **LLM & image backends** — wire ids, secrets, **`script:`** LLM, **pluggable `GenerateImage`** | [LLM configuration](using-and-extending/llm-configuration.md) · [Image generation](using-and-extending/image-generation.md) |
 | **Extension developers** — `user-tools/`, Rollup, descriptor, sandbox script layout | [Studio plugins guide](using-and-extending/studio-plugins-guide.md) · [Using & extending index](using-and-extending/README.md) |
 | **Maintainers** — spec, streaming, runtime | [Internals](internals/README.md) |
+| **Plugin repo contributors** — clone, `yarn package`, policy, spec | [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | **Cursor / repo policy** | [CURSOR_PROJECT_POLICY.md](CURSOR_PROJECT_POLICY.md) |
 
 ## Topic → document
@@ -23,6 +24,7 @@ High-level map; deep dives live in linked files.
 | Autonomous widget placement & overview | [autonomous-assistants-widget.md](using-and-extending/autonomous-assistants-widget.md) |
 | **`imageGenerator`**, **`imagegen/`**, tool/prompt overrides | [image-generation.md](using-and-extending/image-generation.md) |
 | REST/stream body, tools, CrafterQ auth | [chat-and-tools-runtime.md](internals/chat-and-tools-runtime.md) |
+| Debug logging (loggers, Spring AI HTTP trace) | [internals/README.md](internals/README.md#debug-logging) |
 | Full product spec | [spec.md](internals/spec.md) |
 
 **Examples** (copy-paste fragments): [`examples/`](examples/).

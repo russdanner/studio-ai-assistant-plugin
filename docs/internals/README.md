@@ -11,6 +11,15 @@ Documentation here is aimed at **maintainers**, **integrators**, and anyone debu
 | [**chat-and-tools-runtime.md**](chat-and-tools-runtime.md) | CMS tool wiring, CrafterQ bearer/auth, API tools, expert skills, SSE/stream behavior, REST body fields, troubleshooting |
 | [**reference-spring-ai-completions-with-tools.md**](reference-spring-ai-completions-with-tools.md) | Archived Spring AI pattern reference (may diverge from current wiring) |
 
+## Debug logging
+
+JVM flags and logger categories for Studio when troubleshooting server-side behavior.
+
+| What | How |
+|------|-----|
+| Plugin orchestration / payload previews | Logger **DEBUG** on `plugins.org.craftercms.aiassistant.*` |
+| Spring AI HTTP trace | JVM **`-Dcrafterq.springAiHttpDebug=true`** |
+
 ## User-facing configuration
 
 Operators configuring the site (no code changes): start with **[`docs/using-and-extending/configuration-guide.md`](../using-and-extending/configuration-guide.md)**. **`<llm>` ids, keys, and capability matrix:** **[`llm-configuration.md`](../using-and-extending/llm-configuration.md)**. **CMS tools, CrafterQ auth, SSE, troubleshooting:** **[`chat-and-tools-runtime.md`](chat-and-tools-runtime.md)**.
