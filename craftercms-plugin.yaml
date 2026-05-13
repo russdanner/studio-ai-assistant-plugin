@@ -88,6 +88,37 @@ plugin:
                         value: components
                       - name: file
                         value: index.js
+                  # Same default agent as Preview toolbar: OpenAI + GenerateImage; set OPENAI_API_KEY (or JVM crafter.openai.apiKey) on Studio — do not commit keys.
+                  - name: configuration
+                    children:
+                      - name: agents
+                        children:
+                          - name: agent
+                            children:
+                              - name: crafterQAgentId
+                                value: "019c7237-478b-7f98-9a5c-87144c3fb010"
+                              - name: label
+                                value: Authoring Assistant
+                              - name: llm
+                                value: openAI
+                              - name: llmModel
+                                value: gpt-4o-mini
+                              - name: imageModel
+                                value: gpt-image-1
+                              - name: enableTools
+                                value: true
+                              - name: icon
+                                attributes:
+                                  - name: id
+                                    value: "@mui/icons-material/AutoAwesomeRounded"
+                              - name: prompts
+                                children:
+                                  - name: prompt
+                                    value: What can you help me with?
+                                  - name: prompt
+                                    value: Summarize this page in bullet points
+    # Preview toolbar — middleSection.widgets: Helper IconButton is merged after the stock PreviewAddressBar (URL bar) so it appears to the right in LTR layouts.
+    # Chat + CMS tools + OpenAI GenerateImage use OPENAI_API_KEY (or JVM crafter.openai.apiKey) on the Studio host — see docs/using-and-extending/llm-configuration.md.
     - type: preview-app
       parentXpath: //widget[@id='craftercms.components.PreviewToolbar']
       elementXpath: //widget[@id='craftercms.components.aiassistant.Helper'][.//plugin[@id='org.craftercms.aiassistant.studio']]
@@ -113,16 +144,12 @@ plugin:
                             value: components
                           - name: file
                             value: index.js
-                      # Remote chat images import using the current preview page content type's image datasource repoPath
-                      # (crafterq-img-from-url, img-desktop-upload, or merged allowImageUpload from image-picker fields).
                       - name: configuration
                         attributes:
                           - name: ui
                             value: IconButton
                         children:
-                          # Optional: multiple agents. <llm>crafterQ</llm> = remote hosted chat (api.crafterq.ai); <llm>openAI</llm> = Spring AI + CMS tools.
-                          # OpenAI: prefer OPENAI_API_KEY or JVM crafter.openai.apiKey on Studio. Optional <llmModel>; optional <imageModel> for GenerateImage (e.g. gpt-image-1) — no server default.
-                          # Testing only (not recommended): <openAiApiKey> on the agent — used only if env/JVM key unset. See docs/using-and-extending/llm-configuration.md.
+                          # Optional: add more <agent> rows for multiple menu entries. Keys: host env OPENAI_API_KEY (recommended) or JVM crafter.openai.apiKey — not <openAiApiKey> in Git.
                           # <openAsPopup>true</openAsPopup> = floating dialog; omitted or false = Experience Builder right (ICE) panel + edit mode on.
                           # Full fragment reference: docs/examples/studio-ui-aiassistant-fragments.xml
                           - name: agents
@@ -134,10 +161,17 @@ plugin:
                                   - name: label
                                     value: Authoring Assistant
                                   - name: llm
-                                    value: crafterQ
+                                    value: openAI
+                                  - name: llmModel
+                                    value: gpt-4o-mini
+                                  - name: imageModel
+                                    value: gpt-image-1
+                                  - name: enableTools
+                                    value: true
                                   - name: icon
-                                    value: >-
-                                      <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><title>ai</title><g id="Layer_2" data-name="Layer 2"><g id="invisible_box" data-name="invisible box"><rect width="48" height="48" fill="none"/></g><g id="Q3_icons" data-name="Q3 icons"><g><path fill="currentColor" d="M45.6,18.7,41,14.9V7.5a1,1,0,0,0-.6-.9L30.5,2.1h-.4l-.6.2L24,5.9,18.5,2.2,17.9,2h-.4L7.6,6.6a1,1,0,0,0-.6.9v7.4L2.4,18.7a.8.8,0,0,0-.4.8v9H2a.8.8,0,0,0,.4.8L7,33.1v7.4a1,1,0,0,0,.6.9l9.9,4.5h.4l.6-.2L24,42.1l5.5,3.7.6.2h.4l9.9-4.5a1,1,0,0,0,.6-.9V33.1l4.6-3.8a.8.8,0,0,0,.4-.7V19.4h0A.8.8,0,0,0,45.6,18.7Zm-5.1,6.8H42v1.6l-3.5,2.8-.4.3-.4-.2a1.4,1.4,0,0,0-2,.7,1.5,1.5,0,0,0,.6,2l.7.3h0v5.4l-6.6,3.1-4.2-2.8-.7-.5V25.5H27a1.5,1.5,0,0,0,0-3H25.5V9.7l.7-.5,4.2-2.8L37,9.5v5.4h0l-.7.3a1.5,1.5,0,0,0-.6,2,1.4,1.4,0,0,0,1.3.9l.7-.2.4-.2.4.3L42,20.9v1.6H40.5a1.5,1.5,0,0,0,0,3ZM21,25.5h1.5V38.3l-.7.5-4.2,2.8L11,38.5V33.1h0l.7-.3a1.5,1.5,0,0,0,.6-2,1.4,1.4,0,0,0-2-.7l-.4.2-.4-.3L6,27.1V25.5H7.5a1.5,1.5,0,0,0,0-3H6V20.9l3.5-2.8.4-.3.4.2.7.2a1.4,1.4,0,0,0,1.3-.9,1.5,1.5,0,0,0-.6-2L11,15h0V9.5l6.6-3.1,4.2,2.8.7.5V22.5H21a1.5,1.5,0,0,0,0,3Z"/><path fill="currentColor" d="M13.9,9.9a1.8,1.8,0,0,0,0,2.2l2.6,2.5v2.8l-4,4v5.2l4,4v2.8l-2.6,2.5a1.8,1.8,0,0,0,0,2.2,1.5,1.5,0,0,0,1.1.4,1.5,1.5,0,0,0,1.1-.4l3.4-3.5V29.4l-4-4V22.6l4-4V13.4L16.1,9.9A1.8,1.8,0,0,0,13.9,9.9Z"/><path fill="currentColor" d="M31.5,14.6l2.6-2.5a1.8,1.8,0,0,0,0-2.2,1.8,1.8,0,0,0-2.2,0l-3.4,3.5v5.2l4,4v2.8l-4,4v5.2l3.4,3.5a1.7,1.7,0,0,0,2.2,0,1.8,1.8,0,0,0,0-2.2l-2.6-2.5V30.6l4-4V21.4l-4-4Z"/></g></g></g></svg>
+                                    attributes:
+                                      - name: id
+                                        value: "@mui/icons-material/AutoAwesomeRounded"
                                   - name: prompts
                                     children:
                                       - name: prompt

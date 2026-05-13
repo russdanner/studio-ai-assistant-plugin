@@ -11,6 +11,7 @@
 
   Plugin bundle: id="org.craftercms.aiassistant.studio" type="aiassistant" name="components" file="index.js"
   Widget ids must match sources/src/consts.ts (Helper, AutonomousAssistants, etc.).
+  Default install (craftercms-plugin.yaml): Helper in Tools Panel + PreviewToolbar middleSection (after PreviewAddressBar), one OpenAI agent with llmModel + imageModel; OPENAI_API_KEY on Studio host.
 
   CRITICAL — Tools Panel placement: every sidebar tool row must live under
   //widget[@id='craftercms.components.ToolsPanel']/configuration/widgets as a <widget> child.

@@ -106,6 +106,8 @@ To add a widget to the **Preview Toolbar** (e.g. top bar next to the address bar
 - **parentXpath**: `//widget[@id='craftercms.components.PreviewToolbar']`
 - **element**: `configuration` → `middleSection` (or `leftSection` / `rightSection`) → `widgets` → `widget` (with your Helper widget id, `plugin` element, and optional `configuration` e.g. `ui="IconButton"`).
 
+**This plugin’s descriptor** merges the Helper into **`PreviewToolbar` → `middleSection` → `widgets`** so the control follows the stock **`PreviewAddressBar`** (URL bar) in document order—typically **to the right** of the URL in LTR layouts. The default merged agent uses **`openAI`** with **`llmModel`** / **`imageModel`** and **`enableTools`**: supply **`OPENAI_API_KEY`** (or JVM **`crafter.openai.apiKey`**) on the Studio host; do not commit API keys in `ui.xml`. See **[llm-configuration.md](llm-configuration.md)**.
+
 The **plugin** element inside the widget must have:
 
 - **id** — Same as `plugin.id` in the descriptor.
@@ -707,7 +709,7 @@ Pattern: capture **`SecurityContextHolder.getContext()`** on the Studio servlet 
 - [ ] **Build** writes to `authoring/static-assets/plugins/<pluginId-path>/<type>/<name>/...` (and tinymce if used).
 - [ ] **Install** copies that tree into the site’s `config/studio/static-assets/plugins/...`.
 - [ ] **ui.xml** (and TinyMCE config) use the **same** plugin id in every `<plugin id="...">` and in every plugin file URL.
-- [ ] **Toolbar (optional):** Second installation entry adds the widget to `PreviewToolbar` with e.g. `configuration ui="IconButton"`; or add that block manually in `ui.xml`.
+- [ ] **Preview toolbar:** This repo’s **`craftercms-plugin.yaml`** already merges the Helper into **`PreviewToolbar` → `middleSection` → `widgets`** (`ui="IconButton"`). After install, confirm the Helper appears next to the URL bar and set **`OPENAI_API_KEY`** on Studio for the default OpenAI agent.
 - [ ] **Auth:** Browser (or client) is logged in to Studio so plugin file requests send the same session (cookies/JWT).
 
 ---

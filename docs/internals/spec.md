@@ -56,7 +56,7 @@ The UI uses a combination of:
   - either an `IconButton` whose glyph is the first agent’s `icon` from `ui.xml` (mapped in `agentIcon.tsx`), falling back to the bundled assistant mark when unset, or
   - a `ToolsPanelListItemButton` (sidebar) with the bundled logo widget id (`logoWidgetId` in `consts.ts`)
   - With **one** configured agent, the toolbar click opens that agent directly (no menu). With **multiple** agents, a `Menu` lists each row.
-- Agent rows are merged with site `/ui.xml` when Studio’s widget JSON omits label/icon/prompts (placeholder label `CrafterQ` is reconciled); duplicates are deduped after merge. When any agent has a **real** label, extra rows with the JSON-only placeholder label `CrafterQ` are removed (even if Studio assigns an id). When a **non-sample** agent exists, the plugin-install sample row from `craftercms-plugin.yaml` (`019c7237-…` + `CrafterQ content`) is also dropped so the Helper menu is not doubled.
+- Agent rows are merged with site `/ui.xml` when Studio’s widget JSON omits label/icon/prompts (placeholder label `CrafterQ` is reconciled); duplicates are deduped after merge. When any agent has a **real** label, extra rows with the JSON-only placeholder label `CrafterQ` are removed (even if Studio assigns an id). When a **non-sample** agent exists, the plugin-install **default sample agent** row from **`craftercms-plugin.yaml`** (`019c7237-…`) is also dropped so the Helper menu is not doubled.
 - Otherwise opens the Experience Builder ICE tools panel (or a floating dialog when `openAsPopup` is set on the agent).
 
 Note: Message-bus wiring to open the assistant via `openCrafterQMessageId` is present but currently commented out in `AiAssistantHelper.tsx`.
