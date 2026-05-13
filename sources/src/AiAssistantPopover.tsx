@@ -30,6 +30,8 @@ export interface AiAssistantPopoverProps extends PopoverProps {
   enableTools?: boolean;
   expertSkills?: ExpertSkillConfig[];
   translateBatchConcurrency?: number;
+  crafterQBearerToken?: string;
+  crafterQBearerTokenEnv?: string;
 }
 
 function AiAssistantPopover(props: Readonly<AiAssistantPopoverProps>) {
@@ -55,6 +57,8 @@ function AiAssistantPopover(props: Readonly<AiAssistantPopoverProps>) {
     enableTools,
     expertSkills,
     translateBatchConcurrency,
+    crafterQBearerToken,
+    crafterQBearerTokenEnv,
     anchorPosition: anchorPositionProp,
     ...popoverProps
   } = props;
@@ -116,6 +120,8 @@ function AiAssistantPopover(props: Readonly<AiAssistantPopoverProps>) {
           expertSkills={expertSkills}
           configPrompts={prompts}
           {...(translateBatchConcurrency != null ? { translateBatchConcurrency } : {})}
+          {...(crafterQBearerTokenEnv?.trim() ? { crafterQBearerTokenEnv: crafterQBearerTokenEnv.trim() } : {})}
+          {...(crafterQBearerToken?.trim() ? { crafterQBearerToken: crafterQBearerToken.trim() } : {})}
         />
         
       </Popover>

@@ -17,8 +17,10 @@ interface StudioAiLlmRuntime {
   boolean supportsNativeStudioTools()
 
   /**
-   * Returns the same structure {@link AiOrchestration} historically used: {@code chatClient}, {@code chatModel},
-   * {@code tools}, {@code llm}, {@code useTools}, {@code studioOps}, {@code openAiApiKeyResolved} (nullable).
+ * Returns the same structure {@link AiOrchestration} historically used: {@code chatClient}, {@code chatModel},
+ * {@code tools}, {@code llm}, {@code useTools}, {@code studioOps}, {@code openAiApiKeyResolved} (nullable),
+ * and for OpenAI-wire / script proxies {@code openAiWireBaseUrl}, {@code resolvedChatModel}. Optional {@code nativeToolTransport}
+ * ({@code openAiWire} or {@code anthropic}) on the bundle overrides transport detection for {@code scriptLlm:…} kinds.
    */
   Map buildSessionBundle(StudioAiRuntimeBuildRequest req)
 }

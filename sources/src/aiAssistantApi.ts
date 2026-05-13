@@ -171,6 +171,10 @@ export interface StreamChatArgs {
    * (from agent ui.xml **translateBatchConcurrency**). Server default 25 when omitted.
    */
   translateBatchConcurrency?: number;
+  /** CrafterQ JWT for `Authorization: Bearer` on server-proxied api.crafterq.ai calls (ui.xml **crafterQBearerToken**). */
+  crafterQBearerToken?: string;
+  /** Studio host env var **name** for the CrafterQ JWT (ui.xml **crafterQBearerTokenEnv**); overrides literal when set and non-empty. */
+  crafterQBearerTokenEnv?: string;
   signal?: AbortSignal;
   onMessage: (event: AiAssistantChatMessage) => void;
   /**
@@ -239,6 +243,8 @@ export async function streamChat(args: StreamChatArgs): Promise<void> {
     omitTools,
     expertSkills,
     translateBatchConcurrency,
+    crafterQBearerToken,
+    crafterQBearerTokenEnv,
     signal,
     onMessage,
     onRawSseDataLine
@@ -301,6 +307,10 @@ export async function streamChat(args: StreamChatArgs): Promise<void> {
   ) {
     requestBody.translateBatchConcurrency = Math.floor(translateBatchConcurrency);
   }
+  const bEnv = crafterQBearerTokenEnv != null ? String(crafterQBearerTokenEnv).trim() : '';
+  if (bEnv) requestBody.crafterQBearerTokenEnv = bEnv;
+  const bTok = crafterQBearerToken != null ? String(crafterQBearerToken).trim() : '';
+  if (bTok) requestBody.crafterQBearerToken = bTok;
 
   const streamFromResponse = async (res: Response, failPrefix: string): Promise<void> => {
     if (!res.ok) {

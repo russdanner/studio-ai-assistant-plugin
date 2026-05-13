@@ -155,6 +155,16 @@ function cqParseAgentElement(agentEl) {
       out.translateBatchConcurrency = Math.min(64, tbcN);
     }
   }
+  var bearerEnv =
+    cqChildTextDirect(agentEl, 'crafterQBearerTokenEnv') ||
+    cqChildTextDirect(agentEl, 'crafter-q-bearer-token-env') ||
+    cqChildTextDirect(agentEl, 'crafter_q_bearer_token_env');
+  var bearerLit =
+    cqChildTextDirect(agentEl, 'crafterQBearerToken') ||
+    cqChildTextDirect(agentEl, 'crafter-q-bearer-token') ||
+    cqChildTextDirect(agentEl, 'crafter_q_bearer_token');
+  if (bearerEnv && String(bearerEnv).trim()) out.crafterQBearerTokenEnv = String(bearerEnv).trim();
+  if (bearerLit && String(bearerLit).trim()) out.crafterQBearerToken = String(bearerLit).trim();
   return out;
 }
 

@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# --- Hardcoded for local install: edit this path for your machine ---
+# --- Hardcoded for local install: edit CRAFTER_DATA if your authoring data lives elsewhere ---
 CRAFTER_DATA="/home/russdanner/crafter-installs/4-4-xE/crafter-authoring/data"
+# Example site sandbox (default siteId new-demo):
+#   /home/russdanner/crafter-installs/4-4-xE/crafter-authoring/data/repos/sites/new-demo/sandbox
+# Example when SITE_ID=qtest (first arg):
+#   /home/russdanner/crafter-installs/4-4-xE/crafter-authoring/data/repos/sites/qtest/sandbox
 # -------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_PATH="${3:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
-# Default maintainer test site — pass a different first arg to target another site.
-SITE_ID="${1:-ebay-ai}"
+# Default maintainer test site — pass a different first arg to target another site (e.g. qtest).
+SITE_ID="${1:-new-demo}"
 STUDIO_URL="${2:-http://localhost:8080}"
 SITE_REPO_PATH="${CRAFTER_DATA}/repos/sites/${SITE_ID}/sandbox"
 
@@ -21,8 +25,8 @@ if [[ -z "${CRAFTER_STUDIO_TOKEN:-}" ]] && [[ -f "${SCRIPT_DIR}/.studio-token" ]
 fi
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  echo "Usage: $0 [siteId=ebay-ai] [studioUrl=http://localhost:8080] [pluginRepoPath]" >&2
-  echo "  siteId defaults to ebay-ai when omitted. Edit CRAFTER_DATA at top for your install path." >&2
+  echo "Usage: $0 [siteId=new-demo] [studioUrl=http://localhost:8080] [pluginRepoPath]" >&2
+  echo "  siteId defaults to new-demo when omitted. Edit CRAFTER_DATA at top for your install path." >&2
   echo "  Token: CRAFTER_STUDIO_TOKEN env or scripts/.studio-token (gitignored)." >&2
   exit 0
 fi
@@ -87,6 +91,8 @@ else
   mkdir -p "${CLASSES_DEST}"
   echo "Copying authoring/scripts/classes to ${CLASSES_DEST}..."
   cp -r "${CLASSES_SRC}"/* "${CLASSES_DEST}/"
+  # Site-maintained Groovy under config/studio/scripts/aiassistant/user-tools/ and aiassistant/llm/ is NOT copied
+  # by this script; Studio reads those paths via configurationService when present.
   if git -C "${SITE_REPO_PATH}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git -C "${SITE_REPO_PATH}" add config/studio/scripts/classes
     if git -C "${SITE_REPO_PATH}" diff --staged --quiet; then

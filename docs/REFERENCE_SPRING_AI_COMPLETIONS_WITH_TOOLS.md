@@ -118,4 +118,4 @@ public class CheckAvailabilityTool implements Function<CheckAvailabilityTool.Req
 - **Tools**: Implement `Function<Request, Response>`, wrap with `FunctionCallbackWrapper`, pass to `.functions(...)`.
 - **Note**: This is tool-calling only (no RAG).
 
-For this plugin, tool execution is intended to be handled separately (e.g. via CrafterQ agent tools or a future Spring AI integration). See `AiOrchestration` for current server-side orchestration.
+For this plugin, tool execution is handled in `AiOrchestration` / `AiOrchestrationTools` (Spring AI native tools and RestClient loops). See `AiOrchestration` for current server-side orchestration.

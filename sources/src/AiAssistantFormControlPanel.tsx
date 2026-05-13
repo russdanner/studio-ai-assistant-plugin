@@ -216,6 +216,12 @@ export default function AiAssistantFormControlPanel(props: AiAssistantFormContro
                     {...(agent.translateBatchConcurrency != null
                       ? { translateBatchConcurrency: agent.translateBatchConcurrency }
                       : {})}
+                    {...(agent.crafterQBearerTokenEnv?.trim()
+                      ? { crafterQBearerTokenEnv: agent.crafterQBearerTokenEnv.trim() }
+                      : {})}
+                    {...(agent.crafterQBearerToken?.trim()
+                      ? { crafterQBearerToken: agent.crafterQBearerToken.trim() }
+                      : {})}
                   />
                 </Box>
               ) : null}

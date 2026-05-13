@@ -1,14 +1,18 @@
 package plugins.org.craftercms.aiassistant.llm
 
 import java.util.Locale
+import java.util.Map
+import java.util.regex.Pattern
 
 /**
  * Normalized LLM <strong>transport</strong> identifiers for the Studio AI Assistant plugin (this codebase).
  * <p>
- * Product naming: authors see “CrafterQ” in places, but architecturally <strong>CrafterQ</strong> here means the
- * <strong>remote CrafterQ HTTP API</strong> adapter — one optional backend. <strong>OpenAI</strong> is another adapter
- * (Spring AI + Chat Completions + native tool calling). Additional providers should add a constant, extend
- * {@link StudioAiLlmKind#normalize(String)}, and register a {@link StudioAiLlmRuntime} in {@link StudioAiLlmRuntimeFactory}.
+ * <strong>{@link #CRAFTERRQ_REMOTE_API}</strong> ({@code llm=crafterQ} and unknown defaults) is the
+ * <strong>remote hosted chat</strong> adapter (HTTP to {@code api.crafterq.ai}); it is not the name of the plugin.
+ * The <strong>ConsultCrafterQExpert</strong> CMS tool calls that same hosted stack for SME/RAG consults.
+ * <strong>OpenAI</strong>-wire and compatible hosts use the {@code /v1/chat/completions} native-tool loop in
+ * {@code AiOrchestration}. <strong>Claude</strong> uses Spring AI Anthropic with Spring-managed tool execution.
+ * Site-authored backends use {@link #SCRIPT_LLM_PREFIX} via Groovy under {@code /scripts/aiassistant/llm/{id}/}.
  * </p>
  */
 final class StudioAiLlmKind {
@@ -18,8 +22,27 @@ final class StudioAiLlmKind {
   /** Spring AI OpenAI ChatModel + RestClient native-tool loop (CMS tools on the wire). */
   static final String OPENAI_NATIVE = 'openAI'
 
-  /** CrafterQ SaaS/API chat only — no Studio CMS tools through this adapter. */
+  /** OpenAI-compatible API (same wire as OpenAI); see {@link StudioAiProviderCredentials}. */
+  static final String XAI_NATIVE = 'xAI'
+
+  static final String DEEPSEEK_NATIVE = 'deepSeek'
+  static final String LLAMA_NATIVE = 'llama'
+  /** Google Generative Language OpenAI-compatible endpoint; {@code genesis} is an accepted alias in {@link #normalize}. */
+  static final String GEMINI_NATIVE = 'gemini'
+
+  /** Spring AI Anthropic (Claude); tools via Spring {@code ChatClient}, not the OpenAI RestClient loop. */
+  static final String CLAUDE_NATIVE = 'claude'
+
+  /** Remote hosted chat at {@code api.crafterq.ai} — no Studio CMS tools through this adapter (see {@code ConsultCrafterQExpert} for SME tool calls). */
   static final String CRAFTERRQ_REMOTE_API = 'crafterQ'
+
+  /**
+   * Normalized id for site Groovy LLM under {@code /scripts/aiassistant/llm/{id}/}. Agent {@code <llm>} uses
+   * {@code script:yourId} → normalized {@code scriptLlm:yourId}.
+   */
+  static final String SCRIPT_LLM_PREFIX = 'scriptLlm:'
+
+  private static final Pattern SAFE_SCRIPT_LLM_ID = Pattern.compile('^[a-z0-9_-]{1,64}$')
 
   static boolean isOpenAiNative(String normalizedKind) {
     return OPENAI_NATIVE == (normalizedKind ?: '').toString()
@@ -29,19 +52,102 @@ final class StudioAiLlmKind {
     return CRAFTERRQ_REMOTE_API == (normalizedKind ?: '').toString()
   }
 
+  static boolean isScriptHostedLlm(String normalizedKind) {
+    return (normalizedKind ?: '').toString().startsWith(SCRIPT_LLM_PREFIX)
+  }
+
+  /** Lowercase id segment after {@link #SCRIPT_LLM_PREFIX}; empty if not a script LLM token. */
+  static String scriptLlmIdFromNormalized(String normalizedKind) {
+    String s = (normalizedKind ?: '').toString()
+    if (!s.startsWith(SCRIPT_LLM_PREFIX)) {
+      return ''
+    }
+    return s.substring(SCRIPT_LLM_PREFIX.length()).trim().toLowerCase(Locale.US)
+  }
+
+  /** Built-in OpenAI-wire kinds only (no script bundle inspection). */
+  static boolean useOpenAiRestClientToolLoopBuiltIn(String normalizedKind) {
+    String n = (normalizedKind ?: '').toString()
+    return OPENAI_NATIVE == n || XAI_NATIVE == n || DEEPSEEK_NATIVE == n || LLAMA_NATIVE == n || GEMINI_NATIVE == n
+  }
+
+  /**
+   * OpenAI-wire RestClient native tool loop (not Anthropic). When {@code springAiBundle} is the map from
+   * {@code buildSpringAiChatClient}, script-hosted sessions may set {@code nativeToolTransport} to {@code openAiWire}
+   * or supply {@code openAiWireBaseUrl} + {@code resolvedChatModel} to opt into the same path.
+   */
+  static boolean useOpenAiRestClientToolLoop(String normalizedKind, Map springAiBundle = null) {
+    if (springAiBundle != null) {
+      String t = springAiBundle.get('nativeToolTransport')?.toString()?.trim()
+      if (t && 'openAiWire'.equalsIgnoreCase(t)) {
+        return true
+      }
+      if (isScriptHostedLlm((normalizedKind ?: '').toString())) {
+        String w = springAiBundle.get('openAiWireBaseUrl')?.toString()?.trim()
+        String rm = springAiBundle.get('resolvedChatModel')?.toString()?.trim()
+        if (w && rm) {
+          return true
+        }
+      }
+    }
+    return useOpenAiRestClientToolLoopBuiltIn(normalizedKind)
+  }
+
+  static boolean isAnthropicClaude(String normalizedKind, Map springAiBundle = null) {
+    if (springAiBundle != null) {
+      String t = springAiBundle.get('nativeToolTransport')?.toString()?.trim()
+      if (t && 'anthropic'.equalsIgnoreCase(t)) {
+        return true
+      }
+    }
+    return CLAUDE_NATIVE == (normalizedKind ?: '').toString()
+  }
+
+  /** Autonomous worker: OpenAI built-in wire or site script LLM (script must return an OpenAI-wire bundle for headless tools). */
+  static boolean supportsAutonomousNativeTools(String normalizedKind) {
+    return useOpenAiRestClientToolLoopBuiltIn(normalizedKind) || isScriptHostedLlm(normalizedKind)
+  }
+
   /**
    * Maps agent / POST {@code llm} strings to a normalized kind. Unknown values default to {@link #CRAFTERRQ_REMOTE_API}
-   * (historical default).
+   * (historical default). Use {@code script:yourId} for site Groovy ({@link #SCRIPT_LLM_PREFIX}).
    */
   static String normalize(String raw) {
-    String s = (raw ?: '').toString().trim().toLowerCase(Locale.US)
+    String trimmed = (raw ?: '').toString().trim()
+    String s = trimmed.toLowerCase(Locale.US)
     if (!s || s == 'crafterq' || s == 'crafter-q') {
       return CRAFTERRQ_REMOTE_API
+    }
+    if (s.startsWith('script:')) {
+      String id = s.substring('script:'.length()).trim()
+      if (SAFE_SCRIPT_LLM_ID.matcher(id).matches()) {
+        return SCRIPT_LLM_PREFIX + id
+      }
+    }
+    if (s.startsWith(SCRIPT_LLM_PREFIX.toLowerCase(Locale.US))) {
+      String id2 = s.substring(SCRIPT_LLM_PREFIX.length()).trim()
+      if (SAFE_SCRIPT_LLM_ID.matcher(id2).matches()) {
+        return SCRIPT_LLM_PREFIX + id2
+      }
     }
     if (s == 'openai' || s == 'open-ai') {
       return OPENAI_NATIVE
     }
-    // Future: anthropic, google, azure-openai, etc. — register in StudioAiLlmRuntimeFactory.
+    if (s == 'xai' || s == 'x-ai' || s == 'grok') {
+      return XAI_NATIVE
+    }
+    if (s == 'deepseek' || s == 'deep-seek') {
+      return DEEPSEEK_NATIVE
+    }
+    if (s == 'llama' || s == 'ollama' || s == 'meta-llama' || s == 'meta_llama') {
+      return LLAMA_NATIVE
+    }
+    if (s == 'gemini' || s == 'genesis' || s == 'google' || s == 'google-genai' || s == 'google_genai') {
+      return GEMINI_NATIVE
+    }
+    if (s == 'claude' || s == 'anthropic') {
+      return CLAUDE_NATIVE
+    }
     return CRAFTERRQ_REMOTE_API
   }
 }

@@ -11,8 +11,9 @@ import org.springframework.ai.openai.OpenAiChatOptions
 import org.springframework.ai.openai.api.OpenAiApi
 
 /**
- * LLM runtime: <strong>OpenAI</strong> via Spring AI {@link OpenAiChatModel} plus CrafterQ’s native-tool execution path
- * ({@link AiOrchestration} RestClient loop — not part of this builder).
+ * LLM runtime: <strong>OpenAI</strong> and OpenAI-compatible providers (xAI, DeepSeek, Llama/Ollama, Gemini)
+ * via Spring AI {@link OpenAiChatModel} plus this plugin’s OpenAI-wire Spring {@code RestClient} native-tool execution in
+ * {@link AiOrchestration}.
  */
 class OpenAiSpringAiLlmRuntime implements StudioAiLlmRuntime {
 
@@ -35,24 +36,23 @@ class OpenAiSpringAiLlmRuntime implements StudioAiLlmRuntime {
   @Override
   Map buildSessionBundle(StudioAiRuntimeBuildRequest req) {
     def orch = req.orchestration
-    def apiKey = AiOrchestration.resolveOpenAiApiKey(req.openAiApiKeyFromRequest)
-    if (!apiKey) {
-      throw new IllegalStateException(
-        'LLM is set to OpenAI but no API key was found. Set OPENAI_API_KEY or JVM crafter.openai.apiKey on Studio. For local testing only, optional agent <openAiApiKey> in ui.xml (see LLM_CONFIGURATION.md).')
+    String llmNorm = (req.llmNormalized ?: StudioAiLlmKind.OPENAI_NATIVE).toString()
+    String apiKey = StudioAiProviderCredentials.resolveApiKey(llmNorm, req.openAiApiKeyFromRequest)
+    if (!apiKey?.trim()) {
+      throw new IllegalStateException(StudioAiProviderCredentials.missingApiKeyMessage(llmNorm))
     }
-    def usedWidgetKey = apiKey == (req.openAiApiKeyFromRequest ?: '').toString().trim() &&
-      !System.getenv('OPENAI_API_KEY')?.trim() &&
-      !System.getProperty('crafter.openai.apiKey')?.trim() &&
-      !System.getProperty('OPENAI_API_KEY')?.trim()
-    if (usedWidgetKey) {
+    if (StudioAiProviderCredentials.isLikelyWidgetOnlyServerKeyMissing(llmNorm, apiKey, req.openAiApiKeyFromRequest)) {
       log.warn(
-        'OpenAI API key is taken from widget/request (testing path). apiKeyPreview={} apiKeyChars={}. Prefer OPENAI_API_KEY on the server for production.',
+        'API key is taken from widget/request (testing path). llm={} apiKeyPreview={} apiKeyChars={}. Prefer server env/JVM keys for production.',
+        llmNorm,
         AiOrchestration.openAiApiKeyLogPreview(apiKey),
         apiKey.length()
       )
     }
-    def modelName = AiOrchestration.resolveOpenAiModel(req.openAiModelParam)
+    String modelName = StudioAiProviderCredentials.resolveChatModelId(llmNorm, req.openAiModelParam)
+    String wireBase = StudioAiProviderCredentials.wireOpenAiRestBaseUrl(llmNorm)
     def imageModel = AiOrchestration.imageModelFromRequestOrNull(req.imageModelParam)
+    String openAiOnlyImageKey = AiOrchestration.resolveOpenAiApiKey(null)
     def tools
     if (req.enableTools) {
       def expertSpecs = orch.readExpertSkillSpecsFromRequest()
@@ -60,7 +60,7 @@ class OpenAiSpringAiLlmRuntime implements StudioAiLlmRuntime {
         req.toolResultConverter,
         req.studioOps,
         req.toolProgressListener,
-        apiKey,
+        openAiOnlyImageKey,
         imageModel,
         req.fullSuppressRepoWrites,
         req.protectedFormItemPath,
@@ -70,7 +70,7 @@ class OpenAiSpringAiLlmRuntime implements StudioAiLlmRuntime {
     } else {
       tools = []
     }
-    def openAiApi = OpenAiApi.builder().apiKey(apiKey).build()
+    def openAiApi = OpenAiApi.builder().baseUrl(wireBase).apiKey(apiKey).build()
     def options = OpenAiChatOptions.builder()
       .model(modelName)
       .internalToolExecutionEnabled(req.enableTools)
@@ -81,11 +81,13 @@ class OpenAiSpringAiLlmRuntime implements StudioAiLlmRuntime {
       .build()
     def chatClient = new DefaultChatClientBuilder(chatModel).build()
     log.debug(
-      'Spring AI chat client: provider=OpenAI model={} imageModel={} enableTools={} apiKeySource={} apiKeyPreview={} apiKeyChars={}',
+      'Spring AI chat client: provider={} model={} imageModel={} enableTools={} wireBaseUrl={} apiKeySource={} apiKeyPreview={} apiKeyChars={}',
+      llmNorm,
       modelName,
       imageModel ?: '(unset)',
       req.enableTools,
-      AiOrchestration.openAiApiKeyResolutionSource(),
+      wireBase,
+      StudioAiProviderCredentials.apiKeyResolutionSourceForLog(llmNorm),
       AiOrchestration.openAiApiKeyLogPreview(apiKey),
       apiKey.length()
     )
@@ -93,10 +95,12 @@ class OpenAiSpringAiLlmRuntime implements StudioAiLlmRuntime {
       chatClient          : chatClient,
       chatModel           : chatModel,
       tools               : tools,
-      llm                 : StudioAiLlmKind.OPENAI_NATIVE,
+      llm                 : llmNorm,
       useTools            : req.enableTools,
       studioOps           : req.studioOps,
-      openAiApiKeyResolved: apiKey
+      openAiApiKeyResolved: apiKey,
+      openAiWireBaseUrl   : wireBase,
+      resolvedChatModel   : modelName
     ]
   }
 }

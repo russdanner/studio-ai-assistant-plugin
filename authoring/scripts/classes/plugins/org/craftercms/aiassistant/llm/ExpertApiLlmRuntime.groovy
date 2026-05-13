@@ -54,7 +54,9 @@ class ExpertApiLlmRuntime implements StudioAiLlmRuntime {
       llm                 : StudioAiLlmKind.CRAFTERRQ_REMOTE_API,
       useTools            : false,
       studioOps           : req.studioOps,
-      openAiApiKeyResolved: null
+      openAiApiKeyResolved: null,
+      openAiWireBaseUrl   : null,
+      resolvedChatModel   : null
     ]
   }
 }

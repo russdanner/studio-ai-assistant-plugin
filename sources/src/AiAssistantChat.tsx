@@ -1183,6 +1183,13 @@ export interface AiAssistantChatProps {
   expertSkills?: ExpertSkillConfig[];
   /** 1–64; sent on stream POST for TranslateContentBatch default parallelism (ui.xml translateBatchConcurrency). */
   translateBatchConcurrency?: number;
+  /**
+   * CrafterQ JWT for server-proxied **api.crafterq.ai** calls (`Authorization: Bearer …`). From ui.xml **`<crafterQBearerToken>`**.
+   * Prefer **{@link crafterQBearerTokenEnv}** + host environment for secrets.
+   */
+  crafterQBearerToken?: string;
+  /** Host env var **name** for the CrafterQ JWT. ui.xml **`<crafterQBearerTokenEnv>`**; overrides {@link crafterQBearerToken} when set and non-empty on the server. */
+  crafterQBearerTokenEnv?: string;
 }
 
 export default function AiAssistantChat(props: Readonly<AiAssistantChatProps>) {
@@ -1200,7 +1207,9 @@ export default function AiAssistantChat(props: Readonly<AiAssistantChatProps>) {
     formEngineClientJsonApply,
     enableTools,
     expertSkills,
-    translateBatchConcurrency
+    translateBatchConcurrency,
+    crafterQBearerToken,
+    crafterQBearerTokenEnv
   } = props;
   /** Empty when config omits **crafterQAgentId** — server must omit ConsultCrafterQExpert; do not substitute a default UUID. */
   const agentId = agentIdProp?.trim() ?? '';
@@ -1662,6 +1671,8 @@ export default function AiAssistantChat(props: Readonly<AiAssistantChatProps>) {
         translateBatchConcurrency <= 64
           ? { translateBatchConcurrency: Math.floor(translateBatchConcurrency) }
           : {}),
+        ...(crafterQBearerTokenEnv?.trim() ? { crafterQBearerTokenEnv: crafterQBearerTokenEnv.trim() } : {}),
+        ...(crafterQBearerToken?.trim() ? { crafterQBearerToken: crafterQBearerToken.trim() } : {}),
         signal: ac.signal,
         onRawSseDataLine: (jsonLine) => {
           sessionStreamLogRef.current.push(`${new Date().toISOString()}\t${jsonLine}`);

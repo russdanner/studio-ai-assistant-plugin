@@ -74,6 +74,24 @@ function parseAgentElement(agentEl: Element): AgentConfig | null {
     });
   }
   if (expertSkills.length) out.expertSkills = expertSkills;
+  const tbcRaw =
+    childTextDirect(agentEl, 'translateBatchConcurrency') ?? childTextDirect(agentEl, 'translate_batch_concurrency');
+  if (tbcRaw != null && String(tbcRaw).trim() !== '') {
+    const tbcN = parseInt(String(tbcRaw).trim(), 10);
+    if (Number.isFinite(tbcN) && tbcN >= 1) {
+      out.translateBatchConcurrency = Math.min(64, tbcN);
+    }
+  }
+  const bearerEnv =
+    childTextDirect(agentEl, 'crafterQBearerTokenEnv') ??
+    childTextDirect(agentEl, 'crafter-q-bearer-token-env') ??
+    childTextDirect(agentEl, 'crafter_q_bearer_token_env');
+  const bearerLit =
+    childTextDirect(agentEl, 'crafterQBearerToken') ??
+    childTextDirect(agentEl, 'crafter-q-bearer-token') ??
+    childTextDirect(agentEl, 'crafter_q_bearer_token');
+  if (bearerEnv?.trim()) out.crafterQBearerTokenEnv = bearerEnv.trim();
+  if (bearerLit?.trim()) out.crafterQBearerToken = bearerLit.trim();
   return out;
 }
 

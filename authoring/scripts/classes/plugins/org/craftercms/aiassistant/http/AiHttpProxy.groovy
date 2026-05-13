@@ -78,6 +78,23 @@ class AiHttpProxy {
       (b.crafterQBearerTokenEnv ?: b.get('crafterQ-bearer-token-env') ?: b.crafter_q_bearer_token_env)?.toString()?.trim() ?: ''
     String literal =
       (b.crafterQBearerToken ?: b.get('crafterQ-bearer-token') ?: b.crafter_q_bearer_token)?.toString()?.trim() ?: ''
+    boolean literalPresent = literal != null && literal.length() > 0
+    boolean getenvResolved = false
+    if (envKey) {
+      try {
+        String gv = System.getenv(envKey)
+        getenvResolved = gv != null && gv.trim().length() > 0
+      } catch (Throwable ignored0) {
+      }
+    }
+    logger.info(
+      'CrafterQ bearer install (POST body after optional ui.xml merge): crafterQBearerTokenEnv name={} getenvNonBlankForThatName={} crafterQBearerToken literal present={} literalChars={} literalPreview={}',
+      envKey ? envKey : '(omitted)',
+      getenvResolved,
+      literalPresent,
+      literalPresent ? literal.length() : 0,
+      literalPresent ? crafterQBearerLogPreview(literal) : '(none)'
+    )
     String token = ''
     String source = ''
     if (envKey) {
@@ -104,13 +121,16 @@ class AiHttpProxy {
       source = literal.regionMatches(true, 0, 'Bearer ', 0, 7) ? 'literal:POST(Bearer stripped)' : 'literal:POST'
     }
     if (!token) {
-      if (logger.isDebugEnabled()) {
-        logger.debug(
-          'CrafterQ bearer: no token installed (envKeyBlank={} literalBlank={})',
-          !envKey?.trim(),
-          !literal?.trim()
-        )
-      }
+      logger.warn(
+        'CrafterQ bearer NOT installed on this request: outbound api.crafterq.ai calls have no Authorization bearer. ' +
+          'crafterQBearerTokenEnv name was={} getenvNonBlank={} literalInBody={} literalChars={} literalPreview={}. ' +
+          'Fix: set crafterQBearerTokenEnv + Studio host env, or crafterQBearerToken in ui.xml for this agent, or send them on the stream/chat JSON body; or sign into CrafterQ in the widget (X-CrafterQ-Chat-User).',
+        envKey ? envKey : '(omitted)',
+        getenvResolved,
+        literalPresent,
+        literalPresent ? literal.length() : 0,
+        literalPresent ? crafterQBearerLogPreview(literal) : '(none)'
+      )
       return
     }
     try {

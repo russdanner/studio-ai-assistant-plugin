@@ -38,6 +38,9 @@ const plugin: PluginDescriptor = {
     [autonomousAgentsMarkWidgetId]: AutonomousAgentsMarkIcon,
     [formControlWidgetId]: AiAssistantFormControl,
     [logoWidgetId]: AiAssistantLogo,
+    /** Legacy SystemIcon ids (older ui.xml / bundles); same component as logoWidgetId (OpenAILogo). */
+    'craftercms.components.aiassistant.AiAssistantLogo': AiAssistantLogo,
+    'craftercms.components.aiassistant.CrafterQLogo': AiAssistantLogo,
     [popoverWidgetId]: AiAssistantPopover,
     [dialogContentWidgetId]: AiAssistantDialogContent
   }

@@ -8,8 +8,14 @@ final class StudioAiLlmRuntimeFactory {
   private StudioAiLlmRuntimeFactory() {}
 
   static StudioAiLlmRuntime runtimeFor(String normalizedKind) {
-    if (StudioAiLlmKind.isOpenAiNative(normalizedKind)) {
+    if (StudioAiLlmKind.isScriptHostedLlm(normalizedKind)) {
+      return new StudioAiScriptLlmContainerRuntime(StudioAiLlmKind.scriptLlmIdFromNormalized(normalizedKind))
+    }
+    if (StudioAiLlmKind.useOpenAiRestClientToolLoopBuiltIn(normalizedKind)) {
       return OpenAiSpringAiLlmRuntime.INSTANCE
+    }
+    if (StudioAiLlmKind.isAnthropicClaude(normalizedKind)) {
+      return AnthropicSpringAiLlmRuntime.INSTANCE
     }
     return ExpertApiLlmRuntime.INSTANCE
   }

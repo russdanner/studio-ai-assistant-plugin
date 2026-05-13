@@ -51,6 +51,16 @@ export interface AgentConfig {
    * ui.xml: **`<translateBatchConcurrency>25</translateBatchConcurrency>`** (or `translate_batch_concurrency`). Omitted → server default **25**.
    */
   translateBatchConcurrency?: number;
+  /**
+   * Optional CrafterQ SaaS JWT for **api.crafterq.ai** (`Authorization: Bearer …`) on server-proxied CrafterQ calls.
+   * ui.xml **`<crafterQBearerToken>`** — **not recommended** in Git (use {@link crafterQBearerTokenEnv} + host env instead).
+   */
+  crafterQBearerToken?: string;
+  /**
+   * Host **environment variable name** whose value is the CrafterQ JWT (read with `System.getenv` on Studio at request time).
+   * ui.xml **`<crafterQBearerTokenEnv>`** (e.g. `CRAFTQ_ADMIN_JWT`). Takes precedence over {@link crafterQBearerToken} when set and the env value is non-empty.
+   */
+  crafterQBearerTokenEnv?: string;
 }
 
 /**
@@ -147,6 +157,12 @@ export function mergeAgentsWithSiteUiXmlOverlay(fromWidget: AgentConfig[], fromU
         : {}),
       ...(ui.translateBatchConcurrency != null && Number.isFinite(ui.translateBatchConcurrency)
         ? { translateBatchConcurrency: ui.translateBatchConcurrency }
+        : {}),
+      ...(typeof ui.crafterQBearerTokenEnv === 'string' && ui.crafterQBearerTokenEnv.trim()
+        ? { crafterQBearerTokenEnv: ui.crafterQBearerTokenEnv.trim() }
+        : {}),
+      ...(typeof ui.crafterQBearerToken === 'string' && ui.crafterQBearerToken.trim()
+        ? { crafterQBearerToken: ui.crafterQBearerToken.trim() }
         : {})
     };
   });
@@ -357,6 +373,16 @@ function normalizeAgent(a: unknown): AgentConfig | null {
     'TranslateBatchConcurrency'
   );
   if (translateBatchConcurrency != null) out.translateBatchConcurrency = translateBatchConcurrency;
+  const crafterQBearerToken =
+    extractString(o.crafterQBearerToken) ??
+    extractString(o['crafterQ-bearer-token']) ??
+    extractString(o.crafter_q_bearer_token);
+  const crafterQBearerTokenEnv =
+    extractString(o.crafterQBearerTokenEnv) ??
+    extractString(o['crafterQ-bearer-token-env']) ??
+    extractString(o.crafter_q_bearer_token_env);
+  if (crafterQBearerTokenEnv?.trim()) out.crafterQBearerTokenEnv = crafterQBearerTokenEnv.trim();
+  if (crafterQBearerToken?.trim()) out.crafterQBearerToken = crafterQBearerToken.trim();
   return out;
 }
 

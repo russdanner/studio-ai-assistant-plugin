@@ -261,7 +261,7 @@ function buildStudioAuthHeaders() {
     return out;
 }
 async function streamChat(args) {
-    const { agentId, prompt, chatId, contentPath, contentTypeId, contentTypeLabel, studioPreviewPageUrl, authoringSurface, formEngineClientJsonApply, formEngineItemPath, llm, llmModel, imageModel, openAiApiKey, siteId, previewToken, enableTools, omitTools, expertSkills, translateBatchConcurrency, signal, onMessage, onRawSseDataLine } = args;
+    const { agentId, prompt, chatId, contentPath, contentTypeId, contentTypeLabel, studioPreviewPageUrl, authoringSurface, formEngineClientJsonApply, formEngineItemPath, llm, llmModel, imageModel, openAiApiKey, siteId, previewToken, enableTools, omitTools, expertSkills, translateBatchConcurrency, crafterQBearerToken, crafterQBearerTokenEnv, signal, onMessage, onRawSseDataLine } = args;
     const token = getStoredChatUser();
     const headers = {
         'Content-Type': 'application/json',
@@ -323,6 +323,12 @@ async function streamChat(args) {
         translateBatchConcurrency <= 64) {
         requestBody.translateBatchConcurrency = Math.floor(translateBatchConcurrency);
     }
+    const bEnv = crafterQBearerTokenEnv != null ? String(crafterQBearerTokenEnv).trim() : '';
+    if (bEnv)
+        requestBody.crafterQBearerTokenEnv = bEnv;
+    const bTok = crafterQBearerToken != null ? String(crafterQBearerToken).trim() : '';
+    if (bTok)
+        requestBody.crafterQBearerToken = bTok;
     const streamFromResponse = async (res, failPrefix) => {
         if (!res.ok) {
             const text = await res.text().catch(() => '');
@@ -29513,7 +29519,7 @@ function buildPriorTurnsContextBlock(prior) {
 }
 function AiAssistantChat(props) {
     const theme = useTheme();
-    const { agentId: agentIdProp, llm, llmModel, imageModel, openAiApiKey, initialMessages, configPrompts, embedTarget = 'default', getAuthoringFormContext, formEngineClientJsonApply, enableTools, expertSkills, translateBatchConcurrency } = props;
+    const { agentId: agentIdProp, llm, llmModel, imageModel, openAiApiKey, initialMessages, configPrompts, embedTarget = 'default', getAuthoringFormContext, formEngineClientJsonApply, enableTools, expertSkills, translateBatchConcurrency, crafterQBearerToken, crafterQBearerTokenEnv } = props;
     /** Empty when config omits **crafterQAgentId** — server must omit ConsultCrafterQExpert; do not substitute a default UUID. */
     const agentId = agentIdProp?.trim() ?? '';
     const siteId = useActiveSiteId() ?? 'default';
@@ -29930,6 +29936,8 @@ function AiAssistantChat(props) {
                     translateBatchConcurrency <= 64
                     ? { translateBatchConcurrency: Math.floor(translateBatchConcurrency) }
                     : {}),
+                ...(crafterQBearerTokenEnv?.trim() ? { crafterQBearerTokenEnv: crafterQBearerTokenEnv.trim() } : {}),
+                ...(crafterQBearerToken?.trim() ? { crafterQBearerToken: crafterQBearerToken.trim() } : {}),
                 signal: ac.signal,
                 onRawSseDataLine: (jsonLine) => {
                     sessionStreamLogRef.current.push(`${new Date().toISOString()}\t${jsonLine}`);
@@ -30465,7 +30473,7 @@ function AiAssistantChat(props) {
 
 function AiAssistantPopover(props) {
     const theme = useTheme();
-    const { open, onClose, isMinimized = false, onMinimize, onMaximize, appBarTitle, agentLabel, width = 492, height = 595, hideBackdrop, enableCustomModel = true, agentId = '019c7237-478b-7f98-9a5c-87144c3fb010', llm, llmModel, imageModel, openAiApiKey, prompts, enableTools, expertSkills, translateBatchConcurrency, anchorPosition: anchorPositionProp, ...popoverProps } = props;
+    const { open, onClose, isMinimized = false, onMinimize, onMaximize, appBarTitle, agentLabel, width = 492, height = 595, hideBackdrop, enableCustomModel = true, agentId = '019c7237-478b-7f98-9a5c-87144c3fb010', llm, llmModel, imageModel, openAiApiKey, prompts, enableTools, expertSkills, translateBatchConcurrency, crafterQBearerToken, crafterQBearerTokenEnv, anchorPosition: anchorPositionProp, ...popoverProps } = props;
     const title = agentLabel ?? appBarTitle ?? 'Studio AI Assistant';
     const anchorPosition = anchorPositionProp ?? { top: 100, left: 100 };
     const [openAlertDialog, setOpenAlertDialog] = useState(false);
@@ -30487,7 +30495,7 @@ function AiAssistantPopover(props) {
                             subtitleWrapper: {
                                 width: '100%'
                             }
-                        }, onMinimizeButtonClick: () => onMinimize?.(), onCloseButtonClick: (e) => onClose(e, null) }), jsx(AiAssistantChat, { agentId: agentId, llm: llm, llmModel: llmModel, imageModel: imageModel, openAiApiKey: openAiApiKey, enableTools: enableTools, expertSkills: expertSkills, configPrompts: prompts, ...(translateBatchConcurrency != null ? { translateBatchConcurrency } : {}) })] }), jsx(MinimizedBar, { open: isMinimized, onMaximize: onMaximize, title: title }), jsx(AlertDialog, { disableBackdropClick: true, disableEscapeKeyDown: true, open: openAlertDialog, title: "Close this chat?", body: "The current conversation will be lost.", buttons: jsxs(Fragment, { children: [jsx(PrimaryButton, { onClick: (e) => {
+                        }, onMinimizeButtonClick: () => onMinimize?.(), onCloseButtonClick: (e) => onClose(e, null) }), jsx(AiAssistantChat, { agentId: agentId, llm: llm, llmModel: llmModel, imageModel: imageModel, openAiApiKey: openAiApiKey, enableTools: enableTools, expertSkills: expertSkills, configPrompts: prompts, ...(translateBatchConcurrency != null ? { translateBatchConcurrency } : {}), ...(crafterQBearerTokenEnv?.trim() ? { crafterQBearerTokenEnv: crafterQBearerTokenEnv.trim() } : {}), ...(crafterQBearerToken?.trim() ? { crafterQBearerToken: crafterQBearerToken.trim() } : {}) })] }), jsx(MinimizedBar, { open: isMinimized, onMaximize: onMaximize, title: title }), jsx(AlertDialog, { disableBackdropClick: true, disableEscapeKeyDown: true, open: openAlertDialog, title: "Close this chat?", body: "The current conversation will be lost.", buttons: jsxs(Fragment, { children: [jsx(PrimaryButton, { onClick: (e) => {
                                 setOpenAlertDialog(false);
                                 onClose(e, null);
                             }, autoFocus: true, fullWidth: true, size: "large", children: "Close" }), jsx(SecondaryButton, { onClick: () => {
@@ -30558,8 +30566,8 @@ function AiAssistantIceChatShell(props) {
  * Used when opening the AI Assistant via dispatch(showWidgetDialog(...)).
  */
 function AiAssistantDialogContent(props) {
-    const { agentId = '019c7237-478b-7f98-9a5c-87144c3fb010', llm, llmModel, imageModel, openAiApiKey, prompts, enableTools, expertSkills, translateBatchConcurrency } = props;
-    return (jsx(AiAssistantChat, { agentId: agentId, llm: llm, llmModel: llmModel, imageModel: imageModel, openAiApiKey: openAiApiKey, enableTools: enableTools, expertSkills: expertSkills, configPrompts: prompts, ...(translateBatchConcurrency != null ? { translateBatchConcurrency } : {}) }));
+    const { agentId = '019c7237-478b-7f98-9a5c-87144c3fb010', llm, llmModel, imageModel, openAiApiKey, prompts, enableTools, expertSkills, translateBatchConcurrency, crafterQBearerToken, crafterQBearerTokenEnv } = props;
+    return (jsx(AiAssistantChat, { agentId: agentId, llm: llm, llmModel: llmModel, imageModel: imageModel, openAiApiKey: openAiApiKey, enableTools: enableTools, expertSkills: expertSkills, configPrompts: prompts, ...(translateBatchConcurrency != null ? { translateBatchConcurrency } : {}), ...(crafterQBearerTokenEnv?.trim() ? { crafterQBearerTokenEnv: crafterQBearerTokenEnv.trim() } : {}), ...(crafterQBearerToken?.trim() ? { crafterQBearerToken: crafterQBearerToken.trim() } : {}) }));
 }
 
 const logoWidgetId = 'craftercms.components.aiassistant.OpenAILogo';
@@ -30916,7 +30924,8 @@ export const emptyStateOptionsGenerateImages: Array<EmptyStateOption> = [
 ];
 */
 
-var AiAssistantIcon = createSvgIcon$1(jsxs("svg", { width: "32", height: "33", viewBox: "0 0 32 33", fill: "none", xmlns: "http://www.w3.org/2000/svg", children: [jsx("path", { d: "M25.5147 22.3719C25.4685 22.3097 25.2835 22.2942 25.1911 22.3719C23.727 23.6458 21.631 24.3915 19.5967 24.3915C15.0503 24.3915 11.4748 20.7561 11.3515 16.0642C11.4748 11.3724 15.0503 7.73693 19.5967 7.73693C21.6464 7.73693 23.7424 8.4982 25.1911 9.75661C25.2835 9.83429 25.4685 9.81876 25.5147 9.75661L28.597 6.44744C28.6587 6.3853 28.6587 6.18333 28.5662 6.09011C27.5336 5.08027 26.3315 4.25687 25.0369 3.63543L24.6979 3.52667L24.7595 0.69912C23.8811 0.403936 23.0026 0.15536 22.0933 0L20.7525 2.43915L20.4289 2.40808C19.5504 2.3304 18.934 2.3304 18.0555 2.40808L17.7319 2.43915L16.3911 0C15.4972 0.15536 14.6033 0.403936 13.7403 0.714656L13.7865 3.4956L13.4937 3.63543C12.8002 3.96168 12.1067 4.36562 11.444 4.8317L11.182 5.01813L8.80862 3.58882C8.09969 4.17919 7.4524 4.84723 6.86676 5.54635L8.28462 7.9389L8.09969 8.20301C7.83769 8.57588 7.59111 8.97981 7.3137 9.4925L7.09794 9.91197C7.03629 10.0363 6.97464 10.145 6.913 10.2693L6.77429 10.5645L4.01563 10.5334C3.7074 11.4034 3.46082 12.3045 3.3067 13.2056L5.72631 14.5572L5.69549 14.8835C5.64925 15.334 5.63384 15.7069 5.63384 16.0798C5.63384 16.4526 5.64925 16.8255 5.69549 17.276L5.72631 17.6023L3.3067 18.9539C3.46082 19.855 3.7074 20.7561 4.01563 21.6261L6.77429 21.5795L6.913 21.8747C6.97464 21.999 7.03629 22.1077 7.09794 22.232L7.3137 22.6515C7.59111 23.1642 7.83769 23.5681 8.09969 23.941L8.28462 24.2051L6.86676 26.5976C7.4524 27.2968 8.1151 27.9648 8.80862 28.5552L11.182 27.1259L11.444 27.3123C12.1067 27.7784 12.8002 28.1823 13.4937 28.5086L13.7865 28.6484L13.7403 31.4293C14.6033 31.7401 15.4972 31.9886 16.3911 32.144L17.7319 29.7048L18.0555 29.7359C18.934 29.8136 19.5504 29.8136 20.4289 29.7359L20.7525 29.7048L22.0933 32.144C22.9872 31.9886 23.8811 31.7401 24.7441 31.4293L24.6825 28.6018L25.0215 28.493C26.3161 27.8871 27.5182 27.0482 28.5508 26.0383C28.6432 25.9451 28.6432 25.7432 28.5816 25.681L25.5147 22.3719Z", fill: "#00000033" }), jsx("path", { d: "M18.4327 18.0631H20.6742L21.8011 19.5128L22.9097 20.8041L24.9989 23.4233H22.5381L21.1006 21.6569L20.3636 20.6092L18.4327 18.0631ZM25.1877 16.1627C25.1877 17.5231 24.9299 18.6804 24.4142 19.6346C23.9025 20.5889 23.2041 21.3178 22.3188 21.8214C21.4376 22.3208 20.4468 22.5706 19.3463 22.5706C18.2378 22.5706 17.2429 22.3188 16.3617 21.8153C15.4805 21.3117 14.7841 20.5828 14.2724 19.6286C13.7608 18.6743 13.5049 17.519 13.5049 16.1627C13.5049 14.8023 13.7608 13.645 14.2724 12.6908C14.7841 11.7365 15.4805 11.0096 16.3617 10.5101C17.2429 10.0066 18.2378 9.75482 19.3463 9.75482C20.4468 9.75482 21.4376 10.0066 22.3188 10.5101C23.2041 11.0096 23.9025 11.7365 24.4142 12.6908C24.9299 13.645 25.1877 14.8023 25.1877 16.1627ZM22.5137 16.1627C22.5137 15.2815 22.3818 14.5384 22.1178 13.9333C21.8579 13.3283 21.4904 12.8694 21.0153 12.5567C20.5402 12.2441 19.9839 12.0877 19.3463 12.0877C18.7088 12.0877 18.1525 12.2441 17.6774 12.5567C17.2023 12.8694 16.8327 13.3283 16.5688 13.9333C16.3089 14.5384 16.179 15.2815 16.179 16.1627C16.179 17.0439 16.3089 17.787 16.5688 18.3921C16.8327 18.9971 17.2023 19.456 17.6774 19.7687C18.1525 20.0813 18.7088 20.2377 19.3463 20.2377C19.9839 20.2377 20.5402 20.0813 21.0153 19.7687C21.4904 19.456 21.8579 18.9971 22.1178 18.3921C22.3818 17.787 22.5137 17.0439 22.5137 16.1627Z", fill: "black" })] }), 'aiAssistant');
+/** Default plugin mark (48x48 viewBox); same artwork is merged in craftercms-plugin.yaml and docs/examples/studio-ui-aiassistant-fragments.xml. */
+var AiAssistantIcon = createSvgIcon$1(jsxs("svg", { viewBox: "0 0 48 48", xmlns: "http://www.w3.org/2000/svg", children: [jsx("title", { children: "ai" }), jsxs("g", { id: "Layer_2", "data-name": "Layer 2", children: [jsx("g", { id: "invisible_box", "data-name": "invisible box", children: jsx("rect", { width: "48", height: "48", fill: "none" }) }), jsx("g", { id: "Q3_icons", "data-name": "Q3 icons", children: jsxs("g", { children: [jsx("path", { fill: "currentColor", d: "M45.6,18.7,41,14.9V7.5a1,1,0,0,0-.6-.9L30.5,2.1h-.4l-.6.2L24,5.9,18.5,2.2,17.9,2h-.4L7.6,6.6a1,1,0,0,0-.6.9v7.4L2.4,18.7a.8.8,0,0,0-.4.8v9H2a.8.8,0,0,0,.4.8L7,33.1v7.4a1,1,0,0,0,.6.9l9.9,4.5h.4l.6-.2L24,42.1l5.5,3.7.6.2h.4l9.9-4.5a1,1,0,0,0,.6-.9V33.1l4.6-3.8a.8.8,0,0,0,.4-.7V19.4h0A.8.8,0,0,0,45.6,18.7Zm-5.1,6.8H42v1.6l-3.5,2.8-.4.3-.4-.2a1.4,1.4,0,0,0-2,.7,1.5,1.5,0,0,0,.6,2l.7.3h0v5.4l-6.6,3.1-4.2-2.8-.7-.5V25.5H27a1.5,1.5,0,0,0,0-3H25.5V9.7l.7-.5,4.2-2.8L37,9.5v5.4h0l-.7.3a1.5,1.5,0,0,0-.6,2,1.4,1.4,0,0,0,1.3.9l.7-.2.4-.2.4.3L42,20.9v1.6H40.5a1.5,1.5,0,0,0,0,3ZM21,25.5h1.5V38.3l-.7.5-4.2,2.8L11,38.5V33.1h0l.7-.3a1.5,1.5,0,0,0,.6-2,1.4,1.4,0,0,0-2-.7l-.4.2-.4-.3L6,27.1V25.5H7.5a1.5,1.5,0,0,0,0-3H6V20.9l3.5-2.8.4-.3.4.2.7.2a1.4,1.4,0,0,0,1.3-.9,1.5,1.5,0,0,0-.6-2L11,15h0V9.5l6.6-3.1,4.2,2.8.7.5V22.5H21a1.5,1.5,0,0,0,0,3Z" }), jsx("path", { fill: "currentColor", d: "M13.9,9.9a1.8,1.8,0,0,0,0,2.2l2.6,2.5v2.8l-4,4v5.2l4,4v2.8l-2.6,2.5a1.8,1.8,0,0,0,0,2.2,1.5,1.5,0,0,0,1.1.4,1.5,1.5,0,0,0,1.1-.4l3.4-3.5V29.4l-4-4V22.6l4-4V13.4L16.1,9.9A1.8,1.8,0,0,0,13.9,9.9Z" }), jsx("path", { fill: "currentColor", d: "M31.5,14.6l2.6-2.5a1.8,1.8,0,0,0,0-2.2,1.8,1.8,0,0,0-2.2,0l-3.4,3.5v5.2l4,4v2.8l-4,4v5.2l3.4,3.5a1.7,1.7,0,0,0,2.2,0,1.8,1.8,0,0,0,0-2.2l-2.6-2.5V30.6l4-4V21.4l-4-4Z" })] }) })] })] }), 'aiAssistant');
 
 const AutonomousAgentsMarkIcon = createSvgIcon$1(jsxs("svg", { viewBox: "0 0 48 48", xmlns: "http://www.w3.org/2000/svg", "aria-hidden": true, children: [jsx("path", { fill: "currentColor", d: "M45.6,18.7,41,14.9V7.5a1,1,0,0,0-.6-.9L30.5,2.1h-.4l-.6.2L24,5.9,18.5,2.2,17.9,2h-.4L7.6,6.6a1,1,0,0,0-.6.9v7.4L2.4,18.7a.8.8,0,0,0-.4.8v9H2a.8.8,0,0,0,.4.8L7,33.1v7.4a1,1,0,0,0,.6.9l9.9,4.5h.4l.6-.2L24,42.1l5.5,3.7.6.2h.4l9.9-4.5a1,1,0,0,0,.6-.9V33.1l4.6-3.8a.8.8,0,0,0,.4-.7V19.4h0A.8.8,0,0,0,45.6,18.7Zm-5.1,6.8H42v1.6l-3.5,2.8-.4.3-.4-.2a1.4,1.4,0,0,0-2,.7,1.5,1.5,0,0,0,.6,2l.7.3h0v5.4l-6.6,3.1-4.2-2.8-.7-.5V25.5H27a1.5,1.5,0,0,0,0-3H25.5V9.7l.7-.5,4.2-2.8L37,9.5v5.4h0l-.7.3a1.5,1.5,0,0,0-.6,2,1.4,1.4,0,0,0,1.3.9l.7-.2.4-.2.4.3L42,20.9v1.6H40.5a1.5,1.5,0,0,0,0,3ZM21,25.5h1.5V38.3l-.7.5-4.2,2.8L11,38.5V33.1h0l.7-.3a1.5,1.5,0,0,0,.6-2,1.4,1.4,0,0,0-2-.7l-.4.2-.4-.3L6,27.1V25.5H7.5a1.5,1.5,0,0,0,0-3H6V20.9l3.5-2.8.4-.3.4.2.7.2a1.4,1.4,0,0,0,1.3-.9,1.5,1.5,0,0,0-.6-2L11,15h0V9.5l6.6-3.1,4.2,2.8.7.5V22.5H21a1.5,1.5,0,0,0,0,3Z" }), jsx("path", { fill: "currentColor", d: "M13.9,9.9a1.8,1.8,0,0,0,0,2.2l2.6,2.5v2.8l-4,4v5.2l4,4v2.8l-2.6,2.5a1.8,1.8,0,0,0,0,2.2,1.5,1.5,0,0,0,1.1.4,1.5,1.5,0,0,0,1.1-.4l3.4-3.5V29.4l-4-4V22.6l4-4V13.4L16.1,9.9A1.8,1.8,0,0,0,13.9,9.9Z" }), jsx("path", { fill: "currentColor", d: "M31.5,14.6l2.6-2.5a1.8,1.8,0,0,0,0-2.2,1.8,1.8,0,0,0-2.2,0l-3.4,3.5v5.2l4,4v2.8l-4,4v5.2l3.4,3.5a1.7,1.7,0,0,0,2.2,0,1.8,1.8,0,0,0,0-2.2l-2.6-2.5V30.6l4-4V21.4l-4-4Z" })] }), 'AutonomousAgentsMark');
 
@@ -31025,6 +31034,12 @@ function mergeAgentsWithSiteUiXmlOverlay(fromWidget, fromUiXml) {
                 : {}),
             ...(ui.translateBatchConcurrency != null && Number.isFinite(ui.translateBatchConcurrency)
                 ? { translateBatchConcurrency: ui.translateBatchConcurrency }
+                : {}),
+            ...(typeof ui.crafterQBearerTokenEnv === 'string' && ui.crafterQBearerTokenEnv.trim()
+                ? { crafterQBearerTokenEnv: ui.crafterQBearerTokenEnv.trim() }
+                : {}),
+            ...(typeof ui.crafterQBearerToken === 'string' && ui.crafterQBearerToken.trim()
+                ? { crafterQBearerToken: ui.crafterQBearerToken.trim() }
                 : {})
         };
     });
@@ -31224,6 +31239,16 @@ function normalizeAgent(a) {
     const translateBatchConcurrency = extractPositiveInt(o, 1, 64, 'translateBatchConcurrency', 'translate_batch_concurrency', 'TranslateBatchConcurrency');
     if (translateBatchConcurrency != null)
         out.translateBatchConcurrency = translateBatchConcurrency;
+    const crafterQBearerToken = extractString(o.crafterQBearerToken) ??
+        extractString(o['crafterQ-bearer-token']) ??
+        extractString(o.crafter_q_bearer_token);
+    const crafterQBearerTokenEnv = extractString(o.crafterQBearerTokenEnv) ??
+        extractString(o['crafterQ-bearer-token-env']) ??
+        extractString(o.crafter_q_bearer_token_env);
+    if (crafterQBearerTokenEnv?.trim())
+        out.crafterQBearerTokenEnv = crafterQBearerTokenEnv.trim();
+    if (crafterQBearerToken?.trim())
+        out.crafterQBearerToken = crafterQBearerToken.trim();
     return out;
 }
 /** Integer in inclusive range; undefined if missing or invalid. */
@@ -31509,6 +31534,23 @@ function parseAgentElement(agentEl) {
     }
     if (expertSkills.length)
         out.expertSkills = expertSkills;
+    const tbcRaw = childTextDirect(agentEl, 'translateBatchConcurrency') ?? childTextDirect(agentEl, 'translate_batch_concurrency');
+    if (tbcRaw != null && String(tbcRaw).trim() !== '') {
+        const tbcN = parseInt(String(tbcRaw).trim(), 10);
+        if (Number.isFinite(tbcN) && tbcN >= 1) {
+            out.translateBatchConcurrency = Math.min(64, tbcN);
+        }
+    }
+    const bearerEnv = childTextDirect(agentEl, 'crafterQBearerTokenEnv') ??
+        childTextDirect(agentEl, 'crafter-q-bearer-token-env') ??
+        childTextDirect(agentEl, 'crafter_q_bearer_token_env');
+    const bearerLit = childTextDirect(agentEl, 'crafterQBearerToken') ??
+        childTextDirect(agentEl, 'crafter-q-bearer-token') ??
+        childTextDirect(agentEl, 'crafter_q_bearer_token');
+    if (bearerEnv?.trim())
+        out.crafterQBearerTokenEnv = bearerEnv.trim();
+    if (bearerLit?.trim())
+        out.crafterQBearerToken = bearerLit.trim();
     return out;
 }
 /** Walk parents — avoid closest('agents') on XML DOMParser documents (can skip all agents). */
@@ -31867,10 +31909,12 @@ function AiAssistantHelper(props) {
             ? iceChatCfg.expertSkills
             : undefined;
         const iceTranslateBatch = extractPositiveInt(iceRaw, 1, 64, 'translateBatchConcurrency', 'translate_batch_concurrency');
-        return (jsx(AiAssistantIceChatShell, { children: jsx(AiAssistantChat, { agentId: agentId, llm: llm, llmModel: llmModel || undefined, imageModel: imageModel, openAiApiKey: openAiApiKey, enableTools: iceEnableTools, expertSkills: iceExpertSkills, configPrompts: configPrompts, embedTarget: "icePanel", ...(iceTranslateBatch != null ? { translateBatchConcurrency: iceTranslateBatch } : {}) }) }));
+        const iceBearerEnv = iceRaw.crafterQBearerTokenEnv?.trim();
+        const iceBearerTok = iceRaw.crafterQBearerToken?.trim();
+        return (jsx(AiAssistantIceChatShell, { children: jsx(AiAssistantChat, { agentId: agentId, llm: llm, llmModel: llmModel || undefined, imageModel: imageModel, openAiApiKey: openAiApiKey, enableTools: iceEnableTools, expertSkills: iceExpertSkills, configPrompts: configPrompts, embedTarget: "icePanel", ...(iceTranslateBatch != null ? { translateBatchConcurrency: iceTranslateBatch } : {}), ...(iceBearerEnv ? { crafterQBearerTokenEnv: iceBearerEnv } : {}), ...(iceBearerTok ? { crafterQBearerToken: iceBearerTok } : {}) }) }));
     }
     return (jsxs(Fragment, { children: [Boolean(ui) &&
-                (ui === 'IconButton' ? (jsx(Tooltip, { title: primaryAgent?.label ?? 'Studio AI Assistant', children: jsx(IconButton, { onClick: handleToolbarClick, "aria-haspopup": toolbarList.length > 1 ? 'menu' : undefined, "aria-expanded": toolbarList.length > 1 ? menuOpen : undefined, children: getAgentIcon(primaryAgent?.icon) }) })) : (jsx(ToolsPanelListItemButton, { icon: { id: 'craftercms.components.aiassistant.AiAssistantLogo' }, title: primaryAgent?.label ?? 'Studio AI Assistant', onClick: handleToolbarClick }))), menuAnchor && (jsx(Menu, { open: true, anchorEl: menuAnchor, onClose: handleMenuClose, anchorOrigin: { vertical: 'bottom', horizontal: 'right' }, transformOrigin: { vertical: 'top', horizontal: 'right' }, disableAutoFocusItem: true, TransitionProps: { timeout: 0 }, children: toolbarList.map((agent) => (jsxs(MenuItem, { onClick: () => {
+                (ui === 'IconButton' ? (jsx(Tooltip, { title: primaryAgent?.label ?? 'Studio AI Assistant', children: jsx(IconButton, { onClick: handleToolbarClick, "aria-haspopup": toolbarList.length > 1 ? 'menu' : undefined, "aria-expanded": toolbarList.length > 1 ? menuOpen : undefined, children: getAgentIcon(primaryAgent?.icon) }) })) : (jsx(ToolsPanelListItemButton, { icon: { id: logoWidgetId }, title: primaryAgent?.label ?? 'Studio AI Assistant', onClick: handleToolbarClick }))), menuAnchor && (jsx(Menu, { open: true, anchorEl: menuAnchor, onClose: handleMenuClose, anchorOrigin: { vertical: 'bottom', horizontal: 'right' }, transformOrigin: { vertical: 'top', horizontal: 'right' }, disableAutoFocusItem: true, TransitionProps: { timeout: 0 }, children: toolbarList.map((agent) => (jsxs(MenuItem, { onClick: () => {
                         openAgent(agent);
                     }, children: [jsx(ListItemIcon, { children: getAgentIcon(agent.icon) }), jsx(ListItemText, { primary: agent.label })] }, agentKey(agent)))) })), typeof document !== 'undefined' &&
                 createPortal(jsxs(Fragment, { children: [openDialogs
@@ -31920,6 +31964,10 @@ function AiAssistantHelper(props) {
                                         overflow: 'hidden'
                                     }, children: jsx(Box, { sx: { flex: 1, minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column' }, children: jsx(AiAssistantChat, { agentId: d.agent.id, llm: d.agent.llm, llmModel: d.agent.llmModel, imageModel: d.agent.imageModel, openAiApiKey: d.agent.openAiApiKey, enableTools: d.agent.enableTools, expertSkills: d.agent.expertSkills, configPrompts: d.agent.prompts, ...(d.agent.translateBatchConcurrency != null
                                                 ? { translateBatchConcurrency: d.agent.translateBatchConcurrency }
+                                                : {}), ...(d.agent.crafterQBearerTokenEnv?.trim()
+                                                ? { crafterQBearerTokenEnv: d.agent.crafterQBearerTokenEnv.trim() }
+                                                : {}), ...(d.agent.crafterQBearerToken?.trim()
+                                                ? { crafterQBearerToken: d.agent.crafterQBearerToken.trim() }
                                                 : {}) }) }) })] }, d.id))), openDialogs
                             .filter((d) => d.minimized)
                             .map((d, i) => (jsxs(Paper, { elevation: 4, sx: {
@@ -33279,6 +33327,10 @@ function AiAssistantFormControlPanel(props) {
                                     borderColor: 'divider'
                                 }, children: jsx(AiAssistantChat, { agentId: agent.id?.trim() || '', llm: agent.llm, llmModel: agent.llmModel, imageModel: agent.imageModel, openAiApiKey: agent.openAiApiKey, enableTools: agent.enableTools, expertSkills: agent.expertSkills, configPrompts: agent.prompts, embedTarget: "default", getAuthoringFormContext: getAuthoringFormContext, formEngineClientJsonApply: true, ...(agent.translateBatchConcurrency != null
                                         ? { translateBatchConcurrency: agent.translateBatchConcurrency }
+                                        : {}), ...(agent.crafterQBearerTokenEnv?.trim()
+                                        ? { crafterQBearerTokenEnv: agent.crafterQBearerTokenEnv.trim() }
+                                        : {}), ...(agent.crafterQBearerToken?.trim()
+                                        ? { crafterQBearerToken: agent.crafterQBearerToken.trim() }
                                         : {}) }) })) : null] }, key));
                 }) })] }));
 }
@@ -33624,6 +33676,9 @@ const plugin = {
         [autonomousAgentsMarkWidgetId]: AutonomousAgentsMarkIcon,
         [formControlWidgetId]: AiAssistantFormControl,
         [logoWidgetId]: AiAssistantIcon,
+        /** Legacy SystemIcon ids (older ui.xml / bundles); same component as logoWidgetId (OpenAILogo). */
+        'craftercms.components.aiassistant.AiAssistantLogo': AiAssistantIcon,
+        'craftercms.components.aiassistant.CrafterQLogo': AiAssistantIcon,
         [popoverWidgetId]: AiAssistantPopover,
         [dialogContentWidgetId]: AiAssistantDialogContent
     }

@@ -4,6 +4,7 @@ import groovy.json.JsonOutput
 import org.slf4j.LoggerFactory
 import plugins.org.craftercms.aiassistant.authoring.AuthoringPreviewContext
 import plugins.org.craftercms.aiassistant.http.AiHttpProxy
+import plugins.org.craftercms.aiassistant.http.CrafterQBearerUiXmlMerge
 import plugins.org.craftercms.aiassistant.llm.StudioAiLlmKind
 import plugins.org.craftercms.aiassistant.orchestration.AiOrchestration
 import plugins.org.craftercms.aiassistant.rag.ExpertSkillVectorRegistry
@@ -26,6 +27,9 @@ import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
  *   "imageModel": optional string — OpenAI Images API model for GenerateImage (e.g. dall-e-3); agent ui.xml **imageModel**; no JVM fallback.
  *   "expertSkills": optional JSON array of { name, url, description } — per-agent markdown URLs for {@code QueryExpertGuidance} (Spring AI vector store); normalized server-side.
  *   "translateBatchConcurrency": optional integer 1–64 — parallel {@code TranslateContentBatch} workers when the model omits {@code maxConcurrency}; from agent ui.xml; server default 25 when omitted.
+ *   "crafterQBearerTokenEnv": optional string — name of a **Studio host environment variable** holding the CrafterQ JWT; server sets {@code Authorization: Bearer} on outbound api.crafterq.ai calls when {@code System.getenv} returns a non-blank value (preferred over literal token in config).
+ *   "crafterQBearerToken": optional string — literal CrafterQ JWT (duplicates ui.xml {@code <crafterQBearerToken>}); used when env is unset or empty. **Discouraged** in versioned config.
+ *   **Server merge:** when {@code siteId} + {@code agentId} are present, missing {@code crafterQBearerTokenEnv} / {@code crafterQBearerToken} / {@code imageModel} / {@code llmModel} on the POST body may be copied from the matching {@code <agent>} row in site {@code /ui.xml} before auth and orchestration (so GenerateImage sees the configured image model even if the client omitted it).
  *   "previewToken": optional string — Studio {@code crafterPreview} cookie value; enables {@code GetPreviewHtml} without passing the token on every tool call. When omitted, the server still uses {@code crafterPreview} from the **incoming request cookies** (HttpOnly-safe).
  *   Response:  text/event-stream (SSE) on success, or application/json on error
  */
@@ -66,8 +70,6 @@ try {
   def chatId = body?.chatId?.toString()
   def llm = body?.llm?.toString()
   def llmNorm = AiOrchestration.normalizeLlmProvider(llm)
-  def openAiModel = body?.llmModel?.toString()
-  def imageModel = body?.imageModel?.toString()
   def openAiApiKey = body?.openAiApiKey?.toString()
   if (siteIdBody) {
     try {
@@ -86,6 +88,19 @@ try {
   try {
     request.setAttribute('crafterq.expertSkills', expertSkillsNorm)
   } catch (Throwable ignored) {}
+  def siteForBearer = siteIdBody ?: params?.siteId?.toString()?.trim()
+  if (body instanceof Map && siteForBearer && agentId) {
+    try {
+      CrafterQBearerUiXmlMerge.mergeStreamAgentFieldsFromSiteUiXmlIfMissing(applicationContext, (Map) body, siteForBearer, agentId)
+    } catch (Throwable mergeEx) {
+      log.debug('Agent ui.xml merge skipped: {}', mergeEx.message ?: mergeEx.toString())
+    }
+  }
+  if (body instanceof Map) {
+    AiHttpProxy.installCrafterQBearerFromChatBody(request, (Map) body)
+  }
+  def openAiModel = body?.llmModel?.toString()
+  def imageModel = body?.imageModel?.toString()
   def tbcRaw = body?.translateBatchConcurrency
   if (tbcRaw != null) {
     try {
@@ -117,12 +132,12 @@ try {
   def enableTools = omitTools ? false : enableToolsRequested
   log.info("STREAM endpoint hit: agentId={} llm={} promptLen={} chatIdPresent={} siteId={} contentPathPresent={} previewTokenResolvedPresent={} formEngineSurface={} formEngineClientJsonApply={} formEngineItemPath={} fullSuppressWritesFallback={} omitTools={} enableToolsRequested={} enableToolsEffective={}", agentId, llm, (promptForOrchestration ?: '').length(), (chatId != null && chatId.toString().trim().length() > 0), siteIdBody ?: params?.siteId, (previewPathForLog ? true : false), previewTokenResolvedPresent, formEngineForLog, clientJsonApplyForLog, formEngineItemNorm ?: '(none)', fullSuppressWritesFallback, omitTools, enableToolsRequested, enableTools)
 
-  // CrafterQ upstream requires agentId (CrafterQ SaaS UUID); OpenAI native path may omit agentId.
-  if (!agentId && !StudioAiLlmKind.isOpenAiNative(llmNorm)) {
+  // Default remote hosted chat adapter requires agentId; in-studio Spring AI paths (OpenAI-wire, Claude, script) may omit it.
+  if (!agentId && StudioAiLlmKind.isCrafterQRemoteApi(llmNorm)) {
     response.setStatus(HttpServletResponse.SC_BAD_REQUEST)
     response.setContentType('application/json')
     response.getOutputStream().withWriter('UTF-8') {
-      it.write(JsonOutput.toJson([message: 'Missing required field: agentId (required for CrafterQ LLM)']))
+      it.write(JsonOutput.toJson([message: 'Missing required field: agentId (required for the default remote hosted chat adapter)']))
     }
     return null
   }

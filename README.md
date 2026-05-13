@@ -14,15 +14,15 @@ This repository contains a Crafter Studio plugin that delivers the **Studio AI a
 
 Install the plugin via Crafter Studio's Plugin Management UI under "Project Tools" > "Plugin Management" > "Search & install".
 
-**Maintainer / default local test site:** `ebay-ai` (e.g. preview `http://localhost:8080/studio/preview#/?page=%2F&site=ebay-ai`). From repo root, after `CRAFTER_DATA` and `CRAFTER_STUDIO_TOKEN` are set, run `./scripts/install-plugin.sh` with no arguments to install into that site.
+**Maintainer / default local test site:** `new-demo` (sandbox example: `/home/russdanner/crafter-installs/4-4-xE/crafter-authoring/data/repos/sites/new-demo/sandbox`; alternate **`qtest`**: `/home/russdanner/crafter-installs/4-4-xE/crafter-authoring/data/repos/sites/qtest/sandbox`). Preview example: `http://localhost:8080/studio/preview#/?page=%2F&site=new-demo`. From repo root, after `CRAFTER_DATA` and `CRAFTER_STUDIO_TOKEN` are set, run `./scripts/install-plugin.sh` with no arguments to install into that site (override with `./scripts/install-plugin.sh qtest` for another site id).
 
 If you're contributing and want to install from local sources, you can install the plugin
 using the [CrafterCMS CLI](https://docs.craftercms.org/en/4.1/by-role/common/crafter-cli.html), or using the `/studio/api/2/marketplace/copy` [API](https://docs.craftercms.org/en/4.1/_static/api/studio.html#tag/marketplace/operation/installPlugin) in Postman or similar.
-Either way, you can use the following _JSON_ body:
+Either way, you can use the following _JSON_ body (example site id **`new-demo`** — substitute your site id or use **`qtest`** etc.):
 
 ```json
 {
-  "siteId": "YOUR_SITE_ID",
+  "siteId": "new-demo",
   "path": "/Users/your/path/to/this/repo/plugin-studio-crafterq"
 }
 ```
@@ -30,7 +30,7 @@ Either way, you can use the following _JSON_ body:
 * To install with the CLI:
 
 ```bash
-./crafter-cli copy-plugin -e local -s YOUR_SITE_ID --path /Users/your/path/to/this/repo/plugin-studio-crafterq
+./crafter-cli copy-plugin -e local -s new-demo --path /Users/your/path/to/this/repo/plugin-studio-crafterq
 ```
 
 * To install with the API `/studio/api/2/marketplace/copy`:
@@ -40,10 +40,12 @@ curl --location --request POST 'http://localhost:8080/studio/api/2/marketplace/c
 --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
 --header 'Content-Type: application/json' \
 --data-raw '{
-  "siteId": "YOUR_SITE_ID",
+  "siteId": "new-demo",
   "path": "/Users/your/path/to/this/repo/plugin-studio-crafterq"
 }'
 ```
+
+Replace `new-demo` with your Studio site id when different. Example sandbox for **`new-demo`** on this maintainer’s machine: `/home/russdanner/crafter-installs/4-4-xE/crafter-authoring/data/repos/sites/new-demo/sandbox`.
 
 ## Usage
 
@@ -61,7 +63,7 @@ On your `ui.xml`, find the widget id "craftercms.components.TinyMCE". Inside of 
 
 Merge the JSON below with your `tinymceOptions`:
 
-**Notice** you must replace `YOUR_SITE_ID` to your actual site id.
+**Notice** you must replace `YOUR_SITE_ID` with your actual site id (e.g. `new-demo` or `qtest`).
 
 ```json
 {
@@ -129,14 +131,18 @@ Example snippet (adjust location to your needs). The **`plugin id` must be the f
 Studio shows this when `ui.xml` references the Helper widget but the **components bundle** did not register (wrong path, missing install, or id mismatch).
 
 1. **Correct `plugin` element** — Use `id="org.craftercms.aiassistant.studio"` (same as `craftercms-plugin.yaml` → `plugin.id` and `sources/index.tsx` `PluginDescriptor.id`). Check both **Tools Panel** and **Preview Toolbar** widgets if you customized `config/studio/ui.xml`.
-2. **Install the plugin for this site** — From `sources/`: `yarn package`, then `./scripts/install-plugin.sh YOUR_SITE_ID` (or Marketplace install) so `authoring/static-assets/plugins/org/craftercms/aiassistant/studio/aiassistant/components/index.js` exists in the site sandbox.
+2. **Install the plugin for this site** — From `sources/`: `yarn package`, then `./scripts/install-plugin.sh` (defaults to **`new-demo`**) or `./scripts/install-plugin.sh qtest` (or Marketplace install) so `authoring/static-assets/plugins/org/craftercms/aiassistant/studio/aiassistant/components/index.js` exists in the site sandbox.
 3. **Hard refresh** Studio after deploy (cached `index.js`).
 
-See [docs/SPEC.md](docs/SPEC.md) (plugin id / Helper wiring) and [docs/DEVELOPERS_GUIDE_CRAFTER_STUDIO_PLUGINS.md](docs/DEVELOPERS_GUIDE_CRAFTER_STUDIO_PLUGINS.md) (descriptor vs path).
+See [docs/SPEC.md](docs/SPEC.md) (plugin id / Helper wiring) and [docs/DEVELOPERS_GUIDE_CRAFTER_STUDIO_PLUGINS.md](docs/DEVELOPERS_GUIDE_CRAFTER_STUDIO_PLUGINS.md) (descriptor vs path). For a **current merged fragment** (Tools Panel + Preview Toolbar + Autonomous widget), copy from **[docs/examples/studio-ui-aiassistant-fragments.xml](docs/examples/studio-ui-aiassistant-fragments.xml)** or reinstall so **`craftercms-plugin.yaml`** installation rules re-apply.
 
 ### Studio AI assistant — autonomous (optional widget)
 
 A second Studio widget (**`craftercms.components.aiassistant.AutonomousAssistants`**) can live in the **Tools Panel** next to the Helper. It runs **scheduled, in-memory** assistant steps for the **Studio AI assistant** (prototype): sync agents from `ui.xml`, start/stop a JVM supervisor, scheduled model steps, and **human tasks** (check off, dismiss, copy prompt). Same **`plugin`** element as the Helper (`id="org.craftercms.aiassistant.studio"`, `type="aiassistant"`, `name="components"`, `file="index.js"`).
+
+If the widget **never appears** after install, your site’s `ui.xml` may have been merged with an older descriptor that used the wrong **`element`** shape for Tools Panel. Re-run **`./scripts/install-plugin.sh`** (or pass your site id, e.g. **`qtest`**) from an updated plugin clone, or add the **Autonomous** block from **[docs/examples/studio-ui-aiassistant-fragments.xml](docs/examples/studio-ui-aiassistant-fragments.xml)** under **`ToolsPanel` → `configuration` → `widgets`**, then **commit** the site sandbox and **sync** in Studio.
+
+**Common pitfall:** `AutonomousAssistants` (and `Helper` for the left rail) must be **inside** `//widget[@id='craftercms.components.ToolsPanel']/configuration/widgets` as sibling `<widget>` rows. If either block sits **after** `</configuration>` as a direct child of `ToolsPanel`, Studio will not show it in the sidebar; the merge rule may also have updated that dead node only. Fix placement and use a real `<![CDATA[...]]>` SVG for `<icon>` (not HTML-escaped `&lt;svg` text), then commit.
 
 Full **`autonomousAgents`** / **`agent`** fields, REST paths, **`control`** actions (including human-task actions), and limitations are documented in **[docs/SPEC.md](docs/SPEC.md)** under *Autonomous assistants widget (Tools Panel)*.
 

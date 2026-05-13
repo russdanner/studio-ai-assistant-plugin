@@ -1,15 +1,17 @@
 import jakarta.servlet.http.HttpServletResponse
+import org.slf4j.LoggerFactory
 import plugins.org.craftercms.aiassistant.authoring.AuthoringPreviewContext
 import plugins.org.craftercms.aiassistant.http.AiHttpProxy
+import plugins.org.craftercms.aiassistant.http.CrafterQBearerUiXmlMerge
 import plugins.org.craftercms.aiassistant.llm.StudioAiLlmKind
 import plugins.org.craftercms.aiassistant.orchestration.AiOrchestration
 import plugins.org.craftercms.aiassistant.rag.ExpertSkillVectorRegistry
 
 /**
- * Minimal proxy for CrafterQ chat (non-streaming).
+ * Minimal proxy for assistant chat (non-streaming).
  *
- * This is a building block for a "skills" backend (Spring AI tool loop, etc).
- * For now it simply calls CrafterQ's REST API and returns the response JSON.
+ * Routes through {@link AiOrchestration}: remote hosted chat when {@code llm} resolves to the default adapter,
+ * or Spring AI (OpenAI-wire, Claude, site script LLM, etc.) when configured.
  *
  * Body:
  * {
@@ -27,10 +29,13 @@ import plugins.org.craftercms.aiassistant.rag.ExpertSkillVectorRegistry
  *   "omitTools": "optional — true omits tools for this request only (focused copy/generation); overrides enableTools; same for XB/ICE, dialog, form-engine",
  *   "previewToken": "optional — Studio crafterPreview cookie value for GetPreviewHtml",
  *   "expertSkills": "optional array of { name, url, description } — per-agent markdown RAG for QueryExpertGuidance",
+ *   "crafterQBearerTokenEnv": "optional — Studio host env var name for CrafterQ JWT (Authorization: Bearer on api.crafterq.ai)",
+ *   "crafterQBearerToken": "optional — literal CrafterQ JWT (discouraged in Git; prefer crafterQBearerTokenEnv)",
  *   "llmModel": "optional — OpenAI model id"
  * }
  */
 
+def log = LoggerFactory.getLogger('plugins.org.craftercms.aiassistant.chat')
 def body = AiHttpProxy.parseJsonBody(request)
 if (Boolean.TRUE.equals(body?.get('__crafterqInvalidJson'))) {
   response.setStatus(HttpServletResponse.SC_BAD_REQUEST)
@@ -52,8 +57,6 @@ if (AuthoringPreviewContext.isFormEngineSurface(body?.authoringSurface)) {
 }
 def chatId = body.chatId?.toString()
 def llm = body.llm?.toString()
-def openAiModel = body.llmModel?.toString()
-def imageModel = body.imageModel?.toString()
 def openAiApiKey = body.openAiApiKey?.toString()
 if (siteIdBody) {
   try {
@@ -70,12 +73,25 @@ def expertSkillsNorm = ExpertSkillVectorRegistry.normalizeRequestExpertSkills(bo
 try {
   request.setAttribute('crafterq.expertSkills', expertSkillsNorm)
 } catch (Throwable ignored) {}
+def siteForBearer = siteIdBody ?: params?.siteId?.toString()?.trim()
+if (body instanceof Map && siteForBearer && agentId) {
+  try {
+    CrafterQBearerUiXmlMerge.mergeStreamAgentFieldsFromSiteUiXmlIfMissing(applicationContext, (Map) body, siteForBearer, agentId)
+  } catch (Throwable mergeEx) {
+    log.debug('Agent ui.xml merge skipped: {}', mergeEx.message ?: mergeEx.toString())
+  }
+}
+if (body instanceof Map) {
+  AiHttpProxy.installCrafterQBearerFromChatBody(request, (Map) body)
+}
+def openAiModel = body.llmModel?.toString()
+def imageModel = body.imageModel?.toString()
 
 def llmNorm = AiOrchestration.normalizeLlmProvider(llm)
-if ((!agentId && !StudioAiLlmKind.isOpenAiNative(llmNorm)) || !prompt) {
+if ((!agentId && StudioAiLlmKind.isCrafterQRemoteApi(llmNorm)) || !prompt) {
   response.setStatus(HttpServletResponse.SC_BAD_REQUEST)
-  return [message: (!agentId && !StudioAiLlmKind.isOpenAiNative(llmNorm))
-    ? 'Missing required fields: agentId (required for CrafterQ LLM), prompt'
+  return [message: (!agentId && StudioAiLlmKind.isCrafterQRemoteApi(llmNorm))
+    ? 'Missing required fields: agentId (required for the default remote hosted chat adapter), prompt'
     : 'Missing required fields: prompt']
 }
 
