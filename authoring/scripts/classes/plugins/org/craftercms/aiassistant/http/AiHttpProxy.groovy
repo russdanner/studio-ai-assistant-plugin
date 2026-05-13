@@ -23,6 +23,24 @@ import java.net.URLEncoder
 class AiHttpProxy {
   private static final Logger logger = LoggerFactory.getLogger(AiHttpProxy.class)
 
+  /** Request attribute set by {@link #installCrafterQBearerFromChatBody} — same name used when applying outbound Authorization. */
+  static final String CRAFTERRQ_API_BEARER_TOKEN_ATTR = 'crafterq.crafterQApiBearerToken'
+
+  /**
+   * For logs only: short head/tail of a JWT or secret (never log the full value).
+   */
+  static String crafterQBearerLogPreview(String token) {
+    String t = (token ?: '').toString().trim()
+    if (!t) {
+      return '(empty)'
+    }
+    int n = t.length()
+    if (n <= 14) {
+      return t.substring(0, 1) + '…' + (n > 1 ? t.substring(n - 1) : '')
+    }
+    return t.substring(0, 8) + '…' + t.substring(n - 6)
+  }
+
   /**
    * Do not forward hop-by-hop headers, wrong host, or headers we must set for the CrafterQ JSON/SSE body.
    */
@@ -44,41 +62,183 @@ class AiHttpProxy {
   }
 
   /**
+   * Resolves CrafterQ {@code Authorization: Bearer …} from the chat/stream JSON body (per-agent ui.xml mirrored in the widget)
+   * and stores it on the servlet request for {@link #applyCrafterQConfiguredBearerAuthorization}.
+   * <p><strong>Precedence:</strong> if {@code crafterQBearerTokenEnv} is set and non-empty, {@code System.getenv(that name)}
+   * is used when it returns a non-blank value; otherwise {@code crafterQBearerToken} (literal JWT) is used.
+   * A leading {@code Bearer } prefix on the literal is stripped. Studio's inbound {@code Authorization} header is still
+   * never forwarded to CrafterQ — this is a separate CrafterQ-only credential.</p>
+   */
+  static void installCrafterQBearerFromChatBody(def servletRequest, Map body) {
+    if (!servletRequest || !(body instanceof Map)) {
+      return
+    }
+    Map b = (Map) body
+    String envKey =
+      (b.crafterQBearerTokenEnv ?: b.get('crafterQ-bearer-token-env') ?: b.crafter_q_bearer_token_env)?.toString()?.trim() ?: ''
+    String literal =
+      (b.crafterQBearerToken ?: b.get('crafterQ-bearer-token') ?: b.crafter_q_bearer_token)?.toString()?.trim() ?: ''
+    String token = ''
+    String source = ''
+    if (envKey) {
+      try {
+        String v = System.getenv(envKey)
+        if (v?.trim()) {
+          token = v.trim()
+          source = "env:${envKey}"
+        } else {
+          logger.warn(
+            'CrafterQ bearer: crafterQBearerTokenEnv="{}" is set on the POST body but System.getenv returned blank (check Studio JVM env / spelling / restart). Literal crafterQBearerToken {}.',
+            envKey,
+            literal ? 'will be tried' : 'not provided'
+          )
+        }
+      } catch (Throwable ignored) {
+      }
+    }
+    if (!token && literal) {
+      token = literal
+      if (token.regionMatches(true, 0, 'Bearer ', 0, 7)) {
+        token = token.substring(7).trim()
+      }
+      source = literal.regionMatches(true, 0, 'Bearer ', 0, 7) ? 'literal:POST(Bearer stripped)' : 'literal:POST'
+    }
+    if (!token) {
+      if (logger.isDebugEnabled()) {
+        logger.debug(
+          'CrafterQ bearer: no token installed (envKeyBlank={} literalBlank={})',
+          !envKey?.trim(),
+          !literal?.trim()
+        )
+      }
+      return
+    }
+    try {
+      servletRequest.setAttribute(CRAFTERRQ_API_BEARER_TOKEN_ATTR, token)
+    } catch (Throwable ignored) {
+    }
+    logger.info(
+      'CrafterQ API bearer installed for this Studio request: source={} chars={} preview={} (full token is never logged)',
+      source,
+      token.length(),
+      crafterQBearerLogPreview(token)
+    )
+  }
+
+  /**
+   * Sets {@code Authorization: Bearer …} on the outbound CrafterQ connection when
+   * {@link #installCrafterQBearerFromChatBody} (or equivalent) stored the token on the request attribute {@link #CRAFTERRQ_API_BEARER_TOKEN_ATTR}.
+   */
+  static void applyCrafterQConfiguredBearerAuthorization(HttpURLConnection conn, def request) {
+    if (!conn || !request) {
+      return
+    }
+    try {
+      String t = request.getAttribute(CRAFTERRQ_API_BEARER_TOKEN_ATTR)?.toString()?.trim()
+      if (!t) {
+        return
+      }
+      if (t.regionMatches(true, 0, 'Bearer ', 0, 7)) {
+        t = t.substring(7).trim()
+      }
+      if (t) {
+        conn.setRequestProperty('Authorization', 'Bearer ' + t)
+        if (logger.isDebugEnabled()) {
+          logger.debug(
+            'CrafterQ outbound Authorization: Bearer chars={} preview={}',
+            t.length(),
+            crafterQBearerLogPreview(t)
+          )
+        }
+      }
+    } catch (Throwable ignored) {
+    }
+  }
+
+  private static void logCrafterQAuthFailure(String method, String url, int status, def request) {
+    if (!(status == 401 || status == 403)) {
+      return
+    }
+    boolean bearerAttr = false
+    String bearerPreview = '(request attribute not set — installCrafterQBearerFromChatBody did not run or found no token)'
+    try {
+      String t = request?.getAttribute(CRAFTERRQ_API_BEARER_TOKEN_ATTR)?.toString()?.trim()
+      if (t) {
+        bearerAttr = true
+        bearerPreview = crafterQBearerLogPreview(t)
+      }
+    } catch (Throwable ignored) {
+    }
+    String chatUser = 'absent'
+    try {
+      String cq = request?.getHeader('X-CrafterQ-Chat-User')?.toString()?.trim()
+      if (cq) {
+        chatUser = "present(chars=${cq.length()},preview=${crafterQBearerLogPreview(cq)})"
+      }
+    } catch (Throwable ignored2) {
+    }
+    logger.warn(
+      'CrafterQ {} HTTP {} — url={} — bearerFromPostInstalled={} bearerPreview={} — X-CrafterQ-Chat-User={}',
+      method,
+      status,
+      url,
+      bearerAttr,
+      bearerPreview,
+      chatUser
+    )
+  }
+
+  /**
    * Copies inbound Studio/plugin request headers onto the outbound CrafterQ {@link HttpURLConnection},
    * except hop-by-hop and headers that must match the new request (see {@link #CRAFTERQ_FORWARD_HEADER_DENYLIST}).
    * After this, callers should {@code setRequestProperty} for {@code Content-Type} and {@code Accept}.
    * Uses {@code addRequestProperty} so multiple values for the same name are preserved.
    */
   static void applyCrafterQForwardedHeaders(HttpURLConnection conn, def request) {
-    if (!conn || !request) return
-    def names = request.getHeaderNames()
-    if (!names) return
-    int forwardedValues = 0
-    while (names.hasMoreElements()) {
-      String name = names.nextElement() as String
-      if (!name?.trim()) continue
-      String ln = name.toLowerCase(Locale.ROOT)
-      if (CRAFTERQ_FORWARD_HEADER_DENYLIST.contains(ln)) continue
-      def vals = request.getHeaders(name)
-      if (!vals) continue
-      while (vals.hasMoreElements()) {
-        def v = vals.nextElement()
-        if (v != null) {
-          conn.addRequestProperty(name, v.toString())
-          forwardedValues++
+    if (!conn) {
+      return
+    }
+    if (request) {
+      try {
+        def names = request.getHeaderNames()
+        if (names) {
+          int forwardedValues = 0
+          while (names.hasMoreElements()) {
+            String name = names.nextElement() as String
+            if (!name?.trim()) {
+              continue
+            }
+            String ln = name.toLowerCase(Locale.ROOT)
+            if (CRAFTERQ_FORWARD_HEADER_DENYLIST.contains(ln)) {
+              continue
+            }
+            def vals = request.getHeaders(name)
+            if (!vals) {
+              continue
+            }
+            while (vals.hasMoreElements()) {
+              def v = vals.nextElement()
+              if (v != null) {
+                conn.addRequestProperty(name, v.toString())
+                forwardedValues++
+              }
+            }
+          }
+          if (logger.isDebugEnabled()) {
+            logger.debug('CrafterQ forwarded {} inbound header value(s) to upstream (denylist excluded)', forwardedValues)
+          }
         }
+      } catch (Throwable ignored) {
+      }
+      try {
+        String cq = request.getHeader('X-CrafterQ-Chat-User')?.toString()?.trim()
+        if (cq) {
+          conn.setRequestProperty('X-CrafterQ-Chat-User', cq)
+        }
+      } catch (Throwable ignored) {
       }
     }
-    if (logger.isDebugEnabled()) {
-      logger.debug('CrafterQ forwarded {} inbound header value(s) to upstream (denylist excluded)', forwardedValues)
-    }
-    try {
-      String cq = request.getHeader('X-CrafterQ-Chat-User')?.toString()?.trim()
-      if (cq) {
-        conn.setRequestProperty('X-CrafterQ-Chat-User', cq)
-      }
-    } catch (Throwable ignored) {
-    }
+    applyCrafterQConfiguredBearerAuthorization(conn, request)
   }
 
   /**
@@ -157,6 +317,7 @@ class AiHttpProxy {
           if (err != null) {
             err.withCloseable { errText = it.getText('UTF-8') ?: '' }
           }
+          logCrafterQAuthFailure('POST(SSE)', streamUrl, status, studioRequest)
           throw new RuntimeException("HTTP ${status} calling ${streamUrl}: ${errText ?: conn.getResponseMessage()}")
         }
         inputStream = conn.getInputStream()
@@ -258,6 +419,7 @@ class AiHttpProxy {
         }
 
         if (status < 200 || status >= 300) {
+          logCrafterQAuthFailure('POST', url, status, studioRequest)
           throw new RuntimeException("HTTP ${status} calling ${url}: ${text ?: conn.getResponseMessage()}")
         }
 
@@ -278,6 +440,82 @@ class AiHttpProxy {
       }
     }
     throw new RuntimeException("POST failed after retries calling ${url}")
+  }
+
+  /**
+   * GET JSON from CrafterQ (e.g. {@code /v1/agents/{id}/chats}). Forwards the same headers as
+   * {@link #postCrafterQStreamChat} via {@link #applyCrafterQForwardedHeaders}; sets {@code Accept: application/json}.
+   * Returns a {@link Map} or {@link List} from {@link JsonSlurper}, or {@code [:]} for empty body.
+   */
+  static Object getJson(String url, def studioRequest = null) {
+    int maxAttempts = 2
+    int attempt = 0
+    while (attempt < maxAttempts) {
+      attempt++
+      HttpURLConnection conn = null
+      try {
+        conn = (HttpURLConnection) new URL(url).openConnection()
+        conn.setRequestMethod('GET')
+        conn.setDoOutput(false)
+        applyCrafterQForwardedHeaders(conn, studioRequest)
+        conn.setRequestProperty('Accept', 'application/json')
+        conn.setConnectTimeout(15000)
+        conn.setReadTimeout(60_000)
+
+        if (logger.isDebugEnabled()) {
+          logger.debug('CrafterQ HTTP GET: url={}', url)
+        }
+
+        int status = conn.getResponseCode()
+        InputStream is = (status >= 200 && status < 300) ? conn.getInputStream() : conn.getErrorStream()
+        String text = ''
+        if (is != null) {
+          is.withCloseable { stream ->
+            text = stream.getText('UTF-8') ?: ''
+          }
+        }
+
+        if (status >= 500 && attempt < maxAttempts) {
+          logger.warn('GET {} got HTTP {} (attempt {}/{}), retrying once', url, status, attempt, maxAttempts)
+          sleep(400)
+          continue
+        }
+
+        if (logger.isDebugEnabled()) {
+          logger.debug('CrafterQ HTTP GET RX: url={} status={} responseChars={} responsePreview=\n{}', url, status, text.length(), elideForLog(text, 6000))
+        }
+
+        if (status < 200 || status >= 300) {
+          logCrafterQAuthFailure('GET', url, status, studioRequest)
+          throw new RuntimeException("HTTP ${status} calling ${url}: ${text ?: conn.getResponseMessage()}")
+        }
+
+        if (!text?.trim()) {
+          return [:]
+        }
+        try {
+          return new JsonSlurper().parseText(text)
+        } catch (ignored) {
+          return [text: text]
+        }
+      } catch (SocketTimeoutException ste) {
+        logger.error('GET {} timed out (attempt {}/{}): {}', url, attempt, maxAttempts, ste.toString())
+        if (attempt >= maxAttempts) {
+          throw new RuntimeException("Request timed out calling ${url}", ste)
+        }
+      } catch (Exception e) {
+        if (attempt >= maxAttempts) {
+          throw e
+        }
+        logger.warn('GET {} failed (attempt {}/{}): {}', url, attempt, maxAttempts, e.toString())
+      } finally {
+        try {
+          conn?.disconnect()
+        } catch (ignored) {
+        }
+      }
+    }
+    throw new RuntimeException("GET failed after retries calling ${url}")
   }
 
   /**

@@ -638,24 +638,41 @@ class StudioToolOperations {
   /**
    * Parses CrafterQ GET failures so tool JSON can steer authors (401/403 are almost always identity).
    */
-  private static Map crafterqChatApiHttpFailureHint(Throwable t) {
+  private static Map crafterqChatApiHttpFailureHint(Throwable t, def servletRequest = null) {
     String msg = (t?.message ?: t?.toString() ?: '').toString()
+    Map diag = [:]
+    try {
+      if (servletRequest != null) {
+        String tok = servletRequest.getAttribute(AiHttpProxy.CRAFTERRQ_API_BEARER_TOKEN_ATTR)?.toString()?.trim()
+        diag.put('crafterQBearerInstalledFromPost', Boolean.valueOf(tok != null && tok.length() > 0))
+        diag.put('crafterQBearerPreview', tok ? AiHttpProxy.crafterQBearerLogPreview(tok) : '(none)')
+        String cq = servletRequest.getHeader('X-CrafterQ-Chat-User')?.toString()?.trim()
+        diag.put('xCrafterQChatUserPresent', Boolean.valueOf(cq != null && cq.length() > 0))
+      }
+    } catch (Throwable ignoredDiag) {
+    }
     if (msg.contains('HTTP 401')) {
-      return [
-        httpStatus: 401,
-        authHint  :
-          'CrafterQ returned HTTP 401 (unauthorized). List/get hosted chats need CrafterQ identity on this Studio request: ' +
-          '(1) Sign into CrafterQ in the Studio AI widget so the client sends **X-CrafterQ-Chat-User** on each stream/chat POST, ' +
-          'or (2) set **crafterQBearerTokenEnv** (Studio host env var holding a JWT) or **crafterQBearerToken** on the agent / stream body ' +
-          'so the server sends **Authorization: Bearer …** to api.crafterq.ai. Studio **Authorization** is never forwarded to CrafterQ.'
-      ]
+      Map m = new LinkedHashMap()
+      m.put('httpStatus', 401)
+      m.put(
+        'authHint',
+        'CrafterQ returned HTTP 401 (unauthorized). List/get hosted chats need CrafterQ identity on this Studio request: ' +
+        '(1) Sign into CrafterQ in the Studio AI widget so the client sends **X-CrafterQ-Chat-User** on each stream/chat POST, ' +
+        'or (2) set **crafterQBearerTokenEnv** (Studio host env var holding a JWT) or **crafterQBearerToken** on the agent / stream body ' +
+        'so the server sends **Authorization: Bearer …** to api.crafterq.ai. Studio **Authorization** is never forwarded to CrafterQ.'
+      )
+      m.putAll(diag)
+      return m
     }
     if (msg.contains('HTTP 403')) {
-      return [
-        httpStatus: 403,
-        authHint  :
-          'CrafterQ returned HTTP 403 (forbidden). Identity was sent but is not allowed for this agent or operation—check token scope and agent access in CrafterQ.'
-      ]
+      Map m = new LinkedHashMap()
+      m.put('httpStatus', 403)
+      m.put(
+        'authHint',
+        'CrafterQ returned HTTP 403 (forbidden). Identity was sent but is not allowed for this agent or operation—check token scope and agent access in CrafterQ.'
+      )
+      m.putAll(diag)
+      return m
     }
     return [:]
   }
@@ -735,7 +752,7 @@ class StudioToolOperations {
       err.put('ok', false)
       err.put('tool', 'ListCrafterQAgentChats')
       err.put('message', (t.message ?: t.toString()))
-      err.putAll(crafterqChatApiHttpFailureHint(t))
+      err.putAll(crafterqChatApiHttpFailureHint(t, request))
       return err
     }
   }
@@ -774,7 +791,7 @@ class StudioToolOperations {
       err.put('ok', false)
       err.put('tool', 'GetCrafterQAgentChat')
       err.put('message', (t.message ?: t.toString()))
-      err.putAll(crafterqChatApiHttpFailureHint(t))
+      err.putAll(crafterqChatApiHttpFailureHint(t, request))
       return err
     }
   }
