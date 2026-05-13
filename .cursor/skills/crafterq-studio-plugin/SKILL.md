@@ -24,7 +24,8 @@ Use this skill when editing **this repo**: `plugin-studio-crafterq` — Studio p
 ## Documentation map
 
 - **`docs/README.md`** — Index: **using & extending** vs **internals**.
-- **`docs/using-and-extending/`** — Site operators & extension authors: **`docs/using-and-extending/README.md`**, **`docs/using-and-extending/llm-configuration.md`**, **`docs/using-and-extending/studio-plugins-guide.md`** (install, `user-tools/`, script LLM paths).
+- **`docs/using-and-extending/configuration-guide.md`** — Operators: `ui.xml` surfaces, plugin id, agents, keys checklist.
+- **`docs/using-and-extending/`** — **`llm-configuration.md`**, **`studio-plugins-guide.md`**, **`README.md`** (install, `user-tools/`, script LLM paths).
 - **`docs/internals/`** — Maintainers: **`docs/internals/README.md`**, **`docs/internals/spec.md`**, **`docs/internals/stream-endpoint-design.md`**.
 
 ## Mechanical checklist (non-UI changes)

@@ -1,6 +1,6 @@
 # LLM configuration (Studio AI assistant — remote chat, OpenAI-compatible, Claude, scripts)
 
-**Using & extending** — configure agents and keys here. **Plugin behavior contract** (macros, form vs preview, REST): [spec.md](../internals/spec.md). **Doc index:** [README.md](../README.md).
+**Using & extending** — configure agents and keys here. **Step-by-step setup (operators):** [configuration-guide.md](configuration-guide.md). **Plugin behavior contract** (macros, form vs preview, REST): [spec.md](../internals/spec.md). **Doc index:** [README.md](../README.md).
 
 The Studio widget can run chat against **several backends**, chosen per agent in the plugin UI configuration (same structure as `ui.xml` when edited in Studio).
 

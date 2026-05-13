@@ -12,4 +12,4 @@ Documentation here is aimed at **maintainers**, **integrators**, and anyone debu
 
 ## User-facing configuration
 
-Agent LLM values, keys, and tool summaries for operators: **[`docs/using-and-extending/llm-configuration.md`](../using-and-extending/llm-configuration.md)**.
+Operators configuring the site (no code changes): start with **[`docs/using-and-extending/configuration-guide.md`](../using-and-extending/configuration-guide.md)**. Agent LLM values, keys, and tool summaries: **[`llm-configuration.md`](../using-and-extending/llm-configuration.md)**.

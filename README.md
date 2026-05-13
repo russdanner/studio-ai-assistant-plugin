@@ -14,7 +14,7 @@ This repository is a **Crafter Studio** plugin that brings AI into authoring. Th
 
 **Developers:** For a detailed guide on building and installing Crafter Studio plugins (plugin ID, paths, ui.xml, auth, Rollup, and troubleshooting 404s), see [docs/using-and-extending/studio-plugins-guide.md](docs/using-and-extending/studio-plugins-guide.md). It can be used as a reference when creating or debugging plugins.
 
-**Documentation map:** [All documentation](docs/README.md) — [Using & extending](docs/using-and-extending/README.md) (configuration, LLMs, custom tools) · [Plugin internals](docs/internals/README.md) (behavior spec, streaming design, reference).
+**Documentation map:** [All documentation](docs/README.md) — [**Configuration guide (operators)**](docs/using-and-extending/configuration-guide.md) · [Using & extending](docs/using-and-extending/README.md) (LLMs, custom tools) · [Plugin internals](docs/internals/README.md) (behavior spec, streaming design, reference).
 
 **Cursor / AI:** In-repo rules and the project skill are indexed in [docs/CURSOR_PROJECT_POLICY.md](docs/CURSOR_PROJECT_POLICY.md). Update that file whenever you add or change `.cursor/rules/` or `.cursor/skills/`.
 
