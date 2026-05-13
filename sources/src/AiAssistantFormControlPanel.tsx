@@ -209,6 +209,7 @@ export default function AiAssistantFormControlPanel(props: AiAssistantFormContro
                     imageGenerator={agent.imageGenerator}
                     openAiApiKey={agent.openAiApiKey}
                     enableTools={agent.enableTools}
+                    enabledBuiltInTools={agent.enabledBuiltInTools}
                     expertSkills={agent.expertSkills}
                     configPrompts={agent.prompts}
                     embedTarget="default"

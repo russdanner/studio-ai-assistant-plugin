@@ -76,7 +76,7 @@ export function AiAssistantIceChatShell(props: Readonly<{ children: React.ReactN
 
 export interface AiAssistantDialogContentProps {
   agentId?: string;
-  llm?: 'crafterQ' | 'openAI';
+  llm?: string;
   llmModel?: string;
   imageModel?: string;
   imageGenerator?: string;
@@ -84,6 +84,7 @@ export interface AiAssistantDialogContentProps {
   openAiApiKey?: string;
   prompts?: Array<{ userText: string; additionalContext?: string }>;
   enableTools?: boolean;
+  enabledBuiltInTools?: string[];
   expertSkills?: ExpertSkillConfig[];
   translateBatchConcurrency?: number;
   crafterQBearerToken?: string;
@@ -104,6 +105,7 @@ function AiAssistantDialogContent(props: Readonly<AiAssistantDialogContentProps>
     openAiApiKey,
     prompts,
     enableTools,
+    enabledBuiltInTools,
     expertSkills,
     translateBatchConcurrency,
     crafterQBearerToken,
@@ -118,6 +120,7 @@ function AiAssistantDialogContent(props: Readonly<AiAssistantDialogContentProps>
       imageGenerator={imageGenerator}
       openAiApiKey={openAiApiKey}
       enableTools={enableTools}
+      enabledBuiltInTools={enabledBuiltInTools}
       expertSkills={expertSkills}
       configPrompts={prompts}
       {...(translateBatchConcurrency != null ? { translateBatchConcurrency } : {})}

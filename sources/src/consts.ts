@@ -10,8 +10,16 @@ export const autonomousAssistantsWidgetId = 'craftercms.components.aiassistant.A
 /** Registered for `ToolsPanelListItemButton` / `SystemIcon` — same mark as `autonomousAgentsMarkIcon.tsx`. */
 export const autonomousAgentsMarkWidgetId = 'craftercms.components.aiassistant.AutonomousAgentsMark';
 export const formControlWidgetId = 'craftercms.components.aiassistant.FormControl';
-/** Matches `<plugin id="…">` in `ui.xml` for this Studio plugin (agents may live under that widget). */
+/** Matches `craftercms-plugin.yaml` → `plugin.id` and `<plugin id="…">` in `ui.xml`. */
 export const aiAssistantStudioPluginId = 'org.craftercms.aiassistant.studio';
+/** Project Tools → single **AI Assistant** config panel (Agents / Scripts / UI tabs). Preferred install target. */
+export const projectToolsAiAssistantConfigWidgetId = 'craftercms.components.aiassistant.ProjectToolsConfiguration';
+/** @deprecated Kept for backward compatibility: same tabbed shell, Agents tab. Prefer {@link projectToolsAiAssistantConfigWidgetId}. */
+export const projectToolsCentralAgentsWidgetId = 'craftercms.components.aiassistant.CentralAgentsConfiguration';
+/** @deprecated Kept for backward compatibility: same tabbed shell, Scripts tab. */
+export const projectToolsScriptsSandboxWidgetId = 'craftercms.components.aiassistant.ScriptsSandboxConfiguration';
+/** @deprecated Kept for backward compatibility: same tabbed shell, UI tab. */
+export const projectToolsStudioUiSettingsWidgetId = 'craftercms.components.aiassistant.StudioUiSettings';
 
 /*
 import { EmptyStateOption } from './AiAssistant';

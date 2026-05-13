@@ -57,7 +57,8 @@ class AnthropicSpringAiLlmRuntime implements StudioAiLlmRuntime {
         expertSpecs,
         modelName,
         req.llmNormalized,
-        req.imageGeneratorParam
+        req.imageGeneratorParam,
+        req.agentEnabledBuiltInTools
       )
     } else {
       tools = []

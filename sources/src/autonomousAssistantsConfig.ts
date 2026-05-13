@@ -2,7 +2,7 @@
  * Autonomous Agents — definitions from widget `ui.xml` / JSON configuration.
  * XML shape: `<autonomousAgents><agent><name/><schedule/><startAutomatically/>…</agent></autonomousAgents>`
  */
-import { normalizeExpertSkillsRaw, type ExpertSkillConfig } from './agentConfig';
+import { normalizeExpertSkillsRaw, type ExpertSkillConfig, normalizeEnabledBuiltInToolsRaw } from './agentConfig';
 
 export type AutonomousScope = 'user' | 'role' | 'project';
 
@@ -35,6 +35,11 @@ export interface AutonomousAgentDefinition {
   stopOnFailure?: boolean;
   /** Optional markdown URLs for OpenAI **QueryExpertGuidance** (same shape as Helper `<expertSkill>` rows). */
   expertSkills?: ExpertSkillConfig[];
+  /**
+   * Optional subset of CMS tool wire names for autonomous runs (same as chat stream **enabledBuiltInTools**).
+   * Include **mcp:*** to keep all MCP tools.
+   */
+  enabledBuiltInTools?: string[];
 }
 
 /** Mirrors `AutonomousAgentIdBuilder` (Groovy) for project-scoped ids used in sync/status. */
@@ -223,6 +228,7 @@ function normalizeOne(raw: unknown): AutonomousAgentDefinition | null {
   );
   const stopFail = normalizeStopOnFailure(o.stopOnFailure ?? o.stop_on_failure);
   const expertSkills = normalizeExpertSkillsRaw(o.expertSkills) ?? normalizeExpertSkillsRaw(o.expertSkill);
+  const enabledBuiltIn = normalizeEnabledBuiltInToolsRaw(o.enabledBuiltInTools ?? o.enabled_built_in_tools);
   return {
     name,
     schedule: String(o.schedule ?? '0 0 * * * ?').trim(),
@@ -239,7 +245,8 @@ function normalizeOne(raw: unknown): AutonomousAgentDefinition | null {
     ...(manageCross !== undefined ? { manageOtherAgentsHumanTasks: manageCross } : {}),
     ...(startAuto === false ? { startAutomatically: false } : {}),
     ...(stopFail === false ? { stopOnFailure: false } : {}),
-    ...(expertSkills && expertSkills.length > 0 ? { expertSkills } : {})
+    ...(expertSkills && expertSkills.length > 0 ? { expertSkills } : {}),
+    ...(enabledBuiltIn?.length ? { enabledBuiltInTools: enabledBuiltIn } : {})
   };
 }
 

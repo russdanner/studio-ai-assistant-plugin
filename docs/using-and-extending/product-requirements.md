@@ -24,7 +24,7 @@ It is **not** a feature brochure (“what it does” as marketing). It is **not*
 
 ## Administrator requirements
 
-6. **Per-site configuration** — Administrators **must** be able to enable, disable, or tune assistant behavior per site using Studio-supported configuration (for example `ui.xml` widget definitions and documented sandbox files)—without changing plugin source in the repository.
+6. **Per-site configuration** — Administrators **must** be able to enable, disable, or tune assistant behavior per site using Studio-supported configuration (for example `ui.xml` widget definitions and documented sandbox files)—without changing plugin source in the repository. **Examples** include **`ui.xml`**, **`config/studio/ai-assistant/agents.json`**, **`config/studio/scripts/aiassistant/config/studio-ui.json`** (runtime toolbar/sidebar visibility, scoped Experience Builder image-picker augmentation, bulk form-control edits — see the configuration guide and **`spec.md`**), **`scripts/aiassistant/…`** script trees, and other paths named in **`spec.md`**.
 
 7. **Agents** — Administrators **must** be able to define one or more agents with distinct display metadata, instructions, model choice (`llm` / model identifiers as documented), and tool options where the product supports them.
 

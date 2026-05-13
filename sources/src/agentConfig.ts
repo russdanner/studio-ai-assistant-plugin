@@ -1,8 +1,11 @@
 /**
  * Agent configuration as defined in ui.xml <configuration><agents><agent>...</agent></agents></configuration>
  */
-/** `crafterQ` = CrafterQ API content/RAG chat (no CMS tools). `openAI` = OpenAI with native tool calling (requires server-side API key). */
-export type AgentLlm = 'crafterQ' | 'openAI';
+/**
+ * Studio stream `llm` value. Common: `crafterQ` (hosted), `openAI`, `claude`, `xAI`, `deepSeek`, `llama`, `gemini`,
+ * or `script:<id>` (see server `StudioAiLlmKind`).
+ */
+export type AgentLlm = string;
 
 /** Optional per-agent markdown RAG source (OpenAI path); configured in ui.xml as `<expertSkill>` children. */
 export interface ExpertSkillConfig {
@@ -34,6 +37,11 @@ export interface AgentConfig {
    * requests omit CMS function tools. Omitted or true: default (tools on for OpenAI).
    */
   enableTools?: boolean;
+  /**
+   * Optional subset of built-in CMS tool wire names (e.g. `GetContent`, `WriteContent`). Forwarded on stream POST as
+   * `enabledBuiltInTools` when non-empty. Include `mcp:*` to allow all MCP tools. Omitted = full catalog (subject to site `tools.json`).
+   */
+  enabledBuiltInTools?: string[];
   /** Optional provider model id when `llm` is `openAI` (e.g. `gpt-4o-mini`). ui.xml **`<llmModel>`** / JSON **`llmModel`**. */
   llmModel?: string;
   /** OpenAI Images API model when llm is openAI (e.g. gpt-image-1). ui.xml **`<imageModel>`** / JSON **`imageModel`** — no JVM fallback. */
@@ -172,6 +180,11 @@ export function mergeAgentsWithSiteUiXmlOverlay(fromWidget: AgentConfig[], fromU
         : {}),
       ...(typeof ui.crafterQBearerToken === 'string' && ui.crafterQBearerToken.trim()
         ? { crafterQBearerToken: ui.crafterQBearerToken.trim() }
+        : {}),
+      ...(Array.isArray(ui.enabledBuiltInTools) &&
+      ui.enabledBuiltInTools.length > 0 &&
+      (!agent.enabledBuiltInTools || agent.enabledBuiltInTools.length === 0)
+        ? { enabledBuiltInTools: [...ui.enabledBuiltInTools] }
         : {})
     };
   });
@@ -338,6 +351,16 @@ export function normalizeExpertSkillsRaw(raw: unknown): ExpertSkillConfig[] | un
   return rows.length ? rows : undefined;
 }
 
+export function normalizeEnabledBuiltInToolsRaw(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const out: string[] = [];
+  for (const x of raw) {
+    const s = String(x ?? '').trim();
+    if (s) out.push(s);
+  }
+  return out.length ? out : undefined;
+}
+
 function normalizeAgent(a: unknown): AgentConfig | null {
   if (!a || typeof a !== 'object') return null;
   const o = a as Record<string, unknown>;
@@ -352,10 +375,14 @@ function normalizeAgent(a: unknown): AgentConfig | null {
     icon = typeof iconObj.id === 'string' ? iconObj.id : typeof iconObj['@_id'] === 'string' ? (iconObj['@_id'] as string) : undefined;
   }
   const prompts = normalizePrompts(o.prompts);
-  const llmRaw = extractString(o.llm)?.toLowerCase();
+  const llmStr = extractString(o.llm)?.trim();
   let llm: AgentLlm | undefined;
-  if (llmRaw === 'openai' || llmRaw === 'open-ai') llm = 'openAI';
-  else if (llmRaw === 'crafterq' || llmRaw === 'crafter-q') llm = 'crafterQ';
+  if (llmStr) {
+    const low = llmStr.toLowerCase();
+    if (low === 'openai' || low === 'open-ai') llm = 'openAI';
+    else if (low === 'crafterq' || low === 'crafter-q') llm = 'crafterQ';
+    else llm = llmStr;
+  }
   const llmModel = extractString(o.llmModel);
   const imageModel = extractString(o.imageModel);
   const imageGenerator =
@@ -397,6 +424,8 @@ function normalizeAgent(a: unknown): AgentConfig | null {
     extractString(o.crafter_q_bearer_token_env);
   if (crafterQBearerTokenEnv?.trim()) out.crafterQBearerTokenEnv = crafterQBearerTokenEnv.trim();
   if (crafterQBearerToken?.trim()) out.crafterQBearerToken = crafterQBearerToken.trim();
+  const enabledBuiltIn = normalizeEnabledBuiltInToolsRaw(o.enabledBuiltInTools ?? o.enabled_built_in_tools);
+  if (enabledBuiltIn?.length) out.enabledBuiltInTools = enabledBuiltIn;
   return out;
 }
 

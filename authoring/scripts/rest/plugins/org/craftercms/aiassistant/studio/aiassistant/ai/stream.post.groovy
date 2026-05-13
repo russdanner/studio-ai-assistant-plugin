@@ -1,5 +1,7 @@
 import jakarta.servlet.http.HttpServletResponse
 import java.nio.charset.StandardCharsets
+import java.util.LinkedHashSet
+import java.util.Set
 import groovy.json.JsonOutput
 import org.slf4j.LoggerFactory
 import plugins.org.craftercms.aiassistant.authoring.AuthoringPreviewContext
@@ -24,6 +26,7 @@ import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
  *   "formEngineItemPath": optional — repo path of the open form item; when set with client JSON apply, WriteContent/publish/revert are blocked **only** for this path (other paths may still persist). If omitted, all repo writes are suppressed for that mode (safe default).
  *   "enableTools": optional boolean — when false, OpenAI chat omits CMS function tools (matches ui.xml enableTools false). Absent defaults true.
  *   "omitTools": optional boolean — when true, CMS function tools are omitted for this request only (copy/image-style LLM steps); overrides enableTools. Same for XB/ICE preview chat, dialog, and form-engine (`authoringSurface`). Absent/false keeps normal tool registration from enableTools/agent defaults.
+ *   "enabledBuiltInTools": optional JSON array of tool name strings — after site {@code tools.json} policy, only these built-in tools (exact wire names) remain registered; include {@code "mcp:*"} to keep all dynamic {@code mcp_*} tools. Absent or empty = no per-request subset (full catalog subject to site policy).
  *   "llmModel": optional string — OpenAI chat model id (e.g. gpt-4o-mini).
  *   "imageModel": optional string — Default image model for OpenAI-compatible **GenerateImage** wire (e.g. gpt-image-1); agent ui.xml **imageModel**; no JVM fallback. Ignored when **imageGenerator** selects a pure script backend unless the script reads it from context.
  *   "imageGenerator": optional string — **GenerateImage** backend: blank = OpenAI-compatible Images wire when key+imageModel exist; **none** / **off** / **disabled** omits the tool; **script:{id}** runs **`/scripts/aiassistant/imagegen/{id}/generate.groovy`**. Agent ui.xml **imageGenerator**; merged from site ui.xml like **imageModel** when POST omits it.
@@ -87,6 +90,21 @@ try {
   try {
     request.setAttribute('crafterq.expertSkills', expertSkillsNorm)
   } catch (Throwable ignored) {}
+  def agentToolsRaw = body?.enabledBuiltInTools
+  if (agentToolsRaw instanceof List && !((List) agentToolsRaw).isEmpty()) {
+    Set wl = new LinkedHashSet()
+    for (Object o : (List) agentToolsRaw) {
+      String n = o?.toString()?.trim()
+      if (n) {
+        wl.add(n)
+      }
+    }
+    if (!wl.isEmpty()) {
+      try {
+        request.setAttribute('crafterq.agentEnabledBuiltInTools', wl)
+      } catch (Throwable ignoredWl) {}
+    }
+  }
   def siteForBearer = siteIdBody ?: params?.siteId?.toString()?.trim()
   if (body instanceof Map && siteForBearer && agentId) {
     try {

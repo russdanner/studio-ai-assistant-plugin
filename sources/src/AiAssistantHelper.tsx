@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { useDispatch } from 'react-redux';
 import useActiveSiteId from '@craftercms/studio-ui/hooks/useActiveSiteId';
@@ -33,14 +33,21 @@ import {
   getAgentsFromConfiguration,
   extractPositiveInt,
   mergeAgentsWithSiteUiXmlOverlay,
+  normalizeEnabledBuiltInToolsRaw,
   readOptionalBooleanFromConfiguration,
   type AgentConfig,
   type ExpertSkillConfig
 } from './agentConfig';
-import { fetchAiAssistantAgentsFromSiteUi } from './fetchAiAssistantUiAgents';
+import { fetchSiteChatAgentsForOverlay } from './fetchAiAssistantUiAgents';
 import { logoWidgetId } from './consts';
 import { getAgentIcon } from './agentIcon';
 import { helperWidgetId } from './consts';
+import {
+  effectiveStudioSiteId,
+  getStudioUiConfigEpochSnapshot,
+  subscribeStudioUiConfigChanged,
+  syncReadStudioUiConfig
+} from './aiAssistantStudioUiConfig';
 
 const DIALOG_WIDTH_STORAGE_KEY = 'aiassistant-dialog-width';
 const DEFAULT_DIALOG_WIDTH = 480;
@@ -107,25 +114,42 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
   const ui = props.ui ?? (props as Record<string, unknown>)['@_ui'] ?? undefined;
   const iceChatCfg = useMemo(() => readIceChatConfiguration(props), [configuration, props]);
   const activeSiteId = useActiveSiteId();
-  const siteId = activeSiteId ?? 'default';
-  const [agentsFromSiteUi, setAgentsFromSiteUi] = useState<AgentConfig[] | null>(null);
+  const studioUiSiteKey = useMemo(() => effectiveStudioSiteId(activeSiteId), [activeSiteId]);
+  const siteId = studioUiSiteKey || 'default';
+  const subscribeUi = useCallback(
+    (onStoreChange: () => void) => subscribeStudioUiConfigChanged(studioUiSiteKey, onStoreChange),
+    [studioUiSiteKey]
+  );
+  const studioUiEpoch = useSyncExternalStore(
+    subscribeUi,
+    () => getStudioUiConfigEpochSnapshot(studioUiSiteKey),
+    () => 0
+  );
+  const showAiInTopNav = useMemo(
+    () => syncReadStudioUiConfig(studioUiSiteKey).showAiAssistantsInTopNavigation !== false,
+    [studioUiSiteKey, studioUiEpoch]
+  );
+  const [siteChatOverlay, setSiteChatOverlay] = useState<{
+    agents: AgentConfig[];
+    exclusive: boolean;
+  } | null>(null);
   useEffect(() => {
-    if (!activeSiteId || iceChatCfg) {
-      setAgentsFromSiteUi(null);
+    if (!studioUiSiteKey || iceChatCfg) {
+      setSiteChatOverlay(null);
       return;
     }
     let cancelled = false;
-    fetchAiAssistantAgentsFromSiteUi(activeSiteId)
-      .then((list) => {
-        if (!cancelled) setAgentsFromSiteUi(list.length ? list : null);
+    fetchSiteChatAgentsForOverlay(studioUiSiteKey)
+      .then((r) => {
+        if (!cancelled) setSiteChatOverlay(r.agents.length || r.exclusive ? r : null);
       })
       .catch(() => {
-        if (!cancelled) setAgentsFromSiteUi(null);
+        if (!cancelled) setSiteChatOverlay(null);
       });
     return () => {
       cancelled = true;
     };
-  }, [activeSiteId, iceChatCfg]);
+  }, [studioUiSiteKey, iceChatCfg]);
 
   const agents = useMemo(() => {
     let base: AgentConfig[];
@@ -138,11 +162,16 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
         base = fromConfig.length > 0 ? fromConfig : DEFAULT_AGENTS;
       } else base = DEFAULT_AGENTS;
     }
-    let merged = agentsFromSiteUi?.length ? mergeAgentsWithSiteUiXmlOverlay(base, agentsFromSiteUi) : base;
+    let merged: AgentConfig[];
+    if (siteChatOverlay?.exclusive) {
+      merged = siteChatOverlay.agents.length ? siteChatOverlay.agents : DEFAULT_AGENTS;
+    } else {
+      merged = siteChatOverlay?.agents?.length ? mergeAgentsWithSiteUiXmlOverlay(base, siteChatOverlay.agents) : base;
+    }
     merged = dedupeAgentsByStableKey(merged);
     merged = dropPlaceholderAgentsWhenRicherMatchesExist(merged);
     return merged;
-  }, [configuration, agentsProp, props, agentsFromSiteUi]);
+  }, [configuration, agentsProp, props, siteChatOverlay]);
 
   type OpenDialog = { id: string; agent: AgentConfig; minimized: boolean; width: number };
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -172,7 +201,10 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
                   imageGenerator: resolved.imageGenerator,
                   openAiApiKey: resolved.openAiApiKey,
                   prompts: resolved.prompts,
-                  ...(resolved.enableTools !== undefined ? { enableTools: resolved.enableTools } : {})
+                  ...(resolved.enableTools !== undefined ? { enableTools: resolved.enableTools } : {}),
+                  ...(Array.isArray(resolved.enabledBuiltInTools) && resolved.enabledBuiltInTools.length > 0
+                    ? { enabledBuiltInTools: resolved.enabledBuiltInTools }
+                    : {})
                 }
               })
             ],
@@ -274,7 +306,7 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
 
   if (iceChatCfg) {
     const agentId = String(iceChatCfg.agentId ?? '').trim();
-    const llm = iceChatCfg.llm as 'crafterQ' | 'openAI' | undefined;
+    const llm = iceChatCfg.llm as string | undefined;
     const iceRaw = iceChatCfg as Record<string, unknown>;
     const llmModel = (iceRaw.llmModel as string | undefined)?.trim();
     const imageModel = iceChatCfg.imageModel as string | undefined;
@@ -284,6 +316,7 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
       ? (iceChatCfg.prompts as Array<{ userText: string; additionalContext?: string }>)
       : undefined;
     const iceEnableTools = readOptionalBooleanFromConfiguration(iceChatCfg, 'enableTools', 'enable_tools');
+    const iceEnabledBuiltIn = normalizeEnabledBuiltInToolsRaw(iceRaw.enabledBuiltInTools);
     const iceExpertSkills = Array.isArray(iceChatCfg.expertSkills)
       ? (iceChatCfg.expertSkills as ExpertSkillConfig[])
       : undefined;
@@ -300,6 +333,7 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
           imageGenerator={imageGenerator || undefined}
           openAiApiKey={openAiApiKey}
           enableTools={iceEnableTools}
+          enabledBuiltInTools={iceEnabledBuiltIn}
           expertSkills={iceExpertSkills}
           configPrompts={configPrompts}
           embedTarget="icePanel"
@@ -315,15 +349,17 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
     <>
       {Boolean(ui) &&
         (ui === 'IconButton' ? (
-          <Tooltip title={primaryAgent?.label ?? 'Studio AI Assistant'}>
-            <IconButton
-              onClick={handleToolbarClick}
-              aria-haspopup={toolbarList.length > 1 ? 'menu' : undefined}
-              aria-expanded={toolbarList.length > 1 ? menuOpen : undefined}
-            >
-              {getAgentIcon(primaryAgent?.icon)}
-            </IconButton>
-          </Tooltip>
+          showAiInTopNav ? (
+            <Tooltip title={primaryAgent?.label ?? 'Studio AI Assistant'}>
+              <IconButton
+                onClick={handleToolbarClick}
+                aria-haspopup={toolbarList.length > 1 ? 'menu' : undefined}
+                aria-expanded={toolbarList.length > 1 ? menuOpen : undefined}
+              >
+                {getAgentIcon(primaryAgent?.icon)}
+              </IconButton>
+            </Tooltip>
+          ) : null
         ) : (
           <ToolsPanelListItemButton
             icon={{ id: logoWidgetId }}
@@ -446,6 +482,7 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
                         imageGenerator={d.agent.imageGenerator}
                         openAiApiKey={d.agent.openAiApiKey}
                         enableTools={d.agent.enableTools}
+                        enabledBuiltInTools={d.agent.enabledBuiltInTools}
                         expertSkills={d.agent.expertSkills}
                         configPrompts={d.agent.prompts}
                         {...(d.agent.translateBatchConcurrency != null

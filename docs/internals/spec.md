@@ -71,7 +71,7 @@ Note: Message-bus wiring to open the assistant via `openCrafterQMessageId` is pr
 
 ##### Configuration shape (`autonomousAgents`)
 
-Under `<configuration>`, use **`autonomousAgents`** with one or more **`agent`** entries. Studio may deserialize repeated `<agent>` elements as an **array** or as a **numeric-keyed object**; the widget normalizer accepts both (same pattern as Helper **`agents`**). A **single** `<agent>` is often a **flat object** (`{ name, schedule, … }`); the parser must **not** treat it like a map with `Object.values()` (that yields string fragments and zero agents).
+Under `<configuration>`, use **`autonomousAgents`** with one or more **`agent`** entries, **or** define autonomous rows in **`config/studio/ai-assistant/agents.json`** with **`mode: autonomous`** (Project Tools editor). When that JSON file contains at least one autonomous row, the widget uses those definitions instead of **`autonomousAgents`** from **`ui.xml`**. Studio may deserialize repeated `<agent>` elements as an **array** or as a **numeric-keyed object**; the widget normalizer accepts both (same pattern as Helper **`agents`**). A **single** `<agent>` is often a **flat object** (`{ name, schedule, … }`); the parser must **not** treat it like a map with `Object.values()` (that yields string fragments and zero agents).
 
 | Field (XML / JSON) | Required | Description |
 |--------------------|----------|-------------|
@@ -208,6 +208,8 @@ Defined in `sources/src/consts.ts`:
   - `popoverWidgetId`
   - `helperWidgetId`
   - `autonomousAssistantsWidgetId` (`craftercms.components.aiassistant.AutonomousAssistants`)
+  - `projectToolsAiAssistantConfigWidgetId` (`craftercms.components.aiassistant.ProjectToolsConfiguration`) — **Project Tools** single entry (**UI** / **Agents** / **Prompts** / **Tools** / **Scripts** tabs)
+  - `projectToolsCentralAgentsWidgetId`, `projectToolsScriptsSandboxWidgetId`, `projectToolsStudioUiSettingsWidgetId` — **legacy** widget ids; bundle still registers them and maps each to the same tabbed shell with the matching default tab (**ScriptsSandboxConfiguration** opens the **Tools** tab — registry and user Groovy — for sites that still have three merged tools until admins remove duplicates)
 - **XB message topics**
   - `openCrafterQMessageId`
   - `CrafterQClosedMessageId`
@@ -222,14 +224,35 @@ Defined in `sources/src/consts.ts`:
 ### UI placement (toolbar vs sidebar)
 
 - **Tools Panel**: The Helper can appear in the left sidebar (default installation).
-- **Preview Toolbar**: For an icon in the top bar (next to the address bar), add the same Helper widget in `PreviewToolbar` → `configuration` → `middleSection` → `widgets` with `<configuration ui="IconButton"/>`. The plugin descriptor’s second installation entry wires this on install; existing sites can add it manually to `config/studio/ui.xml`.
+- **Preview Toolbar**: Marketplace install merges the Helper under **`PreviewToolbar` → `configuration` → `rightSection` → `widgets`** (avoids Studio **`performConfigurationWiring`** singleton-descent failures on **`middleSection/widgets`**). For an icon **next to the address bar**, move the merged **`<widget id="craftercms.components.aiassistant.Helper">…</widget>`** to **`middleSection` → `widgets`** in `config/studio/ui.xml` (same **`<configuration ui="IconButton"/>`** shape). The **`element`** root in **`craftercms-plugin.yaml`** is the **`<widget>`**; existing sites can paste from **`docs/examples/studio-ui-aiassistant-fragments.xml`** instead.
 
 #### Common gotchas
 
 - **Two widget entries**: It’s common to configure the Helper in **both** Tools Panel and Preview Toolbar. If you change agent labels/prompts, update both widget entries or you’ll still see old values depending on where you click.
-- **Form assistant accordion vs Redux**: Studio’s Redux snapshot of `ui.xml` can expose fewer `<agent>` entries than the site repo file. The form control merges agents from **both** that snapshot and `get_configuration` for `/ui.xml` so each configured agent can appear as its own row (deduped by **crafterQAgentId** + **label**, i.e. the same composite key as stream **`agentId`** + label).
+- **Form assistant accordion vs Redux**: Studio’s Redux snapshot of `ui.xml` can expose fewer `<agent>` entries than the site repo file. The form control merges agents from **both** that snapshot and `get_configuration` for `/ui.xml` so each configured agent can appear as its own row (deduped by **crafterQAgentId** + **label**, i.e. the same composite key as stream **`agentId`** + label), **unless** `config/studio/ai-assistant/agents.json` exists with at least one **`mode: chat`** (or omitted mode) row — then chat agents are taken **only** from that JSON file (sync XHR), not from `ui.xml`.
 - **Form read-only / view mode**: When the content form is opened read-only (field or whole form), the form AI assistant **does not** load the plugin UI for that field: no portaled panel, no form-shell widen, and no `html.crafterq-form-panel-active` body inset.
 - **Commit required**: Studio reads `config/studio/ui.xml` from the site sandbox repo; changes are most reliable after the `ui.xml` edits are **committed** in the site’s `sandbox` git repository.
+
+<a id="studio-ui-flags-studio-uijson"></a>
+
+### Studio UI flags (`studio-ui.json`)
+
+**Path:** `config/studio/scripts/aiassistant/config/studio-ui.json` (Studio module **`studio`**).
+
+**Purpose:** Per-site **runtime** switches read by the React bundle (sync **`get_configuration`**, per-site cache). They **do not** remove **`ui.xml`** merges; they gate rendering or client-only augmentation.
+
+| Key | Behavior |
+|-----|----------|
+| **`showAiAssistantsInTopNavigation`** | When **`false`**, **`AiAssistantHelper`** does not render the **`ui="IconButton"`** preview **toolbar** control. Tools Panel **`ListItemButton`** Helper is unchanged. |
+| **`showAutonomousAiAssistantsInSidebar`** | When **`true`**, **`AutonomousAssistants`** renders in the Tools Panel sidebar (experimental). Omitted or **`false`** → no UI (widget may stay in **`ui.xml`**). |
+| **`contentTypeImageAugmentationScope`** | **`all`** \| **`none`** \| **`selected`** — controls the preview **content-types** bus patch that sets **`allowImagesFromRepo`** on **image-picker** fields using the AI URL datasource (Experience Builder drag targets). |
+| **`contentTypeIdsForImageAugmentation`** | Used when scope is **`selected`**: array of content-type ids (normalized with leading **`/`**). |
+
+**Bulk form field:** **Project Tools → AI Assistant** → **UI** tab may insert/remove a marked **`org.craftercms.aiassistant.studio/ai-assistant`** field in **`form-definition.xml`** (implementation: `sources/src/aiAssistantFormControlBulk.ts`).
+
+**Catalog REST:** `GET /studio/api/2/plugin/script/plugins/org/craftercms/aiassistant/studio/aiassistant/content-types/list?siteId=<site>` — Groovy delegates to **`StudioToolOperations.listStudioContentTypes`**.
+
+**Chat composer placeholders:** Example prompt text uses native **`placeholder`** on the main **`TextField`** (grey hint until the author types); central **`agents.json`** editor uses placeholders on quick-prompt and autonomous system-prompt fields.
 
 ### Agent configuration (ui.xml)
 

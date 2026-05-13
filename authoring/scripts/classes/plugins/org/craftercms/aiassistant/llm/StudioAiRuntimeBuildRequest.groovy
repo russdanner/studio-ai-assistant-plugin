@@ -1,5 +1,7 @@
 package plugins.org.craftercms.aiassistant.llm
 
+import java.util.Collection
+
 import plugins.org.craftercms.aiassistant.orchestration.AiOrchestration
 import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
 
@@ -31,4 +33,10 @@ class StudioAiRuntimeBuildRequest {
   boolean fullSuppressRepoWrites
   String protectedFormItemPath
   boolean enableTools
+  /**
+   * Optional per-request/per-agent subset of **built-in** tool names (exact wire names, e.g. {@code GetContent}).
+   * When non-empty after normalization, only those tools (plus any {@code mcp_*} entries when the sentinel
+   * {@code mcp:*} is included) remain after site {@code tools.json} policy. Empty/null = no extra filtering.
+   */
+  Collection<String> agentEnabledBuiltInTools
 }

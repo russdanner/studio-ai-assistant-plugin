@@ -63,6 +63,129 @@ function cqSyncFetchConfigurationXml(siteId) {
   }
 }
 
+/** Sandbox repo path — use content APIs so missing file does not hit `get_configuration` (Studio ERROR 7000). */
+var CRAFTERQ_CENTRAL_AGENTS_SANDBOX_PATH = '/config/studio/ai-assistant/agents.json';
+
+function cqApplyXsrfHeaders(xhr) {
+  try {
+    var m = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
+    var token = m && decodeURIComponent(m[1]);
+    if (token) xhr.setRequestHeader('X-XSRF-TOKEN', token);
+  } catch (e) {}
+}
+
+/** @returns {boolean} */
+function cqSandboxHasCentralAgentsFile(siteId) {
+  try {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/studio/api/2/content/sandbox_items_by_path', false);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('Accept', 'application/json');
+    cqApplyXsrfHeaders(xhr);
+    xhr.send(
+      JSON.stringify({
+        siteId: siteId,
+        paths: [CRAFTERQ_CENTRAL_AGENTS_SANDBOX_PATH],
+        preferContent: true
+      })
+    );
+    if (xhr.status < 200 || xhr.status >= 300) return false;
+    var j = JSON.parse(xhr.responseText);
+    var resp = j.response || j;
+    var miss = resp.missingItems;
+    if (Array.isArray(miss) && miss.indexOf(CRAFTERQ_CENTRAL_AGENTS_SANDBOX_PATH) !== -1) return false;
+    var items = resp.items;
+    return !!(items && items.length && items[0]);
+  } catch (e) {
+    return false;
+  }
+}
+
+/** Site catalog `config/studio/ai-assistant/agents.json` — when present with chat rows, form engine uses those agents only. */
+function cqSyncFetchCentralAgentsJson(siteId) {
+  if (!siteId || !cqSandboxHasCentralAgentsFile(siteId)) return null;
+  var qs =
+    '?site_id=' +
+    encodeURIComponent(siteId) +
+    '&path=' +
+    encodeURIComponent(CRAFTERQ_CENTRAL_AGENTS_SANDBOX_PATH) +
+    '&edit=false';
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', '/studio/api/1/services/api/1/content/get-content.json' + qs, false);
+  xhr.withCredentials = true;
+  xhr.setRequestHeader('Accept', 'application/json');
+  try {
+    xhr.send(null);
+  } catch (e) {
+    return null;
+  }
+  if (xhr.status < 200 || xhr.status >= 300) return null;
+  try {
+    var j = JSON.parse(xhr.responseText);
+    var c = j.response && j.response.content;
+    if (c != null && typeof c === 'object') return c;
+    if (typeof c === 'string' && String(c).trim()) return JSON.parse(c);
+    return null;
+  } catch (e2) {
+    return null;
+  }
+}
+
+function cqChatAgentFromCentralJsonEntry(e) {
+  if (!e || typeof e !== 'object') return null;
+  var mode = String(e.mode != null ? e.mode : 'chat')
+    .trim()
+    .toLowerCase();
+  if (mode === 'autonomous') return null;
+  var id = String(e.crafterQAgentId != null ? e.crafterQAgentId : e.id != null ? e.id : '').trim();
+  var label = String(e.label != null ? e.label : e.name != null ? e.name : '').trim();
+  if (!label) return null;
+  var out = { id: id, label: label, prompts: [] };
+  if (e.icon != null && String(e.icon).trim()) out.icon = String(e.icon).trim();
+  var llmRaw = String(e.llm != null ? e.llm : '')
+    .trim()
+    .toLowerCase();
+  if (llmRaw === 'openai' || llmRaw === 'open-ai') out.llm = 'openAI';
+  else if (llmRaw === 'crafterq' || llmRaw === 'crafter-q') out.llm = 'crafterQ';
+  if (e.llmModel != null && String(e.llmModel).trim()) out.llmModel = String(e.llmModel).trim();
+  if (e.imageModel != null && String(e.imageModel).trim()) out.imageModel = String(e.imageModel).trim();
+  if (e.imageGenerator != null && String(e.imageGenerator).trim()) out.imageGenerator = String(e.imageGenerator).trim();
+  if (e.openAiApiKey != null && String(e.openAiApiKey).trim()) out.openAiApiKey = String(e.openAiApiKey).trim();
+  var et = e.enableTools != null ? e.enableTools : e.enable_tools;
+  if (et != null && String(et).trim() !== '') {
+    var es = String(et)
+      .trim()
+      .toLowerCase();
+    if (es === 'false' || es === '0' || es === 'no') out.enableTools = false;
+    else if (es === 'true' || es === '1' || es === 'yes') out.enableTools = true;
+  }
+  if (e.prompts != null && Array.isArray(e.prompts)) {
+    for (var pi = 0; pi < e.prompts.length; pi++) {
+      var p = e.prompts[pi];
+      if (typeof p === 'string') {
+        var pt = String(p).trim();
+        if (pt) out.prompts.push({ userText: pt });
+      } else if (p && typeof p === 'object' && p.userText != null && String(p.userText).trim()) {
+        out.prompts.push({ userText: String(p.userText).trim() });
+      }
+    }
+  }
+  return out;
+}
+
+/** @returns {Array|null} non-null when catalog should replace ui.xml for chat agents */
+function cqCentralCatalogExclusiveChatAgents(siteId) {
+  var parsed = cqSyncFetchCentralAgentsJson(siteId);
+  if (!parsed || !Array.isArray(parsed.agents) || parsed.agents.length === 0) return null;
+  var chat = [];
+  for (var i = 0; i < parsed.agents.length; i++) {
+    var row = cqChatAgentFromCentralJsonEntry(parsed.agents[i]);
+    if (row) chat.push(row);
+  }
+  return chat.length ? chat : null;
+}
+
 function cqGetUiXmlFromStore() {
   try {
     if (!craftercms || typeof craftercms.getStore !== 'function') return '';
@@ -315,9 +438,17 @@ function cqLoadAgentsForSite(siteId, options) {
   }
 
   try {
-    addParsedXml(cqGetUiXmlFromStore());
-    if (siteId) {
-      addParsedXml(cqSyncFetchConfigurationXml(siteId));
+    var centralChat = siteId ? cqCentralCatalogExclusiveChatAgents(siteId) : null;
+    if (centralChat) {
+      for (var ci = 0; ci < centralChat.length; ci++) {
+        var ca = centralChat[ci];
+        byKey[cqStableKey(ca.id, ca.label)] = ca;
+      }
+    } else {
+      addParsedXml(cqGetUiXmlFromStore());
+      if (siteId) {
+        addParsedXml(cqSyncFetchConfigurationXml(siteId));
+      }
     }
   } catch (ignore2) {}
 
@@ -340,7 +471,11 @@ function cqWhenUiXmlReadyForAgents(siteId, done) {
   function tick() {
     var storeXml = cqGetUiXmlFromStore();
     var apiXml = siteId ? cqSyncFetchConfigurationXml(siteId) : '';
-    var ready = cqUiXmlStringLooksReady(storeXml) || cqUiXmlStringLooksReady(apiXml);
+    var centralChatEarly = siteId ? cqCentralCatalogExclusiveChatAgents(siteId) : null;
+    var ready =
+      (centralChatEarly && centralChatEarly.length > 0) ||
+      cqUiXmlStringLooksReady(storeXml) ||
+      cqUiXmlStringLooksReady(apiXml);
     if (ready || attempt >= maxAttempts - 1) {
       done(cqLoadAgentsForSite(siteId, { forceRefresh: true }));
       return;

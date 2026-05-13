@@ -166,6 +166,11 @@ export interface StreamChatArgs {
    * Same behavior for Experience Builder/ICE preview chat, floating dialog, and form-engine assistant (`authoringSurface`).
    */
   omitTools?: boolean;
+  /**
+   * Optional subset of CMS tool wire names for this request (POST **enabledBuiltInTools**). Include **`mcp:*`**
+   * to retain all MCP tools after site policy. Omitted = full catalog (subject to site **tools.json**).
+   */
+  enabledBuiltInTools?: string[];
   /** Per-agent markdown RAG sources (OpenAI); forwarded as JSON for QueryExpertGuidance. */
   expertSkills?: ExpertSkillConfig[];
   /**
@@ -244,6 +249,7 @@ export async function streamChat(args: StreamChatArgs): Promise<void> {
     previewToken,
     enableTools,
     omitTools,
+    enabledBuiltInTools,
     expertSkills,
     translateBatchConcurrency,
     crafterQBearerToken,
@@ -293,6 +299,9 @@ export async function streamChat(args: StreamChatArgs): Promise<void> {
     (typeof enableTools === 'string' && ['false', '0', 'no'].includes(enableTools.trim().toLowerCase()))
   ) {
     requestBody.enableTools = false;
+  }
+  if (Array.isArray(enabledBuiltInTools) && enabledBuiltInTools.length > 0) {
+    requestBody.enabledBuiltInTools = enabledBuiltInTools;
   }
   if (previewToken != null && String(previewToken).trim() !== '') {
     requestBody.previewToken = String(previewToken).trim();

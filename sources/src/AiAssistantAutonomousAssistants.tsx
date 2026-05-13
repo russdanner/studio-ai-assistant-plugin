@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { firstValueFrom } from 'rxjs';
 import { createPortal } from 'react-dom';
 import useActiveSiteId from '@craftercms/studio-ui/hooks/useActiveSiteId';
@@ -63,12 +63,19 @@ import {
   type AutonomousMergeViewer,
   type AutonomousTableAgentRow
 } from './autonomousAssistantsConfig';
+import { catalogAutonomousAgents, fetchCentralAgentsFile, type CentralAgentsFile } from './centralAgentCatalog';
 import { autonomousAgentsMarkWidgetId } from './consts';
 import {
   getAutonomousAssistantsStatus,
   postAutonomousAssistantsControl,
   syncAutonomousAssistants
 } from './autonomousApi';
+import {
+  effectiveStudioSiteId,
+  getStudioUiConfigEpochSnapshot,
+  subscribeStudioUiConfigChanged,
+  syncReadStudioUiConfig
+} from './aiAssistantStudioUiConfig';
 
 export interface AiAssistantAutonomousAssistantsProps {
   configuration?: unknown;
@@ -477,12 +484,37 @@ function systemIconDescriptorFromWidgetMerged(merged: Record<string, unknown>): 
   return { id: autonomousAgentsMarkWidgetId };
 }
 
-export function AiAssistantAutonomousAssistants(props: Readonly<AiAssistantAutonomousAssistantsProps>) {
+function AiAssistantAutonomousAssistantsImpl(props: Readonly<AiAssistantAutonomousAssistantsProps>) {
   const activeSiteId = useActiveSiteId();
   const siteId = activeSiteId ?? '';
   const activeUser = useActiveUser();
   const merged = useMemo(() => mergeAutonomousWidgetProps(props as Record<string, unknown>), [props]);
-  const defs = useMemo(() => getAutonomousAgentsFromConfiguration(merged), [merged]);
+  const [centralAgentsFile, setCentralAgentsFile] = useState<CentralAgentsFile | null | undefined>(undefined);
+  useEffect(() => {
+    if (!siteId) {
+      setCentralAgentsFile(undefined);
+      return;
+    }
+    let cancelled = false;
+    fetchCentralAgentsFile(siteId)
+      .then((f) => {
+        if (!cancelled) setCentralAgentsFile(f);
+      })
+      .catch(() => {
+        if (!cancelled) setCentralAgentsFile(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [siteId]);
+
+  const defs = useMemo(() => {
+    if (centralAgentsFile && centralAgentsFile.agents.length > 0) {
+      const fromCentral = catalogAutonomousAgents(centralAgentsFile);
+      if (fromCentral.length) return fromCentral;
+    }
+    return getAutonomousAgentsFromConfiguration(merged);
+  }, [centralAgentsFile, merged]);
   const listTitle = useMemo(() => widgetTitleText(merged), [merged]);
   const listTitleTranslated = usePossibleTranslation(listTitle);
   const toolsListSystemIcon = useMemo(() => systemIconDescriptorFromWidgetMerged(merged), [merged]);
@@ -1720,6 +1752,29 @@ export function AiAssistantAutonomousAssistants(props: Readonly<AiAssistantAuton
         )}
     </>
   );
+}
+
+function AiAssistantAutonomousAssistantsGated(props: Readonly<AiAssistantAutonomousAssistantsProps>) {
+  const activeSiteId = useActiveSiteId();
+  const siteKey = useMemo(() => effectiveStudioSiteId(activeSiteId), [activeSiteId]);
+  const subscribeUi = useCallback(
+    (onStoreChange: () => void) => subscribeStudioUiConfigChanged(siteKey, onStoreChange),
+    [siteKey]
+  );
+  const studioUiEpoch = useSyncExternalStore(
+    subscribeUi,
+    () => getStudioUiConfigEpochSnapshot(siteKey),
+    () => 0
+  );
+  const cfg = useMemo(() => syncReadStudioUiConfig(siteKey), [siteKey, studioUiEpoch]);
+  if (cfg.showAutonomousAiAssistantsInSidebar !== true) {
+    return null;
+  }
+  return <AiAssistantAutonomousAssistantsImpl {...props} />;
+}
+
+export function AiAssistantAutonomousAssistants(props: Readonly<AiAssistantAutonomousAssistantsProps>) {
+  return <AiAssistantAutonomousAssistantsGated {...props} />;
 }
 
 export default AiAssistantAutonomousAssistants;

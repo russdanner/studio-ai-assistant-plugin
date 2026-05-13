@@ -19,7 +19,7 @@ export interface AiAssistantPopoverProps extends PopoverProps {
   onMaximize?: () => void;
   enableCustomModel?: boolean;
   agentId?: string;
-  llm?: 'crafterQ' | 'openAI';
+  llm?: string;
   llmModel?: string;
   imageModel?: string;
   imageGenerator?: string;
@@ -29,6 +29,7 @@ export interface AiAssistantPopoverProps extends PopoverProps {
   prompts?: Array<{ userText: string; additionalContext?: string }>;
   /** When false, server omits OpenAI function tools. */
   enableTools?: boolean;
+  enabledBuiltInTools?: string[];
   expertSkills?: ExpertSkillConfig[];
   translateBatchConcurrency?: number;
   crafterQBearerToken?: string;
@@ -57,6 +58,7 @@ function AiAssistantPopover(props: Readonly<AiAssistantPopoverProps>) {
     openAiApiKey,
     prompts,
     enableTools,
+    enabledBuiltInTools,
     expertSkills,
     translateBatchConcurrency,
     crafterQBearerToken,
@@ -120,6 +122,7 @@ function AiAssistantPopover(props: Readonly<AiAssistantPopoverProps>) {
           imageGenerator={imageGenerator}
           openAiApiKey={openAiApiKey}
           enableTools={enableTools}
+          enabledBuiltInTools={enabledBuiltInTools}
           expertSkills={expertSkills}
           configPrompts={prompts}
           {...(translateBatchConcurrency != null ? { translateBatchConcurrency } : {})}

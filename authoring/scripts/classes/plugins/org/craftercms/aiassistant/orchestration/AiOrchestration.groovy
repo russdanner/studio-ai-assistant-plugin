@@ -1051,6 +1051,13 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     int crafterQCap = resolveMaxCrafterQPromptChars()
     def studioOps = new StudioToolOperations(request, applicationContext, params, securityContextForTools, agentId, crafterQCap)
     String llmNorm = StudioAiLlmKind.normalize(llmRaw)
+    Collection agentToolSubset = null
+    try {
+      def raw = request?.getAttribute('crafterq.agentEnabledBuiltInTools')
+      if (raw instanceof Collection && !((Collection) raw).isEmpty()) {
+        agentToolSubset = (Collection) raw
+      }
+    } catch (Throwable ignoredSubset) {}
     def req = new StudioAiRuntimeBuildRequest(
       orchestration: this,
       toolResultConverter: converter,
@@ -1066,7 +1073,8 @@ For **content XML** (pages/components): do not invent a new element tree — pre
       imageGeneratorParam: imageGeneratorParam,
       fullSuppressRepoWrites: fullSuppressRepoWrites,
       protectedFormItemPath: protectedFormItemPath,
-      enableTools: enableTools
+      enableTools: enableTools,
+      agentEnabledBuiltInTools: agentToolSubset
     )
     return StudioAiLlmRuntimeFactory.runtimeFor(llmNorm).buildSessionBundle(req)
   }

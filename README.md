@@ -12,6 +12,7 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 | **Form engine control** | Per–content-type AI panel on forms |
 | **Helper widget** | `ui.xml` registration for the Experience Builder toolbar and, if you add it, the Studio **Tools Panel** list |
 | **Autonomous assistants** (optional and experimental) | Scheduled server-side runs + human tasks |
+| **Project Tools** (optional) | One **AI Assistant** entry (tabs: **UI** / **Agents** / **Prompts** / **Tools** / **Scripts**) — `studio-ui.json` + bulk, `agents.json`, tool-prompt markdown overrides, `user-tools/registry.json` + Groovy tools, script imagegen + script LLMs under `scripts/aiassistant/…` |
 | **TinyMCE** (optional RTE wiring) | Toolbar actions + RTE config → chat / shortcuts |
 
 ## Capabilities (at a glance)
@@ -36,6 +37,7 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 | **Integrators — Groovy `user-tools/` + `imagegen/`** | [Scripted tools & imagegen](docs/using-and-extending/scripted-tools-and-imagegen.md) |
 | **Image backends & overrides** | [Image generation](docs/using-and-extending/image-generation.md) |
 | **Autonomous widget overview** | [Autonomous assistants widget](docs/using-and-extending/autonomous-assistants-widget.md) |
+| **Runtime UI flags (`studio-ui.json`) + bulk tools** | [Configuration guide — §1e](docs/using-and-extending/configuration-guide.md#cg-1e) · [spec.md](docs/internals/spec.md#studio-ui-flags-studio-uijson) |
 | **Helper widget snippet & troubleshooting** | [Helper widget](docs/using-and-extending/helper-widget.md) |
 | **Build paths, Rollup, `user-tools/`, script LLM paths** | [Studio plugins guide](docs/using-and-extending/studio-plugins-guide.md) |
 | **Official requirements & build specification** | [spec.md](docs/internals/spec.md) · [Studio plugins guide](docs/using-and-extending/studio-plugins-guide.md) |

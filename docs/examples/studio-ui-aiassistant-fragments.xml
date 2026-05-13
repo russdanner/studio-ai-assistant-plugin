@@ -11,7 +11,7 @@
 
   Plugin bundle: id="org.craftercms.aiassistant.studio" type="aiassistant" name="components" file="index.js"
   Widget ids must match sources/src/consts.ts (Helper, AutonomousAssistants, etc.).
-  Default install (craftercms-plugin.yaml): Helper in Tools Panel + PreviewToolbar middleSection (after PreviewAddressBar), one OpenAI agent with llmModel + imageModel; OPENAI_API_KEY on Studio host.
+  Default install (craftercms-plugin.yaml): Helper in Tools Panel + **append** under PreviewToolbar **`configuration/rightSection/widgets`** (marketplace-safe wiring). For an icon **next to the URL bar**, move the merged **`<widget id="craftercms.components.aiassistant.Helper">…</widget>`** to **`configuration/middleSection/widgets`**. One OpenAI agent with llmModel + imageModel; OPENAI_API_KEY on Studio host.
 
   CRITICAL — Tools Panel placement: every sidebar tool row must live under
   //widget[@id='craftercms.components.ToolsPanel']/configuration/widgets as a <widget> child.
@@ -89,7 +89,7 @@
   </configuration>
 </widget>
 
-<!-- ========== Preview Toolbar (//widget[@id='craftercms.components.PreviewToolbar']/configuration/middleSection/widgets) ========== -->
+<!-- ========== Preview Toolbar — descriptor merge: rightSection/widgets; move here to middleSection/widgets for icon next to URL bar ========== -->
 <widget id="craftercms.components.aiassistant.Helper">
   <plugin id="org.craftercms.aiassistant.studio" type="aiassistant" name="components" file="index.js"/>
   <configuration ui="IconButton">

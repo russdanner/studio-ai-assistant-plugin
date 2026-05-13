@@ -28,6 +28,7 @@ import plugins.org.craftercms.aiassistant.llm.StudioAiRuntimeBuildRequest
     sub.fullSuppressRepoWrites = r.fullSuppressRepoWrites
     sub.protectedFormItemPath = r.protectedFormItemPath
     sub.enableTools = r.enableTools
+    sub.agentEnabledBuiltInTools = r.agentEnabledBuiltInTools
     OpenAiSpringAiLlmRuntime.INSTANCE.buildSessionBundle(sub)
   }
 ]

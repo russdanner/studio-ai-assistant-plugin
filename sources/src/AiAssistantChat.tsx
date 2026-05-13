@@ -1257,8 +1257,8 @@ function buildPriorTurnsContextBlock(prior: UiMessage[]): string {
 
 export interface AiAssistantChatProps {
   agentId: string;
-  /** Widget agent `<llm>` when set in ui.xml (`crafterQ` | `openAI`). Omitted from POST if unset—server then normalizes to hosted CrafterQ; set explicitly for predictable routing. */
-  llm?: 'crafterQ' | 'openAI';
+  /** Widget agent `<llm>` when set in ui.xml. Omitted from POST if unset—server then normalizes to hosted CrafterQ; set explicitly for predictable routing. */
+  llm?: string;
   llmModel?: string;
   /** OpenAI Images API model for GenerateImage; from agent ui.xml **imageModel** or request body only (no default). */
   imageModel?: string;
@@ -1289,6 +1289,10 @@ export interface AiAssistantChatProps {
    * Applies on **all** surfaces (XB/ICE, dialog, form engine). Focused no-tools turns also use quick-prompt **`omitTools`** (see {@link PromptConfig.omitTools} / POST **`omitTools`**).
    */
   enableTools?: boolean;
+  /**
+   * Optional subset of CMS tool wire names (POST **enabledBuiltInTools**). Include **`mcp:*`** for all MCP tools.
+   */
+  enabledBuiltInTools?: string[];
   /** Optional per-agent markdown RAG URLs (OpenAI); sent as `expertSkills` on stream POST. */
   expertSkills?: ExpertSkillConfig[];
   /** 1–64; sent on stream POST for TranslateContentBatch default parallelism (ui.xml translateBatchConcurrency). */
@@ -1317,6 +1321,7 @@ export default function AiAssistantChat(props: Readonly<AiAssistantChatProps>) {
     getAuthoringFormContext,
     formEngineClientJsonApply,
     enableTools,
+    enabledBuiltInTools,
     expertSkills,
     translateBatchConcurrency,
     crafterQBearerToken,
@@ -1362,7 +1367,9 @@ export default function AiAssistantChat(props: Readonly<AiAssistantChatProps>) {
 
   const [loading, setLoading] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
-  const promptPlaceholder = 'Ask the assistant…';
+  /** Shown in the composer until the author types (native placeholder — grey, not submitted). */
+  const promptPlaceholder =
+    'e.g. Summarize this page for a marketing stakeholder in three short bullet points';
   const quickMessages: string[] = [];
   const welcomeMessage: string | null = null;
 
@@ -1778,6 +1785,7 @@ export default function AiAssistantChat(props: Readonly<AiAssistantChatProps>) {
         ...(previewTokenForStream ? { previewToken: previewTokenForStream } : {}),
         ...(omitToolsThisSend ? { omitTools: true } : {}),
         ...(enableTools === false ? { enableTools: false } : {}),
+        ...(Array.isArray(enabledBuiltInTools) && enabledBuiltInTools.length > 0 ? { enabledBuiltInTools } : {}),
         ...(Array.isArray(expertSkills) && expertSkills.length > 0 ? { expertSkills } : {}),
         ...(translateBatchConcurrency != null &&
         Number.isFinite(translateBatchConcurrency) &&

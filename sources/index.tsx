@@ -9,13 +9,22 @@ import {
   formControlWidgetId,
   helperWidgetId,
   logoWidgetId,
-  popoverWidgetId
+  popoverWidgetId,
+  projectToolsAiAssistantConfigWidgetId,
+  projectToolsCentralAgentsWidgetId,
+  projectToolsScriptsSandboxWidgetId,
+  projectToolsStudioUiSettingsWidgetId
 } from './src/consts.ts';
 import AiAssistantLogo from './src/AiAssistantLogo.tsx';
 import AutonomousAgentsMarkIcon from './src/autonomousAgentsMarkIcon.tsx';
 import AiAssistantHelper from './src/AiAssistantHelper.tsx';
 import AiAssistantAutonomousAssistants from './src/AiAssistantAutonomousAssistants.tsx';
 import AiAssistantFormControl from './src/AiAssistantFormControl';
+import AiAssistantProjectToolsConfiguration, {
+  AiAssistantProjectToolsConfigurationAgentsTab,
+  AiAssistantProjectToolsConfigurationScriptsTab,
+  AiAssistantProjectToolsConfigurationUiTab
+} from './src/AiAssistantProjectToolsConfiguration';
 import { installAiAssistantContentTypesHighlightPatch } from './src/aiAssistantContentTypesHighlightPatch';
 import { installRemoteImageDropImportBridge } from './src/aiAssistantRemoteImageDropBridge';
 
@@ -42,7 +51,11 @@ const plugin: PluginDescriptor = {
     'craftercms.components.aiassistant.AiAssistantLogo': AiAssistantLogo,
     'craftercms.components.aiassistant.CrafterQLogo': AiAssistantLogo,
     [popoverWidgetId]: AiAssistantPopover,
-    [dialogContentWidgetId]: AiAssistantDialogContent
+    [dialogContentWidgetId]: AiAssistantDialogContent,
+    [projectToolsAiAssistantConfigWidgetId]: AiAssistantProjectToolsConfiguration,
+    [projectToolsCentralAgentsWidgetId]: AiAssistantProjectToolsConfigurationAgentsTab,
+    [projectToolsScriptsSandboxWidgetId]: AiAssistantProjectToolsConfigurationScriptsTab,
+    [projectToolsStudioUiSettingsWidgetId]: AiAssistantProjectToolsConfigurationUiTab
   }
 };
 

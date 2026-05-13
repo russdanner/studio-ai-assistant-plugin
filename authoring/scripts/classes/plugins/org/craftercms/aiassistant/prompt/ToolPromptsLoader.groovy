@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
  * <strong>Override mechanism</strong> for {@link ToolPrompts}: built-in Groovy strings remain the defaults; a
  * non-blank {@code KEY.md} replaces that key only. Omit the file (or leave it blank) to keep the shipped default —
  * no merge, no partial patch.
- * <p>Lookup order for each key (e.g. {@code OPENAI_AUTHORING_INSTRUCTIONS}):</p>
+ * <p>Lookup order for each key (e.g. {@code GENERAL_OPENAI_AUTHORING_INSTRUCTIONS}):</p>
  * <ol>
  *   <li>When {@link ToolPromptsSiteContext} is active: site sandbox {@code /scripts/aiassistant/prompts/&lt;KEY&gt;.md}.</li>
  *   <li>Classpath resource {@link #CLASSPATH_PREFIX}{@code <KEY>.md} (e.g.
@@ -35,7 +35,7 @@ final class ToolPromptsLoader {
   private ToolPromptsLoader() {}
 
   /**
-   * @param key  stable id matching {@link ToolPrompts} property name, e.g. {@code OPENAI_AUTHORING_INSTRUCTIONS}
+   * @param key  stable id matching {@link ToolPromptsOverrideCatalog}, e.g. {@code GENERAL_OPENAI_AUTHORING_INSTRUCTIONS}
    * @param defaultText  built-in string when no override is present
    */
   static String resolve(String key, String defaultText) {
@@ -91,6 +91,26 @@ final class ToolPromptsLoader {
     }
   }
 
+  /**
+   * Classpath / expanded-plugin {@code KEY.md} only (no site sandbox). For Studio “default” preview next to site overrides.
+   */
+  static String readClasspathPromptMarkdownOrNull(String key) {
+    meaningfulOverrideOrNull(tryLoadFromClasspathOrExpanded(key))
+  }
+
+  /**
+   * Text that applies when the site has no meaningful {@code /scripts/aiassistant/prompts/KEY.md}: classpath
+   * {@code prompts/KEY.md} if present, else the Groovy literal registered via {@link ToolPromptsBuiltinDefaults}.
+   */
+  static String previewBaseTextWithoutSiteFile(String key) {
+    String cp = readClasspathPromptMarkdownOrNull(key)
+    if (cp != null) {
+      return cp
+    }
+    String g = ToolPromptsBuiltinDefaults.getBuiltin(key)
+    return g != null ? g : ''
+  }
+
   /** Non-blank text only; blank files must not replace a large built-in default with an empty string. */
   private static String meaningfulOverrideOrNull(String t) {
     if (t == null) {
@@ -105,6 +125,28 @@ final class ToolPromptsLoader {
   /** For tests or hot-reload: clear cache so the next {@link #resolve} re-reads files. */
   static void clearCacheForTests() {
     CACHE.clear()
+  }
+
+  /**
+   * After site sandbox edits to {@code /scripts/aiassistant/prompts/*.md}, drop cached prompt text so the next
+   * {@link #resolve} re-reads from disk (covers {@code site:…:key} entries and bare {@code key} cache keys).
+   */
+  static void invalidateCachesAfterSitePromptMutation(String siteId) {
+    String sid = (siteId ?: '').toString().trim()
+    if (sid) {
+      String prefix = "site:${sid}:"
+      Iterator<String> it = CACHE.keySet().iterator()
+      while (it.hasNext()) {
+        String k = it.next()
+        if (k != null && k.startsWith(prefix)) {
+          it.remove()
+        }
+      }
+    }
+    for (String k : ToolPromptsOverrideCatalog.KEYS) {
+      CACHE.remove(k)
+    }
+    log.debug('Tool prompt cache invalidated after site sandbox prompt edit siteId={}', sid ?: '(none)')
   }
 
   /**

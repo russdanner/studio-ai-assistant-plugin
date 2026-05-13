@@ -27,6 +27,7 @@ import javax.xml.parsers.DocumentBuilderFactory
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 import java.util.ArrayList
+import java.util.Collection
 import java.util.HashMap
 import java.util.LinkedHashMap
 import java.util.LinkedHashSet
@@ -1575,7 +1576,8 @@ class AiOrchestrationTools {
     List<Map> expertSkillSpecs = null,
     String openAiTextModel = null,
     String llmNormalized = null,
-    String imageGeneratorParam = null
+    String imageGeneratorParam = null,
+    Collection agentEnabledBuiltInTools = null
   ) {
     def converter =
       { Object result, java.lang.reflect.Type rt -> AiOrchestration.toolResultToWireString(result, rt) }
@@ -1590,7 +1592,8 @@ class AiOrchestrationTools {
       expertSkillSpecs,
       openAiTextModel,
       llmNormalized,
-      imageGeneratorParam
+      imageGeneratorParam,
+      agentEnabledBuiltInTools
     )
   }
 
@@ -1622,7 +1625,8 @@ class AiOrchestrationTools {
     List<Map> expertSkillSpecs = null,
     String openAiTextModel = null,
     String llmNormalized = null,
-    String imageGeneratorParam = null
+    String imageGeneratorParam = null,
+    Collection agentEnabledBuiltInTools = null
   ) {
     Map aiProjectToolCfg = StudioAiAssistantProjectConfig.load(ops)
     def normProtected = AuthoringPreviewContext.normalizeRepoPath(protectedFormItemPath)
@@ -2636,7 +2640,54 @@ class AiOrchestrationTools {
     }
 
     applyToolCatalogFilters(tools, aiProjectToolCfg)
+    applyAgentEnabledBuiltInToolsSubset(tools, agentEnabledBuiltInTools)
     return tools
+  }
+
+  /**
+   * After site {@code tools.json} policy, optionally restrict to an agent/request whitelist of wire tool names.
+   * Include {@code mcp:*} to retain every dynamic {@code mcp_*} tool still present.
+   */
+  private static void applyAgentEnabledBuiltInToolsSubset(List tools, Collection agentSubset) {
+    if (tools == null || tools.isEmpty()) {
+      return
+    }
+    if (!(agentSubset instanceof Collection) || ((Collection) agentSubset).isEmpty()) {
+      return
+    }
+    Set<String> keep = new LinkedHashSet<>()
+    boolean mcpAll = false
+    for (Object o : (Collection) agentSubset) {
+      if (o == null) {
+        continue
+      }
+      String n = o.toString().trim()
+      if (!n) {
+        continue
+      }
+      if ('mcp:*'.equals(n)) {
+        mcpAll = true
+      } else {
+        keep.add(n)
+      }
+    }
+    if (keep.isEmpty() && !mcpAll) {
+      return
+    }
+    for (Iterator it = tools.iterator(); it.hasNext();) {
+      Object t = it.next()
+      if (!(t instanceof FunctionToolCallback)) {
+        continue
+      }
+      String n = ((FunctionToolCallback) t).getToolDefinition().name()
+      boolean allow = keep.contains(n)
+      if (!allow && mcpAll && n != null && n.startsWith('mcp_')) {
+        allow = true
+      }
+      if (!allow) {
+        it.remove()
+      }
+    }
   }
 
   /**

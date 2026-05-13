@@ -3004,6 +3004,7 @@ class StudioToolOperations {
     if (p.endsWith('.properties')) return 'text/plain'
     if (p.endsWith('.yaml') || p.endsWith('.yml')) return 'application/yaml'
     if (p.endsWith('.md') || p.endsWith('.txt')) return 'text/plain'
+    if (p.endsWith('.groovy')) return 'text/plain'
     'application/octet-stream'
   }
 
@@ -3049,6 +3050,134 @@ class StudioToolOperations {
     } catch (Throwable t) {
       log.warn('publishSyncFromRepoForSite failed (non-fatal): siteId={} reason={}', siteId, (t.message ?: t.toString()))
     }
+  }
+
+  /**
+   * First-level child folder names under a Studio sandbox directory (e.g. {@code /scripts/aiassistant/imagegen}).
+   * Uses v1 {@code getContentItemTree} when available; returns an empty list on failure.
+   */
+  List<String> listStudioSandboxChildFolderNames(String siteId, String studioModuleParentDir) {
+    withStudioRequestSecurity {
+      siteId = resolveEffectiveSiteId(siteId)
+      String dir = (studioModuleParentDir ?: '').toString().trim()
+      if (!dir.startsWith('/')) {
+        dir = "/${dir}"
+      }
+      String fullPath = toSandboxConfigStudioRepoPath(dir)
+      try {
+        if (cstudioContentServiceBean != null &&
+          cstudioContentServiceBean.metaClass.respondsTo(cstudioContentServiceBean, 'getContentItemTree', String, String, int)) {
+          Object root = cstudioContentServiceBean.getContentItemTree(siteId, fullPath, 2)
+          return extractFirstLevelFolderNamesFromContentItemTree(root)
+        }
+      } catch (Throwable t) {
+        log.debug('listStudioSandboxChildFolderNames failed siteId={} path={}: {}', siteId, fullPath, t.message)
+      }
+      []
+    }
+  }
+
+  private static List<String> extractFirstLevelFolderNamesFromContentItemTree(Object root) {
+    if (root == null) {
+      return []
+    }
+    Object children = null
+    try {
+      children = root.children
+    } catch (Throwable ignored) {
+    }
+    if (children == null) {
+      try {
+        if (root.metaClass.respondsTo(root, 'getChildren')) {
+          children = root.getChildren()
+        }
+      } catch (Throwable ignored2) {
+      }
+    }
+    if (!(children instanceof Iterable)) {
+      return []
+    }
+    List<String> out = []
+    for (Object c : (Iterable) children) {
+      if (c == null) {
+        continue
+      }
+      String uri = ''
+      String nm = ''
+      try {
+        uri = c.uri?.toString() ?: ''
+      } catch (Throwable ignored) {
+      }
+      if (!uri) {
+        try {
+          uri = c.browserUri?.toString() ?: ''
+        } catch (Throwable ignored) {
+        }
+      }
+      try {
+        nm = c.name?.toString() ?: ''
+      } catch (Throwable ignored) {
+      }
+      if (!nm) {
+        try {
+          nm = c.internalName?.toString() ?: ''
+        } catch (Throwable ignored) {
+        }
+      }
+      if (!nm && uri) {
+        int slash = uri.lastIndexOf('/')
+        nm = slash >= 0 ? uri.substring(slash + 1) : uri
+      }
+      nm = (nm ?: '').trim()
+      if (!nm) {
+        continue
+      }
+      boolean looksLikeFile = uri && (uri.endsWith('.groovy') || uri.endsWith('.xml') || uri.endsWith('.json'))
+      if (looksLikeFile) {
+        continue
+      }
+      boolean isFolder = true
+      try {
+        Object f = c.folder
+        if (f != null) {
+          isFolder = Boolean.TRUE.equals(f) || 'true'.equalsIgnoreCase(f.toString())
+        }
+      } catch (Throwable ignored) {
+      }
+      if (isFolder) {
+        out.add(nm)
+      }
+    }
+    return out.unique()
+  }
+
+  /**
+   * Deletes a sandbox item (file or folder) using v1 {@code deleteContent(String site, String path, String approver)}.
+   */
+  void deleteStudioSandboxItem(String siteId, String fullRepoPath, String approver) {
+    withStudioRequestSecurity {
+      siteId = resolveEffectiveSiteId(siteId)
+      String path = (fullRepoPath ?: '').toString().trim()
+      if (!path.startsWith('/')) {
+        path = "/${path}"
+      }
+      String who = (approver ?: '').toString().trim()
+      if (!who) {
+        who = 'studio-aiassistant-plugin'
+      }
+      if (cstudioContentServiceBean == null) {
+        throw new IllegalStateException('cstudioContentServiceBean unavailable')
+      }
+      if (!cstudioContentServiceBean.metaClass.respondsTo(cstudioContentServiceBean, 'deleteContent', String, String, String)) {
+        throw new IllegalStateException('deleteContent(site,path,approver) not available on ContentService')
+      }
+      cstudioContentServiceBean.deleteContent(siteId, path, who)
+    }
+  }
+
+  /** After writing/deleting Studio sandbox config files, notify Studio to reconcile (same as post-write tool path). */
+  void publishConfigChangeRefresh(String siteId) {
+    publishSyncFromRepoForSite(siteId)
   }
 }
 

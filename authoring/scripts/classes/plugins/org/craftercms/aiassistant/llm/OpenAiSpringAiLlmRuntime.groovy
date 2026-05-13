@@ -67,7 +67,8 @@ class OpenAiSpringAiLlmRuntime implements StudioAiLlmRuntime {
         expertSpecs,
         modelName,
         req.llmNormalized,
-        req.imageGeneratorParam
+        req.imageGeneratorParam,
+        req.agentEnabledBuiltInTools
       )
     } else {
       tools = []

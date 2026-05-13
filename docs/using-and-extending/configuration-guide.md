@@ -10,7 +10,7 @@
 
 | § | Topic |
 |---|--------|
-| [1](#cg-1) | What you are configuring — goals; [where XML goes](#cg-1-xml) ([A](#cg-1a) Preview toolbar · [B](#cg-1b) Tools Panel · [C](#cg-1c) Form · [D](#cg-1d) Autonomous) |
+| [1](#cg-1) | What you are configuring — goals; [where XML goes](#cg-1-xml) ([A](#cg-1a) Preview toolbar · [B](#cg-1b) Tools Panel · [C](#cg-1c) Form · [D](#cg-1d) Autonomous · [E](#cg-1e) Studio UI flags) |
 | [2](#cg-2) | Helper / Autonomous / toolbar — **`plugin`** element |
 | [3](#cg-3) | Agents (`<agents>` / `<agent>`) |
 | [4](#cg-4) | Secrets and API keys |
@@ -46,9 +46,9 @@ Typical authoring setup is **`config/studio/ui.xml`** plus content-type form def
 
 | Goal | Typical touchpoints |
 |------|---------------------|
-| Authors use AI **in Experience Builder** while authoring in **preview** | `ui.xml` → **`craftercms.components.aiassistant.Helper`** registers the agent in the **Experience Builder** workflow (preview toolbar control opens the assistant in the XB tools panel by default) + `<agents>` |
+| Authors use AI **in Experience Builder** while authoring in **preview** | `ui.xml` → **`craftercms.components.aiassistant.Helper`** registers the agent in the **Experience Builder** workflow (preview toolbar control opens the assistant in the XB tools panel by default) + `<agents>` — optional visibility for the **toolbar icon** via **`studio-ui.json`** (**§1e**) |
 | Authors use AI on a **content type form** | Content type **form definition** → **AI Assistant** control + `config/studio/ui.xml` **`<agents>`** (merged by stable agent id) |
-| **Scheduled** server-side runs (experimental) | `ui.xml` → **`craftercms.components.aiassistant.AutonomousAssistants`** + `<autonomousAgents>` — see [spec.md — Autonomous assistants widget](../internals/spec.md#autonomous-assistants-widget-tools-panel) |
+| **Scheduled** server-side runs (experimental) | `ui.xml` → **`craftercms.components.aiassistant.AutonomousAssistants`** + `<autonomousAgents>` or **`agents.json`** `mode: autonomous` — see [spec.md — Autonomous assistants widget](../internals/spec.md#autonomous-assistants-widget-tools-panel); optional **sidebar show** via **`studio-ui.json`** **`showAutonomousAiAssistantsInSidebar: true`** (**§1e**); default off. |
 | Authors use AI from the **rich text editor** (optional) | `config/studio/ui.xml` → **TinyMCE** widget → `tinymceOptions` (external plugin URL + `craftercms_aiassistant` JSON) — **§8** (last) and [tinymce-integration.md](tinymce-integration.md) |
 
 Commit **`config/studio/ui.xml`** (and any content-type changes) to the site sandbox so Studio and other authors load the same configuration.
@@ -61,7 +61,7 @@ Commit **`config/studio/ui.xml`** (and any content-type changes) to the site san
 |------|-----------------------------------|------------------------|
 | **Helper** (Experience Builder toolbar, optional Tools Panel) | **`config/studio/ui.xml`** | **A** (Preview toolbar) and/or **B** (Tools Panel) — the `<widget id="craftercms.components.aiassistant.Helper">` block is a **child of an existing `widgets` list**, not a loose sibling of `ToolsPanel`. |
 | **Form assistant** | **`config/studio/content-types/<your-type>/form-definition.xml`** | New **field** inside the right **`<section>`** / **`<fields>`** — prefer adding the **Studio AI Assistant** control from the Content Types UI after install (see **C**). |
-| **Autonomous** (optional) | **`config/studio/ui.xml`** | **D** — under **`craftercms.components.ToolsPanel`** → **`configuration`** → **`widgets`** (same list as Helper when both are used). |
+| **Autonomous** (optional) | **`config/studio/ui.xml`** | **D** — under **`craftercms.components.ToolsPanel`** → **`configuration`** → **`widgets`** (same list as Helper when both are used). Optional **hide** without removing the widget: **`studio-ui.json`** (**§1e**). |
 | **TinyMCE** (optional) | **`config/studio/ui.xml`** | Under **`craftercms.components.TinyMCE`** → **`configuration`** → **`setups`** → **`setup`** → **`tinymceOptions`** (JSON). See **§8** (last in basic sequence). |
 
 ---
@@ -70,12 +70,12 @@ Commit **`config/studio/ui.xml`** (and any content-type changes) to the site san
 
 #### A) Experience Builder — Preview Toolbar
 
-**Locate in `config/studio/ui.xml`:** the widget **`craftercms.components.PreviewToolbar`** → **`configuration`** → **`middleSection`** → **`widgets`**.
+**Locate in `config/studio/ui.xml`:** the widget **`craftercms.components.PreviewToolbar`** → **`configuration`** → **`rightSection`** or **`middleSection`** → **`widgets`** (descriptor-driven install uses **`rightSection`**; use **`middleSection`** if you want the icon next to the URL bar).
 
 **Add** the block below as **another** `<widget>` sibling next to the other toolbar widgets (indentation may differ in your file):
 
 ```xml
-        <!-- config/studio/ui.xml — PreviewToolbar / configuration / middleSection / widgets -->
+        <!-- config/studio/ui.xml — PreviewToolbar / configuration / rightSection or middleSection / widgets -->
         <widget id="craftercms.components.aiassistant.Helper">
           <plugin id="org.craftercms.aiassistant.studio" type="aiassistant" name="components" file="index.js"/>
           <configuration ui="IconButton">
@@ -162,6 +162,31 @@ Agent rows still come from **`config/studio/ui.xml`** **`<agents>`** (same stabl
 ```
 
 Full sample (including optional SVG icon): [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).
+
+---
+
+<a id="cg-1e"></a>
+
+#### E) Studio UI flags & bulk tools (`studio-ui.json` + Project Tools)
+
+**File:** **`config/studio/scripts/aiassistant/config/studio-ui.json`** (module **`studio`**). Authors usually create or edit it from **Project Tools → AI Assistant** → **UI** tab (`craftercms.components.aiassistant.ProjectToolsConfiguration`); you can also commit the JSON by hand in the site sandbox. The Project Tools save uses **`write_configuration`** with **`content`** set to **`JSON.stringify(...)`** — the Studio v2 API expects a **string** body for this endpoint, not a raw JSON object.
+
+**Why it exists:** Lets operators **hide** specific surfaces or **scope** optional client-side behavior **without** deleting the merged **`ui.xml`** widget rows. The bundle reads this file via Studio **`get_configuration`** (sync XHR, per-site cache; invalidated when the Project Tools panel saves).
+
+| Field | Meaning |
+|-------|--------|
+| **`showAiAssistantsInTopNavigation`** | When **`false`**, the Helper **`ui="IconButton"`** preview **toolbar** control does not render. **Tools Panel** Helper entries are **not** affected. Default **`true`** or omit. |
+| **`showAutonomousAiAssistantsInSidebar`** | When **`true`**, the **`AutonomousAssistants`** sidebar widget renders (experimental). Default **`false`** or omit. |
+| **`contentTypeImageAugmentationScope`** | **`all`** (default) — client patch augments **every** content type for Experience Builder **image-picker** drag targets when the AI **image-from-URL** datasource is referenced. **`none`** — no augmentation. **`selected`** — only ids in **`contentTypeIdsForImageAugmentation`**. |
+| **`contentTypeIdsForImageAugmentation`** | String array of normalized ids (e.g. **`"/page/article"`**, **`"/component/hero"`**) used when scope is **`selected`**. |
+
+**Bulk form control:** The same Project Tools screen can insert or remove a **marked** AI Assistant field block in **`config/studio/content-types/.../form-definition.xml`** (first **`sections` → `section` → `fields`** insertion point). Use **Add to all / Remove from all** or pick types then **Add to selected / Remove from selected**. Review diffs in Git before publishing; backup or branch first.
+
+**REST (integrators):** Plugin script **`GET …/aiassistant/content-types/list?siteId=`** returns the Studio content-type catalog (via `StudioToolOperations.listStudioContentTypes`) for the multi-select UI.
+
+**See also:** [spec.md — Studio UI flags](../internals/spec.md#studio-ui-flags-studio-uijson) · [helper-widget.md](helper-widget.md) · [autonomous-assistants-widget.md](autonomous-assistants-widget.md).
+
+**Upgrades:** If your site still shows **three** separate AI Assistant rows under Project Tools (from an older plugin descriptor), remove the legacy **`<tool>`** entries in **`config/studio/administration/site-config-tools.xml`** (or via Studio’s project tools UI) so only **AI Assistant** (`ai-assistant-config`) remains—each legacy widget id still loads the same tabbed panel with the correct default tab until you do.
 
 ---
 
@@ -331,13 +356,13 @@ All paths in this section are under the **site** Git sandbox (`config/studio/scr
 config/studio/scripts/aiassistant/prompts/<KEY>.md
 ```
 
-**`<KEY>`** is the exact **constant name** from the plugin’s `ToolPrompts` class (same spelling as the Groovy property). The file on disk is **`<KEY>.md`**.
+**`<KEY>`** is the exact **prompt key** passed to `ToolPrompts.p('KEY', …)` (listed in `ToolPromptsOverrideCatalog.KEYS`). Files use a **purpose prefix**: **`GENERAL_`** (OpenAI policy / cross-cutting), **`CMS_CONTENT_`** (repository content, translate, preview, publish), **`CMS_DEVELOPMENT_`** (templates, content types, analyze), **`CRAFTERQ_`** (CrafterQ SME and hosted-chat prompts). The file on disk is **`<KEY>.md`**.
 
 | Example `<KEY>.md` |
 |--------------------|
-| `OPENAI_AUTHORING_INSTRUCTIONS.md` |
-| `DESC_GET_CONTENT.md` |
-| `OPENAI_CHAT_ONLY_SYSTEM.md` |
+| `GENERAL_OPENAI_AUTHORING_INSTRUCTIONS.md` |
+| `CMS_CONTENT_DESC_GET_CONTENT.md` |
+| `GENERAL_OPENAI_CHAT_ONLY_SYSTEM.md` |
 
 | Rule | Detail |
 |------|--------|
@@ -345,9 +370,11 @@ config/studio/scripts/aiassistant/prompts/<KEY>.md
 | **Blank file** | Treated like **missing** — the shipped default stays. |
 | **Order** | Site file is read **before** classpath defaults when a chat request runs (`ToolPromptsLoader`). |
 
-**Finding keys:** Search **`ToolPrompts.groovy`** in this plugin repo for `p('SOME_KEY',` — the first argument is the filename stem (`SOME_KEY.md`). Large keys include authoring instructions, per‑tool **`DESC_*`** strings, and CrafterQ transcript snippets.
+**Finding keys:** Search **`ToolPrompts.groovy`** in this plugin repo for `p('SOME_KEY',` — the first argument is the filename stem (`SOME_KEY.md`). The canonical list is **`ToolPromptsOverrideCatalog.groovy`** (`KEYS`).
 
-**Example — tighten the main OpenAI authoring system prompt** (file on disk: `config/studio/scripts/aiassistant/prompts/OPENAI_AUTHORING_INSTRUCTIONS.md`):
+**Upgrades:** If your site still has overrides under the **old** names (e.g. `OPENAI_AUTHORING_INSTRUCTIONS.md`, `DESC_GET_CONTENT.md`), **rename** those files to the new prefixed keys (e.g. `GENERAL_OPENAI_AUTHORING_INSTRUCTIONS.md`, `CMS_CONTENT_DESC_GET_CONTENT.md`) or Studio will keep using the built‑in defaults.
+
+**Example — tighten the main OpenAI authoring system prompt** (file on disk: `config/studio/scripts/aiassistant/prompts/GENERAL_OPENAI_AUTHORING_INSTRUCTIONS.md`):
 
 ```markdown
 ## OUR STUDIO POLICY (override)

@@ -7,7 +7,7 @@ Configure or extend the plugin **without** changing core sources unless you are 
 | Document | What it covers |
 |----------|----------------|
 | [product-requirements.md](product-requirements.md) | **Product / review** — what the plugin **must** deliver for authors, admins, and integrators in everyday language (points to **`spec.md`** for engineering detail) |
-| [configuration-guide.md](configuration-guide.md) | **Operators — start here** — **Basic:** `ui.xml`, plugin id, agents, keys, form pipeline, autonomous checklist; **TinyMCE last** (**§8**) within **§1–§8**. **Advanced:** [site scripts](configuration-guide.md#cg-adv) — prompts, `tools.json`, MCP, user tools, script LLM. |
+| [configuration-guide.md](configuration-guide.md) | **Operators — start here** — **Basic:** `ui.xml`, plugin id, agents, keys, form pipeline, autonomous checklist; **TinyMCE last** (**§8**) within **§1–§8**. **`§1e`:** **`studio-ui.json`** (toolbar/sidebar toggles, XB image augmentation scope, bulk form field). **Advanced:** [site scripts](configuration-guide.md#cg-adv) — prompts, `tools.json`, MCP, user tools, script LLM. |
 | [installation.md](installation.md) | Install from Studio UI, CLI, Marketplace API, **`install-plugin.sh`**, build-before-install |
 | [helper-widget.md](helper-widget.md) | Helper **`ui.xml`** snippet and “component not found” checklist |
 | [autonomous-assistants-widget.md](autonomous-assistants-widget.md) | Optional autonomous widget — placement and links to spec |

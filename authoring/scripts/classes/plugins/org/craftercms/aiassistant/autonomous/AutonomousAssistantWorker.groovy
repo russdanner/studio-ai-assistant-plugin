@@ -6,8 +6,10 @@ import java.io.PrintWriter
 import java.io.StringWriter
 import java.time.Instant
 import java.util.ArrayList
+import java.util.Collection
 import java.util.HashSet
 import java.util.LinkedHashMap
+import java.util.LinkedHashSet
 import java.util.List
 import java.util.Locale
 import java.util.Map
@@ -164,7 +166,8 @@ final class AutonomousAssistantWorker {
           imageGeneratorParam: imageGenSpec ?: null,
           fullSuppressRepoWrites: false,
           protectedFormItemPath: null,
-          enableTools: false
+          enableTools: false,
+          agentEnabledBuiltInTools: null
         )
         Map bundle = StudioAiLlmRuntimeFactory.runtimeFor(normLlm).buildSessionBundle(bundleReq)
         chatApiKey = (bundle?.get('openAiApiKeyResolved') ?: '').toString()
@@ -194,6 +197,20 @@ final class AutonomousAssistantWorker {
           '**GenerateTextNoTools** tool (single completion; result includes **assistantText**). ' +
           'When you are finished using tools, your **final** assistant message must be **only** the single JSON object ' +
           'described above (no markdown fences, no commentary outside JSON).'
+        Collection agentToolSubset = null
+        def rawWl = definition?.get('enabledBuiltInTools')
+        if (rawWl instanceof List && !((List) rawWl).isEmpty()) {
+          Set s = new LinkedHashSet()
+          for (Object o : (List) rawWl) {
+            String nm = o?.toString()?.trim()
+            if (nm) {
+              s.add(nm)
+            }
+          }
+          if (!s.isEmpty()) {
+            agentToolSubset = s
+          }
+        }
         List tools = AiOrchestrationTools.buildWithDefaultWireConverter(
           studioOps,
           null,
@@ -204,7 +221,8 @@ final class AutonomousAssistantWorker {
           exNorm,
           model,
           normLlm,
-          imageGenSpec ?: null
+          imageGenSpec ?: null,
+          agentToolSubset
         )
         if (tools == null || tools.isEmpty()) {
           throw new IllegalStateException(

@@ -1,6 +1,7 @@
 import { fetchConfigurationXML } from '@craftercms/studio-ui/services/configuration';
 import { firstValueFrom } from 'rxjs';
 import { aiAssistantStudioPluginId, formControlWidgetId, helperWidgetId } from './consts';
+import { exclusiveCentralChatAgentsFromFile, fetchCentralAgentsFile } from './centralAgentCatalog';
 import { agentStableKey, type AgentConfig, type AgentLlm, type ExpertSkillConfig } from './agentConfig';
 
 /** Prefer direct child elements named `tag` (matches typical ui.xml serialization). */
@@ -188,10 +189,28 @@ export function parseAgentsFromStudioUiXml(xmlString: string): AgentConfig[] {
 }
 
 /**
- * Load agents from site `config/studio/ui.xml` (Helper widget and/or AI Assistant Studio plugin widget).
+ * Load chat-oriented agents for merging into the Helper / toolbar: prefers `config/studio/ai-assistant/agents.json`
+ * when that file exists with at least one row **and** at least one `mode: chat` (or omitted mode) agent.
+ * Otherwise parses `config/studio/ui.xml` like before.
+ */
+export async function fetchSiteChatAgentsForOverlay(
+  siteId: string
+): Promise<{ agents: AgentConfig[]; exclusive: boolean }> {
+  if (!siteId) return { agents: [], exclusive: false };
+  const file = await fetchCentralAgentsFile(siteId);
+  if (file && file.agents.length > 0) {
+    const ex = exclusiveCentralChatAgentsFromFile(file);
+    if (ex) return { agents: ex, exclusive: true };
+  }
+  const xml = await firstValueFrom(fetchConfigurationXML(siteId, '/ui.xml', 'studio'));
+  return { agents: parseAgentsFromStudioUiXml(xml ?? ''), exclusive: false };
+}
+
+/**
+ * @deprecated Prefer {@link fetchSiteChatAgentsForOverlay} when you need the central-catalog vs ui.xml distinction.
+ * Returns the same agent list as the overlay fetcher without the `exclusive` flag.
  */
 export async function fetchAiAssistantAgentsFromSiteUi(siteId: string): Promise<AgentConfig[]> {
-  if (!siteId) return [];
-  const xml = await firstValueFrom(fetchConfigurationXML(siteId, '/ui.xml', 'studio'));
-  return parseAgentsFromStudioUiXml(xml ?? '');
+  const { agents } = await fetchSiteChatAgentsForOverlay(siteId);
+  return agents;
 }

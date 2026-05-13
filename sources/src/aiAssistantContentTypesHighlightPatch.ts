@@ -2,6 +2,7 @@ import { getHostToGuestBus } from '@craftercms/studio-ui/utils/subjects';
 import { contentTypesResponse } from '@craftercms/studio-ui/state/actions/preview';
 import type { ContentType, ContentTypeField } from '@craftercms/studio-ui/models/ContentType';
 import { DEFAULT_IMPORT_REPO_PATH } from './aiAssistantImportPath';
+import { authoringSiteIdFromWindow, shouldAugmentContentTypeForImagePatch, syncReadStudioUiConfig } from './aiAssistantStudioUiConfig';
 
 const AIASSISTANT_IMG_DATASOURCE_TYPE = 'aiassistant-img-from-url';
 
@@ -125,7 +126,10 @@ export function installAiAssistantContentTypesHighlightPatch(): void {
       rawNext(action);
       return;
     }
-    const contentTypes = a.payload!.contentTypes!.map((ct) => augmentContentType(ct));
+    const cfg = syncReadStudioUiConfig((authoringSiteIdFromWindow() ?? '').trim());
+    const contentTypes = a.payload!.contentTypes!.map((ct) =>
+      shouldAugmentContentTypeForImagePatch(ct, cfg) ? augmentContentType(ct) : ct
+    );
     rawNext({
       ...a,
       payload: {
