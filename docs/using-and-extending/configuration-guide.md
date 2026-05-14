@@ -2,8 +2,6 @@
 
 **Audience:** **Crafter Studio administrators** responsible for installing and configuring the assistant and its **tools** for authors—`ui.xml` widgets, agents, credentials, form wiring, optional TinyMCE, and optional site-script overrides—without reading the full implementation spec first.
 
-**Related docs:** **Official product specification:** [spec.md](../internals/spec.md) — requirements & mechanics for surfaces, `ui.xml`, form vs preview, macros, autonomous REST (update **`spec.md`** when those contracts change). [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. **[scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md)** — **Integrators:** Groovy **`InvokeSiteUserTool`** / **`script:{id}`** image backends (bindings, examples, return shapes); this guide **§9.3** is the short overview. Optional hosted SaaS HTTP (bearer, chat audit tools): [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md). **Site overrides** for prompts, built‑in tool policy, scripted tools, image backends, and MCP: [Advanced configuration](#cg-adv). **Visual overview (Studio UI):** [Screenshots — Project Tools and AI Assistant Configuration](#cg-screenshots).
-
 ## Table of contents
 
 **[Basic configuration](#cg-basic)** — `ui.xml` + forms: Helper / Tools Panel / Preview / Autonomous placement, **`plugin`** line, **`<agents>`**, secrets, form pipeline, checklist; TinyMCE last (**§8**) within **§1–§8**.
@@ -27,6 +25,8 @@
 | [9.2](#cg-9-2) | Enable / disable stock (built‑in) tools |
 | [9.3](#cg-9-3) | Scripted tools, script LLMs, image generators |
 | [9.4](#cg-9-4) | MCP servers (optional remote tools) |
+
+**[Related documentation](#cg-related)** — Cross-links to **spec.md**, LLM guide, studio plugins guide, scripted tools, runtime doc, advanced overrides, and **Screenshots**.
 
 **[Where to go next](#cg-10)** — Links to [llm-configuration.md](llm-configuration.md), [spec.md](../internals/spec.md), and the rest of this doc set.
 
@@ -612,3 +612,11 @@ Full behavior, lifecycle, and limits: [chat-and-tools-runtime.md § MCP client t
 | Macros, `omitTools`, ICE vs form engine, REST paths, human tasks | [spec.md](../internals/spec.md) |
 | SSE / stream endpoint design | [stream-endpoint-design.md](../internals/stream-endpoint-design.md) |
 | Doc map (internals vs using) | [README.md](../README.md) |
+
+---
+
+<a id="cg-related"></a>
+
+### Related documentation
+
+**Official product specification:** [spec.md](../internals/spec.md) — requirements & mechanics for surfaces, `ui.xml`, form vs preview, macros, autonomous REST (update **`spec.md`** when those contracts change). [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. **[scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md)** — **Integrators:** Groovy **`InvokeSiteUserTool`** / **`script:{id}`** image backends (bindings, examples, return shapes); this guide **§9.3** is the short overview. Optional hosted SaaS HTTP (bearer, chat audit tools): [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md). **Site overrides** for prompts, built‑in tool policy, scripted tools, image backends, and MCP: [Advanced configuration](#cg-adv). **Visual overview (Studio UI):** [Screenshots — Project Tools and AI Assistant Configuration](#cg-screenshots).
