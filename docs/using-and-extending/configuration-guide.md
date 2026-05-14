@@ -1,6 +1,6 @@
 # Configuration Guide — AI Assistant for Crafter Studio
 
-**Audience:** **Crafter Studio administrators** responsible for installing and configuring the assistant and its **tools** for authors—`ui.xml` widgets, agents, credentials, form wiring, optional TinyMCE, and optional site-script overrides.
+**Audience:** **Crafter Studio admins** responsible for installing and configuring the assistant and its **tools** for authors—`ui.xml` widgets, agents, credentials, form wiring, optional TinyMCE, and optional site-script overrides.
 
 ## Table of Contents
 
@@ -69,6 +69,14 @@ These screenshots show **Project Tools** (where you install the plugin and open 
 ![AI Assistant Configuration modal with the Tools and MCP tab active](../images/ai-assistant-studio/ai-assistant-configuration-tools-tab.png)
 
 *Built-in tool visibility, MCP client toggle, and user-tools registry (table + **Open in editor**).*
+
+<a id="cg-screenshots-mcp-github"></a>
+
+#### GitHub MCP (example in Project Tools)
+
+![Tools and MCP tab with MCP enabled and a GitHub Copilot Streamable HTTP server](../images/ai-assistant-studio/ai-assistant-configuration-tools-mcp-github.png)
+
+*Example **`mcpServers`** row: server id **`Github`**, URL **`https://api.githubcopilot.com/mcp/`**, **`Authorization`** header (use a real token in production; never commit tokens to the repo), **`readTimeoutMs`** **120000**. Same settings persist to **`config/studio/scripts/aiassistant/config/tools.json`** when you click **Save tools & MCP**. Match URL and headers to GitHub’s current **[Remote GitHub MCP Server](https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md)** documentation.*
 
 ### Scripts Tab
 
@@ -217,7 +225,7 @@ Full sample (including optional SVG icon): [examples/studio-ui-aiassistant-fragm
 
 **File:** **`config/studio/scripts/aiassistant/config/studio-ui.json`** (module **`studio`**). Authors usually create or edit it from **Project Tools → AI Assistant** → **UI** tab (`craftercms.components.aiassistant.ProjectToolsConfiguration`); you can also commit the JSON by hand in the site sandbox. The Project Tools save uses **`write_configuration`** with **`content`** set to **`JSON.stringify(...)`** — the Studio v2 API expects a **string** body for this endpoint, not a raw JSON object.
 
-**Why it exists:** Lets operators **hide** specific surfaces or **scope** optional client-side behavior **without** deleting the merged **`ui.xml`** widget rows. The bundle reads this file via Studio **`get_configuration`** (sync XHR, per-site cache; invalidated when the Project Tools panel saves).
+**Why it exists:** Lets admins **hide** specific surfaces or **scope** optional client-side behavior **without** deleting the merged **`ui.xml`** widget rows. The bundle reads this file via Studio **`get_configuration`** (sync XHR, per-site cache; invalidated when the Project Tools panel saves).
 
 | Field | Meaning |
 |-------|--------|
@@ -302,7 +310,7 @@ Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concu
 
 1. **Studio host environment variables** — Preferred for production API keys and base URLs. Provider names and variables are listed in [llm-configuration.md](llm-configuration.md).
 2. **Per‑agent `ui.xml` / widget JSON** — e.g. `<openAiApiKey>`: **testing only**; discouraged in Git‑tracked sites. Precedence vs host env is described in [chat-and-tools-runtime.md § OpenAI API key](../internals/chat-and-tools-runtime.md#openai-api-key-server-side).
-3. **JVM system properties** — Advanced tuning and key fallbacks only; see **[studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md)** (not alternatives to `ui.xml` fields for normal operators).
+3. **JVM system properties** — Advanced tuning and key fallbacks only; see **[studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md)** (not alternatives to `ui.xml` fields for typical admin configuration).
 
 **Optional — hosted SaaS HTTP** — If authors use hosted SaaS in the widget (`X-CrafterQ-Chat-User`) and/or you configure **`crafterQBearerTokenEnv`** / **`crafterQBearerToken`** for server‑to‑SaaS `Authorization`, see [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md) when debugging 401s on list/get chat tools.
 
@@ -569,13 +577,15 @@ Implement **`config/studio/scripts/aiassistant/llm/mybackend/runtime.groovy`** p
 
 Same file: **`config/studio/scripts/aiassistant/config/tools.json`**.
 
+**Studio (Project Tools):** When **MCP** is enabled and **Save tools & MCP** runs with at least one complete server row, Studio calls each server’s **`tools/list`**, opens a checklist so you can **enable or disable** individual **`mcp_*`** wire tools when tools are returned; if none are returned, the same dialog still lists **server status** (errors or empty catalogs) and you can **Save** to persist the rest of **`tools.json`** unchanged. Use **List MCP tools** anytime for a **read-only** preview without saving.
+
 | Field | Purpose |
 |-------|---------|
 | **`mcpEnabled`** | Must be JSON **`true`** or **`mcpServers`** is **ignored** (default off). |
 | **`mcpServers`** | Array of `{ "id": "…", "url": "https://host/…/mcp", "headers": { }, "readTimeoutMs": 120000 }` — **Streamable HTTP** MCP endpoint (`POST` on **`url`**). |
 | **`disabledMcpTools`** | Optional array of **wire** tool names to hide, e.g. **`mcp_docs_search`**. You can also list MCP wire names under **`disabledBuiltInTools`**. |
 
-Each MCP tool becomes a function named roughly **`mcp_<serverId>_<toolName>`** (sanitized, length‑capped). SSRF rules match **`FetchHttpUrl`**.
+Each MCP tool becomes a function named roughly **`mcp_<serverId>_<toolName>`** (sanitized, length‑capped). SSRF rules match **`FetchHttpUrl`**. In **`mcpServers[].headers`**, each value may use **`${env:VARIABLE_NAME}`**; Studio expands it from **`System.getenv`** on the Studio JVM (unset variable → empty string) before calling the MCP server.
 
 **Example:**
 
@@ -586,7 +596,7 @@ Each MCP tool becomes a function named roughly **`mcp_<serverId>_<toolName>`** (
     {
       "id": "docs",
       "url": "https://mcp.example.com/mcp",
-      "headers": { "Authorization": "Bearer YOUR_TOKEN" },
+      "headers": { "Authorization": "Bearer ${env:GITHUB_MCP_TOKEN}" },
       "readTimeoutMs": 120000
     }
   ],
@@ -594,7 +604,7 @@ Each MCP tool becomes a function named roughly **`mcp_<serverId>_<toolName>`** (
 }
 ```
 
-For a hosted **Streamable HTTP** reference (base URL, `/readonly` paths, optional `X-MCP-*` headers, and JSON snippets), see GitHub’s **[Remote GitHub MCP Server](https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md)** — map each recipe’s URL and headers into an `mcpServers[]` row (`id`, `url`, `headers`, optional `readTimeoutMs`) in Project Tools or in Git.
+For a hosted **Streamable HTTP** reference (base URL, `/readonly` paths, optional `X-MCP-*` headers, and JSON snippets), see GitHub’s **[Remote GitHub MCP Server](https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md)** — map each recipe’s URL and headers into an `mcpServers[]` row (`id`, `url`, `headers`, optional `readTimeoutMs`) in Project Tools or in Git. **UI example (GitHub Copilot MCP endpoint):** [Screenshots — GitHub MCP](#cg-screenshots-mcp-github).
 
 Full behavior, lifecycle, and limits: [chat-and-tools-runtime.md § MCP client tools](../internals/chat-and-tools-runtime.md#mcp-client-tools-streamable-http). JVM caps / host allowlists: [studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md).
 

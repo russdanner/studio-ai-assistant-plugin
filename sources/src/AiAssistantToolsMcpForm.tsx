@@ -188,6 +188,8 @@ export default function AiAssistantToolsMcpForm(props: AiAssistantToolsMcpFormPr
                               <TextField
                                 size="small"
                                 label="Value"
+                                type={hp.key.trim().toLowerCase() === 'authorization' ? 'password' : 'text'}
+                                autoComplete="off"
                                 value={hp.value}
                                 onChange={(e) => {
                                   const headerPairs = row.headerPairs.map((p, j) =>

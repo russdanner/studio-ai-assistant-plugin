@@ -10,10 +10,13 @@ import FullscreenExitRounded from '@mui/icons-material/FullscreenExitRounded';
 import FullscreenRounded from '@mui/icons-material/FullscreenRounded';
 import RefreshRounded from '@mui/icons-material/RefreshRounded';
 import SaveRounded from '@mui/icons-material/SaveRounded';
+import FormatListBulletedRounded from '@mui/icons-material/FormatListBulletedRounded';
 import {
   Alert,
   Box,
   Button,
+  CircularProgress,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
@@ -43,6 +46,7 @@ import {
   parseToolsPolicyFromJsonText,
   serializeToolsPolicyToJson,
   validateToolsPolicy,
+  buildMcpToolsPreviewBody,
   type ToolsPolicyFormState
 } from './aiAssistantToolsMcpUiModel';
 import AiAssistantStudioCodeEditor, { inferStudioSandboxEditorLanguage } from './AiAssistantStudioCodeEditor';
@@ -52,12 +56,14 @@ import {
   fetchOptionalStudioSandboxUtf8,
   fetchStudioConfigFileUtf8,
   postAiAssistantScriptsMutate,
+  postAiAssistantMcpToolsPreview,
   studioConfigRelativePath,
   TOOLS_JSON_SANDBOX_PATH,
   type AiAssistantScriptsIndexResponse,
   type AiAssistantScriptsIndexItem,
   type AiAssistantScriptsIndexTool,
-  type AiAssistantScriptsToolPromptOverrideRow
+  type AiAssistantScriptsToolPromptOverrideRow,
+  type AiAssistantMcpPreviewServer
 } from './aiAssistantScriptsApi';
 
 const REGISTRY_REL = 'scripts/aiassistant/user-tools/registry.json';
@@ -80,6 +86,10 @@ export interface AiAssistantScriptsSandboxConfigurationProps {
   panel?: AiAssistantScriptsSandboxPanel;
 }
 
+function mcpPreviewHasPickableTools(servers: AiAssistantMcpPreviewServer[]): boolean {
+  return servers.some((s) => s.ok && s.tools.length > 0);
+}
+
 export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistantScriptsSandboxConfigurationProps) {
   const panel = props.panel ?? 'all';
   const showPrompts = panel === 'all' || panel === 'prompts';
@@ -99,6 +109,18 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
   const [toolsPolicy, setToolsPolicy] = useState<ToolsPolicyFormState>(() => defaultToolsPolicyFormState());
   const [toolsPolicyDirty, setToolsPolicyDirty] = useState(false);
   const [savingToolsPolicy, setSavingToolsPolicy] = useState(false);
+
+  type McpToolsDialogState =
+    | { purpose: 'listOnly'; servers: AiAssistantMcpPreviewServer[] }
+    | {
+        purpose: 'pickForSave';
+        servers: AiAssistantMcpPreviewServer[];
+        basePolicy: ToolsPolicyFormState;
+        selection: Record<string, boolean>;
+        preservedDisabled: string[];
+      };
+  const [mcpToolsDialog, setMcpToolsDialog] = useState<McpToolsDialogState | null>(null);
+  const [listingMcpTools, setListingMcpTools] = useState(false);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorFullscreen, setEditorFullscreen] = useState(false);
@@ -177,6 +199,11 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
     void reload();
   }, [reload]);
 
+  const mcpListPreviewAllowed = useMemo(() => {
+    const v = validateToolsPolicy(toolsPolicy);
+    if (!v.ok) return false;
+    return toolsPolicy.mcpEnabled && buildMcpToolsPreviewBody(toolsPolicy).mcpServers.length > 0;
+  }, [toolsPolicy]);
   const tools = useMemo(() => (index?.tools ?? []) as AiAssistantScriptsIndexTool[], [index]);
   const imageGens = useMemo(() => (index?.imageGenerators ?? []) as AiAssistantScriptsIndexItem[], [index]);
   const llms = useMemo(() => (index?.llmScripts ?? []) as AiAssistantScriptsIndexItem[], [index]);
@@ -205,14 +232,14 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
     }
   };
 
-  const saveToolsPolicy = async () => {
+  const performWriteToolsPolicy = async (policy: ToolsPolicyFormState) => {
     if (!siteId) return;
-    const v = validateToolsPolicy(toolsPolicy);
+    const v = validateToolsPolicy(policy);
     if (!v.ok) {
       setLoadError(v.message);
       return;
     }
-    const normalized = serializeToolsPolicyToJson(toolsPolicy);
+    const normalized = serializeToolsPolicyToJson(policy);
     setSavingToolsPolicy(true);
     setLoadError(null);
     try {
@@ -224,6 +251,114 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
       setToolsPolicyDirty(false);
       await postAiAssistantScriptsMutate(siteId, { action: 'refreshSync' }).catch(() => {});
       await reload();
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingToolsPolicy(false);
+    }
+  };
+
+  const confirmMcpToolsDialogSave = async () => {
+    if (!mcpToolsDialog || mcpToolsDialog.purpose !== 'pickForSave') return;
+    const { basePolicy, servers, selection, preservedDisabled } = mcpToolsDialog;
+    if (!mcpPreviewHasPickableTools(servers)) {
+      setMcpToolsDialog(null);
+      await performWriteToolsPolicy(basePolicy);
+      return;
+    }
+    const disFromPicker = Object.keys(selection).filter((w) => !selection[w]);
+    const nextDisabled = [...new Set([...preservedDisabled, ...disFromPicker])];
+    const nextPolicy: ToolsPolicyFormState = { ...basePolicy, disabledMcpTools: nextDisabled };
+    setMcpToolsDialog(null);
+    await performWriteToolsPolicy(nextPolicy);
+  };
+
+  const setMcpServerToolsEnabled = (serverId: string, enabled: boolean) => {
+    setMcpToolsDialog((d) => {
+      if (!d || d.purpose !== 'pickForSave') return d;
+      if (!mcpPreviewHasPickableTools(d.servers)) return d;
+      const server = d.servers.find((s) => s.serverId === serverId && s.ok);
+      if (!server) return d;
+      const sel = { ...d.selection };
+      for (const t of server.tools) {
+        sel[t.wireName] = enabled;
+      }
+      return { ...d, selection: sel };
+    });
+  };
+
+  const openMcpToolsListOnly = async () => {
+    if (!siteId) return;
+    const v = validateToolsPolicy(toolsPolicy);
+    if (!v.ok) {
+      setLoadError(v.message);
+      return;
+    }
+    const previewBody = buildMcpToolsPreviewBody(toolsPolicy);
+    if (!toolsPolicy.mcpEnabled || previewBody.mcpServers.length === 0) {
+      return;
+    }
+    setListingMcpTools(true);
+    setLoadError(null);
+    try {
+      const preview = await postAiAssistantMcpToolsPreview(siteId, previewBody);
+      if (preview.ok === false) {
+        setLoadError(preview.message ?? 'Could not list MCP tools.');
+        return;
+      }
+      setMcpToolsDialog({ purpose: 'listOnly', servers: preview.servers ?? [] });
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setListingMcpTools(false);
+    }
+  };
+
+  const saveToolsPolicy = async () => {
+    if (!siteId) return;
+    const v = validateToolsPolicy(toolsPolicy);
+    if (!v.ok) {
+      setLoadError(v.message);
+      return;
+    }
+    const previewBody = buildMcpToolsPreviewBody(toolsPolicy);
+    if (!toolsPolicy.mcpEnabled || previewBody.mcpServers.length === 0) {
+      await performWriteToolsPolicy(toolsPolicy);
+      return;
+    }
+    setSavingToolsPolicy(true);
+    setLoadError(null);
+    try {
+      const preview = await postAiAssistantMcpToolsPreview(siteId, previewBody);
+      if (preview.ok === false) {
+        setLoadError(preview.message ?? 'Could not list MCP tools. Fix servers or try again.');
+        return;
+      }
+      const servers = preview.servers ?? [];
+      const discoveredLower = new Set<string>();
+      for (const s of servers) {
+        if (s.ok) {
+          for (const t of s.tools) {
+            discoveredLower.add(t.wireName.trim().toLowerCase());
+          }
+        }
+      }
+      const preservedDisabled = toolsPolicy.disabledMcpTools.filter((d) => !discoveredLower.has(d.trim().toLowerCase()));
+      const disLower = new Set(toolsPolicy.disabledMcpTools.map((d) => d.trim().toLowerCase()));
+      const selection: Record<string, boolean> = {};
+      for (const s of servers) {
+        if (!s.ok) continue;
+        for (const t of s.tools) {
+          selection[t.wireName] = !disLower.has(t.wireName.trim().toLowerCase());
+        }
+      }
+      setMcpToolsDialog({
+        purpose: 'pickForSave',
+        basePolicy: toolsPolicy,
+        selection,
+        servers,
+        preservedDisabled
+      });
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -477,16 +612,26 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
               setToolsPolicyDirty(true);
             }}
           />
-          <Button
-            sx={{ mt: 2 }}
-            size="small"
-            variant="contained"
-            startIcon={<SaveRounded />}
-            disabled={savingToolsPolicy || !toolsPolicyDirty}
-            onClick={() => void saveToolsPolicy()}
-          >
-            Save tools &amp; MCP
-          </Button>
+          <Stack direction="row" spacing={1} sx={{ mt: 2 }} flexWrap="wrap" alignItems="center">
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={savingToolsPolicy ? <CircularProgress size={16} color="inherit" /> : <SaveRounded />}
+              disabled={savingToolsPolicy || !toolsPolicyDirty}
+              onClick={() => void saveToolsPolicy()}
+            >
+              Save tools &amp; MCP
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={listingMcpTools ? <CircularProgress size={16} color="inherit" /> : <FormatListBulletedRounded />}
+              disabled={savingToolsPolicy || listingMcpTools || !mcpListPreviewAllowed}
+              onClick={() => void openMcpToolsListOnly()}
+            >
+              List MCP tools
+            </Button>
+          </Stack>
 
           <Divider sx={{ my: 4 }} />
 
@@ -1121,6 +1266,127 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
               <Button variant="contained" onClick={() => void runAddSubmit()}>
                 Create
               </Button>
+            </DialogActions>
+          </Dialog>
+
+          <Dialog
+            open={mcpToolsDialog != null}
+            onClose={() => !savingToolsPolicy && !listingMcpTools && setMcpToolsDialog(null)}
+            maxWidth="md"
+            fullWidth
+          >
+            <DialogTitle>
+              {mcpToolsDialog?.purpose === 'listOnly' ? 'MCP tools from servers' : 'MCP tools to register'}
+            </DialogTitle>
+            <DialogContent dividers>
+              {mcpToolsDialog ? (
+                <Stack spacing={3}>
+                  {mcpToolsDialog.purpose === 'listOnly' ? (
+                    <Typography variant="body2" color="text.secondary" component="div">
+                      {"Read-only preview from each server's "}
+                      <code>tools/list</code>
+                      {' (same wire names Studio uses in chat).'}
+                    </Typography>
+                  ) : mcpPreviewHasPickableTools(mcpToolsDialog.servers) ? (
+                    <Typography variant="body2" color="text.secondary">
+                      Unchecked tools are saved to <code>disabledMcpTools</code> in <code>{TOOLS_JSON_REL}</code>. Hide-list
+                      entries that were not discovered in this run are kept.
+                    </Typography>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary" component="div">
+                      {
+                        "No tools were returned from any server, so per-tool enable/disable is not available. The table below shows each server's status. "
+                      }
+                      You can still <strong>Save</strong> to write the rest of this form unchanged, or <strong>Cancel</strong>.
+                    </Typography>
+                  )}
+                  {mcpToolsDialog.servers.map((sv, svi) => {
+                    const showPickUI =
+                      mcpToolsDialog.purpose === 'pickForSave' && mcpPreviewHasPickableTools(mcpToolsDialog.servers);
+                    return (
+                      <Box key={`${sv.serverId}-${svi}`}>
+                        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }} flexWrap="wrap" gap={1}>
+                          <Typography variant="subtitle2">Server: {sv.serverId}</Typography>
+                          {showPickUI && sv.ok ? (
+                            <Stack direction="row" spacing={1}>
+                              <Button size="small" onClick={() => setMcpServerToolsEnabled(sv.serverId, true)}>
+                                Enable all
+                              </Button>
+                              <Button size="small" onClick={() => setMcpServerToolsEnabled(sv.serverId, false)}>
+                                Disable all
+                              </Button>
+                            </Stack>
+                          ) : null}
+                        </Stack>
+                        {sv.ok ? (
+                          sv.tools.length === 0 ? (
+                            <Typography variant="body2" color="text.secondary">
+                              No tools returned by tools/list.
+                            </Typography>
+                          ) : (
+                            <TableContainer sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow>
+                                    {showPickUI ? <TableCell padding="checkbox" /> : null}
+                                    <TableCell>Wire name</TableCell>
+                                    <TableCell>MCP tool</TableCell>
+                                    <TableCell>Description</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {sv.tools.map((t) => (
+                                    <TableRow key={t.wireName}>
+                                      {showPickUI && mcpToolsDialog.purpose === 'pickForSave' ? (
+                                        <TableCell padding="checkbox">
+                                          <Checkbox
+                                            checked={Boolean(mcpToolsDialog.selection[t.wireName])}
+                                            onChange={() =>
+                                              setMcpToolsDialog((d) => {
+                                                if (!d || d.purpose !== 'pickForSave') return d;
+                                                const cur = Boolean(d.selection[t.wireName]);
+                                                return {
+                                                  ...d,
+                                                  selection: { ...d.selection, [t.wireName]: !cur }
+                                                };
+                                              })
+                                            }
+                                          />
+                                        </TableCell>
+                                      ) : null}
+                                      <TableCell>
+                                        <code>{t.wireName}</code>
+                                      </TableCell>
+                                      <TableCell>{t.mcpToolName}</TableCell>
+                                      <TableCell sx={{ maxWidth: 360 }}>{t.description}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </TableContainer>
+                          )
+                        ) : (
+                          <Alert severity="error">{sv.message ?? 'Failed to reach MCP server.'}</Alert>
+                        )}
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              ) : null}
+            </DialogContent>
+            <DialogActions>
+              {mcpToolsDialog?.purpose === 'listOnly' ? (
+                <Button onClick={() => setMcpToolsDialog(null)}>Close</Button>
+              ) : (
+                <>
+                  <Button onClick={() => setMcpToolsDialog(null)} disabled={savingToolsPolicy}>
+                    Cancel
+                  </Button>
+                  <Button variant="contained" onClick={() => void confirmMcpToolsDialogSave()} disabled={savingToolsPolicy}>
+                    Save
+                  </Button>
+                </>
+              )}
             </DialogActions>
           </Dialog>
         </>

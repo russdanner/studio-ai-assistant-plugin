@@ -2,7 +2,7 @@
 
 Defines **`<llm>`** identifiers, env/XML keys, merge rules, and the provider capability matrix. Keep this file and **[`spec.md`](../internals/spec.md)** aligned when those contracts change.
 
-**For site operators:** [configuration-guide.md](configuration-guide.md)  
+**For site admins:** [configuration-guide.md](configuration-guide.md)  
 **For CMS tools, SSE, optional hosted SaaS API identity, and troubleshooting:** [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md)  
 **For script LLMs and `user-tools/`:** [studio-plugins-guide.md](studio-plugins-guide.md) · **Script LLM — full session bundle (BYO backend):** [script-llm-bring-your-own-backend.md](script-llm-bring-your-own-backend.md)  
 **For pluggable image backends (`imageGenerator`, `imagegen/` scripts, site overrides):** [image-generation.md](image-generation.md) · **Integrators:** [scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md) (Groovy closure, `context` map, return shape)  

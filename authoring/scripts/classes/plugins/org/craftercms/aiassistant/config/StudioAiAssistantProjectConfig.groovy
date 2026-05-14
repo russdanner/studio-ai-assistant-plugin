@@ -24,7 +24,7 @@ import java.util.Set
  *   "enabledBuiltInTools": ["GetContent", "WriteContent"],
  *   "mcpEnabled": true,
  *   "mcpServers": [
- *     { "id": "docs", "url": "https://mcp.example.com/mcp", "headers": { "Authorization": "Bearer …" }, "readTimeoutMs": 120000 }
+ *     { "id": "docs", "url": "https://mcp.example.com/mcp", "headers": { "Authorization": "Bearer ${env:GITHUB_MCP_TOKEN}" }, "readTimeoutMs": 120000 }
  *   ],
  *   "disabledMcpTools": ["mcp_docs_search"]
  * }

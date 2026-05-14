@@ -2,6 +2,8 @@
 
 Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents**, multiple **LLM** backends, optional **CMS tools**, **pluggable image generation**, and optional **autonomous** scheduled runs.
 
+**Install:** [Installation](docs/using-and-extending/installation.md) · **Admins (configure the site):** [Configuration guide](docs/using-and-extending/configuration-guide.md) · [Screenshots](docs/using-and-extending/configuration-guide.md#cg-screenshots).
+
 **Product requirements:** [Product requirements](docs/using-and-extending/product-requirements.md).
 
 ## Where It Shows Up
@@ -29,22 +31,22 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 
 | If you want… | Open |
 |--------------|--------|
-| **Product requirements** | [Product requirements](docs/using-and-extending/product-requirements.md) |
+| **Install or deploy the plugin** | [Installation](docs/using-and-extending/installation.md) |
 | **Configure agents, keys, `ui.xml`** | [Configuration guide](docs/using-and-extending/configuration-guide.md) |
 | **Project Tools UI (screenshots)** | [Configuration guide — Screenshots](docs/using-and-extending/configuration-guide.md#cg-screenshots) |
-| **Install or deploy the plugin** | [Installation](docs/using-and-extending/installation.md) |
-| **LLM ids, secrets, env + `ui.xml`** | [LLM configuration](docs/using-and-extending/llm-configuration.md) |
-| **JVM-only tuning (`-D` properties)** | [Studio AI assistant JVM parameters](docs/using-and-extending/studio-aiassistant-jvm-parameters.md) |
-| **Integrators — Groovy `user-tools/` + `imagegen/`** | [Scripted tools & imagegen](docs/using-and-extending/scripted-tools-and-imagegen.md) |
-| **Image backends & overrides** | [Image generation](docs/using-and-extending/image-generation.md) |
-| **Autonomous widget overview** | [Autonomous assistants widget](docs/using-and-extending/autonomous-assistants-widget.md) |
 | **Runtime UI flags (`studio-ui.json`) + bulk tools** | [Configuration guide — §1e](docs/using-and-extending/configuration-guide.md#cg-1e) · [spec.md](docs/internals/spec.md#studio-ui-flags-studio-uijson) |
 | **Helper widget snippet & troubleshooting** | [Helper widget](docs/using-and-extending/helper-widget.md) |
+| **TinyMCE toolbar & JSON** | [TinyMCE integration](docs/using-and-extending/tinymce-integration.md) |
+| **Autonomous widget overview** | [Autonomous assistants widget](docs/using-and-extending/autonomous-assistants-widget.md) |
+| **LLM ids, secrets, env + `ui.xml`** | [LLM configuration](docs/using-and-extending/llm-configuration.md) |
+| **JVM-only tuning (`-D` properties)** | [Studio AI assistant JVM parameters](docs/using-and-extending/studio-aiassistant-jvm-parameters.md) |
+| **Image backends & overrides** | [Image generation](docs/using-and-extending/image-generation.md) |
+| **Integrators — Groovy `user-tools/` + `imagegen/`** | [Scripted tools & imagegen](docs/using-and-extending/scripted-tools-and-imagegen.md) |
+| **Product requirements** | [Product requirements](docs/using-and-extending/product-requirements.md) |
 | **Build paths, Rollup, `user-tools/`, script LLM paths** | [Studio plugins guide](docs/using-and-extending/studio-plugins-guide.md) |
 | **Official requirements & build specification** | [spec.md](docs/internals/spec.md) · [Studio plugins guide](docs/using-and-extending/studio-plugins-guide.md) |
 | **Behavior spec, streaming, runtime** | [Internals index](docs/internals/README.md) |
 | **Contributing (clone, build, policy, spec updates)** | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | **Full doc index** | [docs/README.md](docs/README.md) |
-| **TinyMCE toolbar & JSON** | [TinyMCE integration](docs/using-and-extending/tinymce-integration.md) |
 
 Questions: [CrafterCMS Community Slack](https://craftercms.com/slack).

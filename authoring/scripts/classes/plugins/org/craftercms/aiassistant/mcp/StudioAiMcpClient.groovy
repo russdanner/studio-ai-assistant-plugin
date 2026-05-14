@@ -373,6 +373,39 @@ final class StudioAiMcpClient {
     return [connection: conn, tools: tools]
   }
 
+  private static final java.util.regex.Pattern ENV_MACRO = java.util.regex.Pattern.compile('\\$\\{env:([A-Za-z0-9_.]+)\\}')
+
+  /**
+   * Expands {@code ${env:VAR}} placeholders using {@link System#getenv} on the Studio JVM.
+   * Unknown or unset variables expand to an empty string. Replacement uses {@link java.util.regex.Matcher#quoteReplacement}
+   * so expanded values may contain {@code $} or backslashes.
+   */
+  static String expandEnvMacrosInString(String input) {
+    if (input == null) {
+      return ''
+    }
+    String s = input.toString()
+    if (!s.contains('${env:')) {
+      return s
+    }
+    java.util.regex.Matcher m = ENV_MACRO.matcher(s)
+    StringBuffer sb = new StringBuffer()
+    while (m.find()) {
+      String name = m.group(1)
+      String val = ''
+      try {
+        String gv = System.getenv(name)
+        if (gv != null) {
+          val = gv
+        }
+      } catch (Throwable ignored) {
+      }
+      m.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(val))
+    }
+    m.appendTail(sb)
+    return sb.toString()
+  }
+
   private static Map<String, String> normalizeHeaderMap(Object headers) {
     if (!(headers instanceof Map)) {
       return [:]
@@ -382,7 +415,7 @@ final class StudioAiMcpClient {
       String k = e.key != null ? e.key.toString().trim() : ''
       String v = e.value != null ? e.value.toString() : ''
       if (k) {
-        out.put(k, v)
+        out.put(k, expandEnvMacrosInString(v))
       }
     }
     return out

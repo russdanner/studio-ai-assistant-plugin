@@ -20,15 +20,15 @@ Wire formats, REST field lists, `ui.xml` grammar, file paths, and build steps ar
 
 ---
 
-## Administrator Requirements
+## Admin Requirements
 
-6. **Per-site configuration** — Administrators **must** be able to enable, disable, or tune assistant behavior per site using Studio-supported configuration (for example `ui.xml` widget definitions and documented sandbox files)—without changing plugin source in the repository. **Examples** include **`ui.xml`**, **`config/studio/ai-assistant/agents.json`**, **`config/studio/scripts/aiassistant/config/studio-ui.json`** (runtime toolbar/sidebar visibility, scoped Experience Builder image-picker augmentation, bulk form-control edits — see the configuration guide and **`spec.md`**), **`scripts/aiassistant/…`** script trees, and other paths named in **`spec.md`**.
+6. **Per-site configuration** — Admins **must** be able to enable, disable, or tune assistant behavior per site using Studio-supported configuration (for example `ui.xml` widget definitions and documented sandbox files)—without changing plugin source in the repository. **Examples** include **`ui.xml`**, **`config/studio/ai-assistant/agents.json`**, **`config/studio/scripts/aiassistant/config/studio-ui.json`** (runtime toolbar/sidebar visibility, scoped Experience Builder image-picker augmentation, bulk form-control edits — see the configuration guide and **`spec.md`**), **`scripts/aiassistant/…`** script trees, and other paths named in **`spec.md`**.
 
-7. **Agents** — Administrators **must** be able to define one or more agents with distinct display metadata, instructions, model choice (`llm` / model identifiers as documented), and tool options where the product supports them.
+7. **Agents** — Admins **must** be able to define one or more agents with distinct display metadata, instructions, model choice (`llm` / model identifiers as documented), and tool options where the product supports them.
 
-8. **Secrets and keys** — Administrators **must** be able to supply credentials and endpoints through documented mechanisms (environment, Studio configuration, or site sandbox files as applicable), without embedding secrets in client-only bundles in violation of the security model documented in **`spec.md`**.
+8. **Secrets and keys** — Admins **must** be able to supply credentials and endpoints through documented mechanisms (environment, Studio configuration, or site sandbox files as applicable), without embedding secrets in client-only bundles in violation of the security model documented in **`spec.md`**.
 
-9. **Tool governance** — Where the product advertises tool allow/deny or MCP attachment, administrators **must** be able to apply that governance through documented configuration so that authors cannot invoke disallowed tools solely by UI manipulation.
+9. **Tool governance** — Where the product advertises tool allow/deny or MCP attachment, admins **must** be able to apply that governance through documented configuration so that authors cannot invoke disallowed tools solely by UI manipulation.
 
 ---
 
@@ -42,7 +42,7 @@ Wire formats, REST field lists, `ui.xml` grammar, file paths, and build steps ar
 
 ## Optional / Experimental Requirements (Autonomous Widget)
 
-12. **Autonomous mode** — If the Autonomous assistants widget is installed and configured, the plugin **must** enforce the documented scheduling, scope, and in-memory semantics so administrators can predict lifecycle (including loss of state on JVM restart) as described in **[`spec.md`](../internals/spec.md#autonomous-assistants-widget-tools-panel)** and the [Autonomous assistants widget](autonomous-assistants-widget.md) guide. This area remains **experimental**; it **must not** be documented as a production-grade job scheduler.
+12. **Autonomous mode** — If the Autonomous assistants widget is installed and configured, the plugin **must** enforce the documented scheduling, scope, and in-memory semantics so admins can predict lifecycle (including loss of state on JVM restart) as described in **[`spec.md`](../internals/spec.md#autonomous-assistants-widget-tools-panel)** and the [Autonomous assistants widget](autonomous-assistants-widget.md) guide. This area remains **experimental**; it **must not** be documented as a production-grade job scheduler.
 
 #### Each Autonomous Agent (Minimum Behaviors)
 
@@ -52,7 +52,7 @@ For **each** autonomous agent the site defines, the product **must** make the fo
 - **Prompt** — Each agent **must** carry configurable base instructions (what the run is for); the server **must** append its own strict reply contract on top for structured outcomes.
 - **State** — Each agent **must** have visible **in-memory** status and history for users in scope (waiting, running, stopped, error, and similar values as documented). State **must** be lost on JVM restart and when the store is destroyed, unless **`spec.md`** explicitly documents otherwise.
 - **Human tasks** — Runs **must** be able to surface **human tasks** (titles and prompts for people to act on) in the widget; humans **must** be able to complete, dismiss, or reopen tasks per the documented controls. The model **may** return task lists and updates in its structured reply as documented.
-- **Lifecycle controls** — Administrators (and other users allowed by **scope**) **must** be able to **start** and **stop** individual agents, **enable** or **disable** the supervisor, and use other documented **control** actions (for example run now, clear error, destroy in-memory store) without redeploying code.
+- **Lifecycle controls** — Admins (and other users allowed by **scope**) **must** be able to **start** and **stop** individual agents, **enable** or **disable** the supervisor, and use other documented **control** actions (for example run now, clear error, destroy in-memory store) without redeploying code.
 - **Scope** — Each agent **must** respect a documented **scope** (for example project vs user vs role) so only the right signed-in users see that agent’s status, tasks, and controls.
 - **Failure behavior** — When a step fails, behavior **must** follow the agent’s **stop-on-failure** (or retry) setting as documented, including moving an agent to **error** and surfacing **last error** detail in the widget when applicable.
 
@@ -70,6 +70,7 @@ For **each** autonomous agent the site defines, the product **must** make the fo
 
 | Need | Document |
 |------|----------|
-| How to configure a site | [Configuration guide](configuration-guide.md) |
+| Install the plugin | [Installation](installation.md) |
+| Configure a site | [Configuration guide](configuration-guide.md) |
 | Model identifiers and provider matrix | [LLM configuration](llm-configuration.md) |
 | Engineering contracts and behavior | [`spec.md`](../internals/spec.md) |

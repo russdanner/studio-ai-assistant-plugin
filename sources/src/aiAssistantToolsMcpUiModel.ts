@@ -156,6 +156,37 @@ export function validateToolsPolicy(state: ToolsPolicyFormState): { ok: true } |
   return { ok: true };
 }
 
+/** Body for {@code mcp-tools-preview} — same {@code mcpServers} rows as persisted in {@code tools.json}. */
+export function buildMcpToolsPreviewBody(state: ToolsPolicyFormState): {
+  mcpEnabled: boolean;
+  mcpServers: Record<string, unknown>[];
+} {
+  const mcpServers = state.mcpServers
+    .map((r) => {
+      const id = r.id.trim();
+      const url = r.url.trim();
+      if (!id || !url) {
+        return null;
+      }
+      const rec: Record<string, unknown> = { id, url };
+      const headers = headersObjectFromPairs(r.headerPairs);
+      if (headers) {
+        rec.headers = headers;
+      }
+      const rt = r.readTimeoutMs.trim();
+      if (rt) {
+        const n = Math.round(Number(rt));
+        if (Number.isFinite(n)) {
+          rec.readTimeoutMs = n;
+        }
+      }
+      return rec;
+    })
+    .filter((x): x is Record<string, unknown> => x != null);
+
+  return { mcpEnabled: Boolean(state.mcpEnabled), mcpServers };
+}
+
 export function serializeToolsPolicyToJson(state: ToolsPolicyFormState): string {
   const mcpServers = state.mcpServers
     .map((r) => {

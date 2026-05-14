@@ -2,7 +2,7 @@
 
 This page lists **JVM-only** knobs the plugin reads via **`System.getProperty`** (typically set on the Studio process as **`-Dname=value`** or in **`JAVA_TOOL_OPTIONS`**). They are **not** `ui.xml` fields and **not** environment variables.
 
-**Primary operator docs:** [configuration-guide.md](configuration-guide.md) · [llm-configuration.md](llm-configuration.md) (env + XML) · [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md)
+**Primary admin docs:** [configuration-guide.md](configuration-guide.md) · [llm-configuration.md](llm-configuration.md) (env + XML) · [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md)
 
 Use this file when you need to tune timeouts, logging, or defaults that are not exposed in site configuration.
 

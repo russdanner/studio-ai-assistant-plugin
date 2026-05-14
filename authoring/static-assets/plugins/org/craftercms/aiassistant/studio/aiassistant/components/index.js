@@ -66,6 +66,7 @@ const AddRounded = craftercms.utils.constants.components.get('@mui/icons-materia
 const DeleteOutlineRounded = craftercms.utils.constants.components.get('@mui/icons-material/DeleteOutlineRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/DeleteOutlineRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/DeleteOutlineRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/DeleteOutlineRounded');
 const RefreshRounded = craftercms.utils.constants.components.get('@mui/icons-material/RefreshRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/RefreshRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/RefreshRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/RefreshRounded');
 const SaveRounded = craftercms.utils.constants.components.get('@mui/icons-material/SaveRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/SaveRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/SaveRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/SaveRounded');
+const FormatListBulletedRounded = craftercms.utils.constants.components.get('@mui/icons-material/FormatListBulletedRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/FormatListBulletedRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/FormatListBulletedRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/FormatListBulletedRounded');
 const Autocomplete$1 = craftercms.libs.MaterialUI.Autocomplete && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.Autocomplete, 'default') ? craftercms.libs.MaterialUI.Autocomplete['default'] : craftercms.libs.MaterialUI.Autocomplete;
 
 /*
@@ -34528,6 +34529,23 @@ async function fetchAiAssistantScriptsIndex(siteId) {
     }
     return data;
 }
+async function postAiAssistantMcpToolsPreview(siteId, body) {
+    const res = await fetch(withSite$1(`${BASE$1}/mcp-tools-preview`, siteId), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json',
+            ...buildStudioAuthHeaders()
+        },
+        body: JSON.stringify({ siteId, ...body })
+    });
+    const raw = await res.json().catch(() => ({}));
+    const data = unwrapPluginScriptBody$1(raw);
+    if (!res.ok) {
+        return { ok: false, message: data.message ?? raw.message ?? res.statusText };
+    }
+    return data;
+}
 async function postAiAssistantScriptsMutate(siteId, payload) {
     const res = await fetch(withSite$1(`${BASE$1}/mutate`, siteId), {
         method: 'POST',
@@ -35435,6 +35453,32 @@ function validateToolsPolicy(state) {
     }
     return { ok: true };
 }
+/** Body for {@code mcp-tools-preview} — same {@code mcpServers} rows as persisted in {@code tools.json}. */
+function buildMcpToolsPreviewBody(state) {
+    const mcpServers = state.mcpServers
+        .map((r) => {
+        const id = r.id.trim();
+        const url = r.url.trim();
+        if (!id || !url) {
+            return null;
+        }
+        const rec = { id, url };
+        const headers = headersObjectFromPairs(r.headerPairs);
+        if (headers) {
+            rec.headers = headers;
+        }
+        const rt = r.readTimeoutMs.trim();
+        if (rt) {
+            const n = Math.round(Number(rt));
+            if (Number.isFinite(n)) {
+                rec.readTimeoutMs = n;
+            }
+        }
+        return rec;
+    })
+        .filter((x) => x != null);
+    return { mcpEnabled: Boolean(state.mcpEnabled), mcpServers };
+}
 function serializeToolsPolicyToJson(state) {
     const mcpServers = state.mcpServers
         .map((r) => {
@@ -35488,7 +35532,7 @@ function AiAssistantToolsMcpForm(props) {
     return (jsxs(Stack$1, { spacing: 4, children: [jsxs(Paper, { variant: "outlined", sx: { p: 2.5 }, children: [jsx$1(Typography, { variant: "subtitle2", gutterBottom: true, children: "Built-In CMS Tools:" }), jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Optional lists use exact wire names (see product docs). If ", jsx$1("strong", { children: "Whitelist" }), " is non-empty, only those built-ins stay; ", jsx$1("code", { children: "InvokeSiteUserTool" }), " and dynamic ", jsx$1("code", { children: "mcp_*" }), " tools still register unless you disable them below or in ", jsx$1("strong", { children: "Hide MCP tools" }), "."] }), jsxs(Stack$1, { spacing: 2, children: [jsx$1(Autocomplete, { multiple: true, freeSolo: true, options: [...BUILTIN_TOOL_NAME_OPTIONS], value: value.disabledBuiltInTools, onChange: (_, v) => onChange({ ...value, disabledBuiltInTools: v.map(String) }), renderTags: (tagValue, getTagProps) => tagValue.map((option, index) => (createElement(Chip, { variant: "outlined", label: option, size: "small", ...getTagProps({ index }), key: `${option}-${index}` }))), renderInput: (params) => (jsx$1(TextField, { ...params, label: "Hide built-in tools", placeholder: "e.g. GenerateImage", size: "small" })) }), jsx$1(Autocomplete, { multiple: true, freeSolo: true, options: [...BUILTIN_TOOL_NAME_OPTIONS], value: value.enabledBuiltInTools, onChange: (_, v) => onChange({ ...value, enabledBuiltInTools: v.map(String) }), renderTags: (tagValue, getTagProps) => tagValue.map((option, index) => (createElement(Chip, { variant: "outlined", label: option, size: "small", ...getTagProps({ index }), key: `${option}-${index}` }))), renderInput: (params) => (jsx$1(TextField, { ...params, label: "Whitelist built-in tools (optional)", placeholder: "Leave empty for no whitelist", size: "small" })) })] })] }), jsxs(Paper, { variant: "outlined", sx: { p: 2.5 }, children: [jsxs(Stack$1, { direction: "row", alignItems: "center", justifyContent: "space-between", sx: { mb: 1 }, children: [jsx$1(Typography, { variant: "subtitle2", children: "MCP (Streamable HTTP):" }), jsx$1(FormControlLabel, { control: jsx$1(Switch, { checked: value.mcpEnabled, onChange: (_, c) => setMcpEnabled(c), size: "small" }), label: "Enable MCP client" })] }), jsx$1(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: "When enabled, each server below is contacted on chat requests to list and call remote tools. URLs must pass the same outbound rules as FetchHttpUrl." }), jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Example (streamable HTTP, optional headers, read-only URL patterns):", ' ', jsx$1(Link, { href: "https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md", target: "_blank", rel: "noopener noreferrer", children: "GitHub MCP Server \u2014 remote-server.md" }), "."] }), value.mcpEnabled ? (jsxs(Fragment, { children: [jsxs(Stack$1, { direction: "row", alignItems: "center", justifyContent: "space-between", sx: { mb: 1 }, children: [jsx$1(Typography, { variant: "body2", children: "MCP servers" }), jsx$1(Button, { size: "small", startIcon: jsx$1(AddRounded, {}), onClick: addServer, children: "Add server" })] }), value.mcpServers.length === 0 ? (jsx$1(Typography, { variant: "body2", color: "text.secondary", sx: { mb: 1 }, children: "No servers yet. Use Add server to register a Streamable HTTP MCP endpoint." })) : (jsxs(Table$1, { size: "small", sx: { border: 1, borderColor: 'divider', borderRadius: 1, mb: 1 }, children: [jsx$1(TableHead, { children: jsxs(TableRow, { children: [jsx$1(TableCell, { children: "Server id" }), jsx$1(TableCell, { children: "MCP URL and optional headers" }), jsx$1(TableCell, { width: 120, children: "Timeout (ms)" }), jsx$1(TableCell, { align: "right", width: 88, children: ' ' })] }) }), jsx$1(TableBody, { children: value.mcpServers.map((row, si) => (jsxs(TableRow, { children: [jsx$1(TableCell, { sx: { verticalAlign: 'top' }, children: jsx$1(TextField, { size: "small", fullWidth: true, value: row.id, onChange: (e) => updateServer(si, { ...row, id: e.target.value }), placeholder: "e.g. docs" }) }), jsxs(TableCell, { sx: { verticalAlign: 'top' }, children: [jsx$1(TextField, { size: "small", fullWidth: true, value: row.url, onChange: (e) => updateServer(si, { ...row, url: e.target.value }), placeholder: "https://host/\u2026/mcp" }), jsxs(Stack$1, { spacing: 0.5, sx: { mt: 1 }, children: [jsx$1(Typography, { variant: "caption", color: "text.secondary", children: "Optional headers" }), row.headerPairs.map((hp, hi) => (jsxs(Stack$1, { direction: "row", spacing: 0.5, alignItems: "center", children: [jsx$1(TextField, { size: "small", label: "Name", value: hp.key, onChange: (e) => {
                                                                                 const headerPairs = row.headerPairs.map((p, j) => j === hi ? { ...p, key: e.target.value } : p);
                                                                                 updateServer(si, { ...row, headerPairs });
-                                                                            }, sx: { flex: 1 } }), jsx$1(TextField, { size: "small", label: "Value", value: hp.value, onChange: (e) => {
+                                                                            }, sx: { flex: 1 } }), jsx$1(TextField, { size: "small", label: "Value", type: hp.key.trim().toLowerCase() === 'authorization' ? 'password' : 'text', autoComplete: "off", value: hp.value, onChange: (e) => {
                                                                                 const headerPairs = row.headerPairs.map((p, j) => j === hi ? { ...p, value: e.target.value } : p);
                                                                                 updateServer(si, { ...row, headerPairs });
                                                                             }, sx: { flex: 2 } }), jsx$1(IconButton, { size: "small", "aria-label": "Remove header", onClick: () => {
@@ -69905,6 +69949,9 @@ function safeJsonParse(text) {
         return null;
     }
 }
+function mcpPreviewHasPickableTools(servers) {
+    return servers.some((s) => s.ok && s.tools.length > 0);
+}
 function AiAssistantScriptsSandboxConfiguration(props) {
     const panel = props.panel ?? 'all';
     const showPrompts = panel === 'all' || panel === 'prompts';
@@ -69922,6 +69969,8 @@ function AiAssistantScriptsSandboxConfiguration(props) {
     const [toolsPolicy, setToolsPolicy] = useState(() => defaultToolsPolicyFormState());
     const [toolsPolicyDirty, setToolsPolicyDirty] = useState(false);
     const [savingToolsPolicy, setSavingToolsPolicy] = useState(false);
+    const [mcpToolsDialog, setMcpToolsDialog] = useState(null);
+    const [listingMcpTools, setListingMcpTools] = useState(false);
     const [editorOpen, setEditorOpen] = useState(false);
     const [editorFullscreen, setEditorFullscreen] = useState(false);
     const [editorTitle, setEditorTitle] = useState('');
@@ -69997,6 +70046,12 @@ function AiAssistantScriptsSandboxConfiguration(props) {
     useEffect(() => {
         void reload();
     }, [reload]);
+    const mcpListPreviewAllowed = useMemo(() => {
+        const v = validateToolsPolicy(toolsPolicy);
+        if (!v.ok)
+            return false;
+        return toolsPolicy.mcpEnabled && buildMcpToolsPreviewBody(toolsPolicy).mcpServers.length > 0;
+    }, [toolsPolicy]);
     const tools = useMemo(() => (index?.tools ?? []), [index]);
     const imageGens = useMemo(() => (index?.imageGenerators ?? []), [index]);
     const llms = useMemo(() => (index?.llmScripts ?? []), [index]);
@@ -70023,15 +70078,15 @@ function AiAssistantScriptsSandboxConfiguration(props) {
             setSavingRegistry(false);
         }
     };
-    const saveToolsPolicy = async () => {
+    const performWriteToolsPolicy = async (policy) => {
         if (!siteId)
             return;
-        const v = validateToolsPolicy(toolsPolicy);
+        const v = validateToolsPolicy(policy);
         if (!v.ok) {
             setLoadError(v.message);
             return;
         }
-        const normalized = serializeToolsPolicyToJson(toolsPolicy);
+        const normalized = serializeToolsPolicyToJson(policy);
         setSavingToolsPolicy(true);
         setLoadError(null);
         try {
@@ -70043,6 +70098,121 @@ function AiAssistantScriptsSandboxConfiguration(props) {
             setToolsPolicyDirty(false);
             await postAiAssistantScriptsMutate(siteId, { action: 'refreshSync' }).catch(() => { });
             await reload();
+        }
+        catch (e) {
+            setLoadError(e instanceof Error ? e.message : String(e));
+        }
+        finally {
+            setSavingToolsPolicy(false);
+        }
+    };
+    const confirmMcpToolsDialogSave = async () => {
+        if (!mcpToolsDialog || mcpToolsDialog.purpose !== 'pickForSave')
+            return;
+        const { basePolicy, servers, selection, preservedDisabled } = mcpToolsDialog;
+        if (!mcpPreviewHasPickableTools(servers)) {
+            setMcpToolsDialog(null);
+            await performWriteToolsPolicy(basePolicy);
+            return;
+        }
+        const disFromPicker = Object.keys(selection).filter((w) => !selection[w]);
+        const nextDisabled = [...new Set([...preservedDisabled, ...disFromPicker])];
+        const nextPolicy = { ...basePolicy, disabledMcpTools: nextDisabled };
+        setMcpToolsDialog(null);
+        await performWriteToolsPolicy(nextPolicy);
+    };
+    const setMcpServerToolsEnabled = (serverId, enabled) => {
+        setMcpToolsDialog((d) => {
+            if (!d || d.purpose !== 'pickForSave')
+                return d;
+            if (!mcpPreviewHasPickableTools(d.servers))
+                return d;
+            const server = d.servers.find((s) => s.serverId === serverId && s.ok);
+            if (!server)
+                return d;
+            const sel = { ...d.selection };
+            for (const t of server.tools) {
+                sel[t.wireName] = enabled;
+            }
+            return { ...d, selection: sel };
+        });
+    };
+    const openMcpToolsListOnly = async () => {
+        if (!siteId)
+            return;
+        const v = validateToolsPolicy(toolsPolicy);
+        if (!v.ok) {
+            setLoadError(v.message);
+            return;
+        }
+        const previewBody = buildMcpToolsPreviewBody(toolsPolicy);
+        if (!toolsPolicy.mcpEnabled || previewBody.mcpServers.length === 0) {
+            return;
+        }
+        setListingMcpTools(true);
+        setLoadError(null);
+        try {
+            const preview = await postAiAssistantMcpToolsPreview(siteId, previewBody);
+            if (preview.ok === false) {
+                setLoadError(preview.message ?? 'Could not list MCP tools.');
+                return;
+            }
+            setMcpToolsDialog({ purpose: 'listOnly', servers: preview.servers ?? [] });
+        }
+        catch (e) {
+            setLoadError(e instanceof Error ? e.message : String(e));
+        }
+        finally {
+            setListingMcpTools(false);
+        }
+    };
+    const saveToolsPolicy = async () => {
+        if (!siteId)
+            return;
+        const v = validateToolsPolicy(toolsPolicy);
+        if (!v.ok) {
+            setLoadError(v.message);
+            return;
+        }
+        const previewBody = buildMcpToolsPreviewBody(toolsPolicy);
+        if (!toolsPolicy.mcpEnabled || previewBody.mcpServers.length === 0) {
+            await performWriteToolsPolicy(toolsPolicy);
+            return;
+        }
+        setSavingToolsPolicy(true);
+        setLoadError(null);
+        try {
+            const preview = await postAiAssistantMcpToolsPreview(siteId, previewBody);
+            if (preview.ok === false) {
+                setLoadError(preview.message ?? 'Could not list MCP tools. Fix servers or try again.');
+                return;
+            }
+            const servers = preview.servers ?? [];
+            const discoveredLower = new Set();
+            for (const s of servers) {
+                if (s.ok) {
+                    for (const t of s.tools) {
+                        discoveredLower.add(t.wireName.trim().toLowerCase());
+                    }
+                }
+            }
+            const preservedDisabled = toolsPolicy.disabledMcpTools.filter((d) => !discoveredLower.has(d.trim().toLowerCase()));
+            const disLower = new Set(toolsPolicy.disabledMcpTools.map((d) => d.trim().toLowerCase()));
+            const selection = {};
+            for (const s of servers) {
+                if (!s.ok)
+                    continue;
+                for (const t of s.tools) {
+                    selection[t.wireName] = !disLower.has(t.wireName.trim().toLowerCase());
+                }
+            }
+            setMcpToolsDialog({
+                purpose: 'pickForSave',
+                basePolicy: toolsPolicy,
+                selection,
+                servers,
+                preservedDisabled
+            });
         }
         catch (e) {
             setLoadError(e instanceof Error ? e.message : String(e));
@@ -70249,7 +70419,7 @@ function AiAssistantScriptsSandboxConfiguration(props) {
                             }, children: "Reload" }) }), showTools ? (jsxs(Fragment, { children: [jsxs(Typography, { variant: "subtitle1", gutterBottom: true, children: ["Built-In Tools and MCP (", jsx$1("code", { children: TOOLS_JSON_REL }), "):"] }), jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Use the form below to map built-in tools and optional MCP servers. The site file remains", ' ', jsx$1("code", { children: "scripts/aiassistant/config/tools.json" }), " (written on Save). MCP tools use wire names like", ' ', jsx$1("code", { children: "mcp_<serverId>_<toolName>" }), "."] }), jsx$1(AiAssistantToolsMcpForm, { value: toolsPolicy, onChange: (next) => {
                                     setToolsPolicy(next);
                                     setToolsPolicyDirty(true);
-                                } }), jsx$1(Button, { sx: { mt: 2 }, size: "small", variant: "contained", startIcon: jsx$1(SaveRounded, {}), disabled: savingToolsPolicy || !toolsPolicyDirty, onClick: () => void saveToolsPolicy(), children: "Save tools & MCP" }), jsx$1(Divider, { sx: { my: 4 } }), jsxs(Typography, { variant: "subtitle1", gutterBottom: true, children: ["Registry (", jsx$1("code", { children: REGISTRY_REL }), "):"] }), showRegistryJsonEditor ? null : (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Use ", jsx$1("strong", { children: "Add tool" }), " and the table below to change the registry. For a raw JSON view or hand edits, use ", jsx$1("strong", { children: "Open in editor" }), "."] })), showRegistryJsonEditor ? (jsx$1(AiAssistantStudioCodeEditor, { language: "json", value: registryDraft, onChange: (v) => {
+                                } }), jsxs(Stack$1, { direction: "row", spacing: 1, sx: { mt: 2 }, flexWrap: "wrap", alignItems: "center", children: [jsx$1(Button, { size: "small", variant: "contained", startIcon: savingToolsPolicy ? jsx$1(CircularProgress, { size: 16, color: "inherit" }) : jsx$1(SaveRounded, {}), disabled: savingToolsPolicy || !toolsPolicyDirty, onClick: () => void saveToolsPolicy(), children: "Save tools & MCP" }), jsx$1(Button, { size: "small", variant: "outlined", startIcon: listingMcpTools ? jsx$1(CircularProgress, { size: 16, color: "inherit" }) : jsx$1(FormatListBulletedRounded, {}), disabled: savingToolsPolicy || listingMcpTools || !mcpListPreviewAllowed, onClick: () => void openMcpToolsListOnly(), children: "List MCP tools" })] }), jsx$1(Divider, { sx: { my: 4 } }), jsxs(Typography, { variant: "subtitle1", gutterBottom: true, children: ["Registry (", jsx$1("code", { children: REGISTRY_REL }), "):"] }), showRegistryJsonEditor ? null : (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Use ", jsx$1("strong", { children: "Add tool" }), " and the table below to change the registry. For a raw JSON view or hand edits, use ", jsx$1("strong", { children: "Open in editor" }), "."] })), showRegistryJsonEditor ? (jsx$1(AiAssistantStudioCodeEditor, { language: "json", value: registryDraft, onChange: (v) => {
                                     setRegistryDraft(v);
                                     setRegistryDirty(true);
                                 }, minHeightPx: 260 })) : null, showRegistryJsonEditor ? (jsx$1(Button, { sx: { mt: 1 }, size: "small", variant: "contained", startIcon: jsx$1(SaveRounded, {}), disabled: savingRegistry || !registryDirty, onClick: () => void saveRegistry(), children: "Save registry" })) : null, jsx$1(Button, { sx: { mt: 1, ...(showRegistryJsonEditor ? { ml: 1 } : {}) }, size: "small", onClick: () => loadFileForEditor('Registry', `/${REGISTRY_REL}`, AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB), children: "Open in editor" })] })) : null, showTools && showPrompts ? jsx$1(Divider, { sx: { my: 4 } }) : null, showPrompts ? (jsxs(Fragment, { children: [jsxs(Typography, { variant: "subtitle1", gutterBottom: true, children: ["Tool Prompt Overrides (", jsx$1("code", { children: "scripts/aiassistant/prompts/" }), "):"] }), jsx$1(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: "Non-empty markdown for a key replaces the plugin default (see ToolPromptsLoader). Remove the file to use the built-in text again. Click a row to read the default and the site file side by side." }), jsx$1(TableContainer, { sx: { maxHeight: 420, border: 1, borderColor: 'divider', borderRadius: 1 }, children: jsxs(Table$1, { size: "small", stickyHeader: true, children: [jsx$1(TableHead, { children: jsxs(TableRow, { children: [jsx$1(TableCell, { children: "Key" }), jsx$1(TableCell, { children: "Status" }), jsx$1(TableCell, { align: "right", children: "Actions" })] }) }), jsx$1(TableBody, { children: toolPromptOverrides.length === 0 ? (jsx$1(TableRow, { children: jsx$1(TableCell, { colSpan: 3, children: jsx$1(Typography, { variant: "body2", color: "text.secondary", children: "No prompt keys returned from the server." }) }) })) : (toolPromptOverrides.map((row) => (jsxs(TableRow, { hover: true, selected: promptReadOpen && promptReadKey === row.key, sx: { cursor: 'pointer' }, onClick: () => openPromptRead(row.key), children: [jsx$1(TableCell, { children: jsx$1("code", { children: row.key }) }), jsx$1(TableCell, { children: row.hasOverride ? `Site override (${row.byteLength} bytes)` : 'Built-in default' }), jsxs(TableCell, { align: "right", children: [jsx$1(Button, { size: "small", startIcon: jsx$1(EditRounded, {}), onClick: (ev) => {
@@ -70380,7 +70550,18 @@ function AiAssistantScriptsSandboxConfiguration(props) {
                                     : undefined, children: [jsx$1(TextField, { label: "Id (lowercase, a-z 0-9 _ -)", value: addId, onChange: (ev) => setAddId(ev.target.value), fullWidth: true, size: "small", margin: "normal" }), addOpen === 'tool' ? (jsxs(Fragment, { children: [jsx$1(TextField, { label: "Script file (e.g. MyTool.groovy)", value: addScript, onChange: (ev) => setAddScript(ev.target.value), fullWidth: true, size: "small", margin: "normal" }), jsx$1(TextField, { label: "Description", value: addDesc, onChange: (ev) => setAddDesc(ev.target.value), fullWidth: true, size: "small", margin: "normal" })] })) : null] }), jsxs(DialogActions, { sx: { flexShrink: 0 }, children: [jsx$1(Button, { onClick: () => {
                                             setAddDialogFullscreen(false);
                                             setAddOpen(null);
-                                        }, children: "Cancel" }), jsx$1(Button, { variant: "contained", onClick: () => void runAddSubmit(), children: "Create" })] })] })] }))] }));
+                                        }, children: "Cancel" }), jsx$1(Button, { variant: "contained", onClick: () => void runAddSubmit(), children: "Create" })] })] }), jsxs(Dialog, { open: mcpToolsDialog != null, onClose: () => !savingToolsPolicy && !listingMcpTools && setMcpToolsDialog(null), maxWidth: "md", fullWidth: true, children: [jsx$1(DialogTitle, { children: mcpToolsDialog?.purpose === 'listOnly' ? 'MCP tools from servers' : 'MCP tools to register' }), jsx$1(DialogContent, { dividers: true, children: mcpToolsDialog ? (jsxs(Stack$1, { spacing: 3, children: [mcpToolsDialog.purpose === 'listOnly' ? (jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: ["Read-only preview from each server's ", jsx$1("code", { children: "tools/list" }), ' (same wire names Studio uses in chat).'] })) : mcpPreviewHasPickableTools(mcpToolsDialog.servers) ? (jsxs(Typography, { variant: "body2", color: "text.secondary", children: ["Unchecked tools are saved to ", jsx$1("code", { children: "disabledMcpTools" }), " in ", jsx$1("code", { children: TOOLS_JSON_REL }), ". Hide-list entries that were not discovered in this run are kept."] })) : (jsxs(Typography, { variant: "body2", color: "text.secondary", component: "div", children: ["No tools were returned from any server, so per-tool enable/disable is not available. The table below shows each server's status. ", "You can still ", jsx$1("strong", { children: "Save" }), " to write the rest of this form unchanged, or ", jsx$1("strong", { children: "Cancel" }), "."] })), mcpToolsDialog.servers.map((sv, svi) => {
+                                            const showPickUI = mcpToolsDialog.purpose === 'pickForSave' && mcpPreviewHasPickableTools(mcpToolsDialog.servers);
+                                            return (jsxs(Box, { children: [jsxs(Stack$1, { direction: "row", alignItems: "center", justifyContent: "space-between", sx: { mb: 1 }, flexWrap: "wrap", gap: 1, children: [jsxs(Typography, { variant: "subtitle2", children: ["Server: ", sv.serverId] }), showPickUI && sv.ok ? (jsxs(Stack$1, { direction: "row", spacing: 1, children: [jsx$1(Button, { size: "small", onClick: () => setMcpServerToolsEnabled(sv.serverId, true), children: "Enable all" }), jsx$1(Button, { size: "small", onClick: () => setMcpServerToolsEnabled(sv.serverId, false), children: "Disable all" })] })) : null] }), sv.ok ? (sv.tools.length === 0 ? (jsx$1(Typography, { variant: "body2", color: "text.secondary", children: "No tools returned by tools/list." })) : (jsx$1(TableContainer, { sx: { border: 1, borderColor: 'divider', borderRadius: 1 }, children: jsxs(Table$1, { size: "small", children: [jsx$1(TableHead, { children: jsxs(TableRow, { children: [showPickUI ? jsx$1(TableCell, { padding: "checkbox" }) : null, jsx$1(TableCell, { children: "Wire name" }), jsx$1(TableCell, { children: "MCP tool" }), jsx$1(TableCell, { children: "Description" })] }) }), jsx$1(TableBody, { children: sv.tools.map((t) => (jsxs(TableRow, { children: [showPickUI && mcpToolsDialog.purpose === 'pickForSave' ? (jsx$1(TableCell, { padding: "checkbox", children: jsx$1(Checkbox, { checked: Boolean(mcpToolsDialog.selection[t.wireName]), onChange: () => setMcpToolsDialog((d) => {
+                                                                                        if (!d || d.purpose !== 'pickForSave')
+                                                                                            return d;
+                                                                                        const cur = Boolean(d.selection[t.wireName]);
+                                                                                        return {
+                                                                                            ...d,
+                                                                                            selection: { ...d.selection, [t.wireName]: !cur }
+                                                                                        };
+                                                                                    }) }) })) : null, jsx$1(TableCell, { children: jsx$1("code", { children: t.wireName }) }), jsx$1(TableCell, { children: t.mcpToolName }), jsx$1(TableCell, { sx: { maxWidth: 360 }, children: t.description })] }, t.wireName))) })] }) }))) : (jsx$1(Alert, { severity: "error", children: sv.message ?? 'Failed to reach MCP server.' }))] }, `${sv.serverId}-${svi}`));
+                                        })] })) : null }), jsx$1(DialogActions, { children: mcpToolsDialog?.purpose === 'listOnly' ? (jsx$1(Button, { onClick: () => setMcpToolsDialog(null), children: "Close" })) : (jsxs(Fragment, { children: [jsx$1(Button, { onClick: () => setMcpToolsDialog(null), disabled: savingToolsPolicy, children: "Cancel" }), jsx$1(Button, { variant: "contained", onClick: () => void confirmMcpToolsDialogSave(), disabled: savingToolsPolicy, children: "Save" })] })) })] })] }))] }));
 }
 
 const BASE = '/studio/api/2/plugin/script/plugins/org/craftercms/aiassistant/studio/aiassistant/content-types/list';

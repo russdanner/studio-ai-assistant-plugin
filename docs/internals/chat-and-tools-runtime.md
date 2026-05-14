@@ -2,10 +2,10 @@
 
 Companion to **[`spec.md`](spec.md)** for tools, REST bodies, CrafterQ/SaaS HTTP, MCP, and runtime troubleshooting contracts. When those behaviors change, update **this file** and the relevant **`spec.md`** sections.
 
-**Audience:** Maintainers and advanced operators working on **tools**, **SSE**, **optional hosted SaaS identity**, or **Studio integration**. For **`<llm>`** selection and keys, see [llm-configuration.md](../using-and-extending/llm-configuration.md).
+**Audience:** Maintainers and advanced integrators working on **tools**, **SSE**, **optional hosted SaaS identity**, or **Studio integration**. For **`<llm>`** selection and keys, see [llm-configuration.md](../using-and-extending/llm-configuration.md).
 
 **LLM ids, keys, and provider behavior:** [llm-configuration.md](../using-and-extending/llm-configuration.md)  
-**Operator checklist and `ui.xml` surfaces:** [configuration-guide.md](../using-and-extending/configuration-guide.md)  
+**Admin checklist and `ui.xml` surfaces:** [configuration-guide.md](../using-and-extending/configuration-guide.md)  
 **Product requirements & mechanics (parent spec):** [spec.md](spec.md)
 
 ---
@@ -110,7 +110,7 @@ These three tools are registered **only** for agents that use the **Spring AI na
 
 **Crafter `${env:…}` vs this plugin:** CrafterCMS documents **`${env:ENVIRONMENT_VARIABLE}`** substitution for **Studio server configuration** (for example properties in `studio-config.yaml` and related override files). See [Studio configuration](https://craftercms.com/docs/4.1/reference/modules/studio/configuration/index.html). This plugin **does not** implement or interpret that syntax inside **`&lt;crafterQBearerToken&gt;`** / JSON mirror fields; bearer values there are **literal strings** (after optional `Bearer ` strip). For a JWT from the host environment, use **`&lt;crafterQBearerTokenEnv&gt;`** as above.
 
-**Operator diagnostics (no full secrets in logs):** When a bearer is installed from the stream/chat POST body, Studio logs **INFO** with **source** (`env:VAR` or `literal:POST`), **character count**, and a **short preview** (first/last characters only). If **`crafterQBearerTokenEnv`** is present but **`System.getenv`** returns blank, Studio logs **WARN** (env name not resolved — check JVM env and Studio restart). On CrafterQ **401/403** from GET/POST to `api.crafterq.ai`, Studio logs **WARN** with whether a bearer was stored on the request, the same preview, and whether **`X-CrafterQ-Chat-User`** was present. **`ListCrafterQAgentChats` / `GetCrafterQAgentChat`** error payloads may include **`crafterQBearerInstalledFromPost`**, **`crafterQBearerPreview`**, and **`xCrafterQChatUserPresent`** for the model.
+**Diagnostics (no full secrets in logs):** When a bearer is installed from the stream/chat POST body, Studio logs **INFO** with **source** (`env:VAR` or `literal:POST`), **character count**, and a **short preview** (first/last characters only). If **`crafterQBearerTokenEnv`** is present but **`System.getenv`** returns blank, Studio logs **WARN** (env name not resolved — check JVM env and Studio restart). On CrafterQ **401/403** from GET/POST to `api.crafterq.ai`, Studio logs **WARN** with whether a bearer was stored on the request, the same preview, and whether **`X-CrafterQ-Chat-User`** was present. **`ListCrafterQAgentChats` / `GetCrafterQAgentChat`** error payloads may include **`crafterQBearerInstalledFromPost`**, **`crafterQBearerPreview`**, and **`xCrafterQChatUserPresent`** for the model.
 
 If listing or chat calls return **401/403**, verify **`X-CrafterQ-Chat-User`** and/or the bearer env/token above and that CrafterQ accepts that identity. On **401**, the tool result JSON also includes **`authHint`** (server-added) with the same checklist so the model can quote it in chat.
 
@@ -131,7 +131,7 @@ Sites can attach **remote MCP servers** so **tools-loop chat** agents (and other
 | Key | Purpose |
 |-----|---------|
 | **`mcpEnabled`** | **Required to turn MCP on:** JSON boolean **`true`**. If omitted or **`false`**, **`mcpServers` is ignored** (no outbound MCP calls, no `mcp_*` tools registered). |
-| **`mcpServers`** | JSON array of server objects (processed only when **`mcpEnabled`** is **`true`**): required **`id`**, required **`url`** (MCP **Streamable HTTP** endpoint — single path accepting `POST`), optional **`headers`**, optional **`readTimeoutMs`** (default **120000**). |
+| **`mcpServers`** | JSON array of server objects (processed only when **`mcpEnabled`** is **`true`**): required **`id`**, required **`url`** (MCP **Streamable HTTP** endpoint — single path accepting `POST`), optional **`headers`**, optional **`readTimeoutMs`** (default **120000**). In each **`headers`** value, **`${env:VAR_NAME}`** expands to **`System.getenv(VAR_NAME)`** on the Studio JVM (unset → empty string). |
 | **`disabledMcpTools`** | Optional array of **wire** tool names to omit (case-insensitive), e.g. **`mcp_docs_search`**. You can also list those names under **`disabledBuiltInTools`**. |
 
 ### Wire Names and Lifecycle
@@ -163,7 +163,7 @@ Inside an `<agent>` that uses `<llm>openAI</llm>`, add one or more **`<expertSki
 
 Element form is also supported: `<expertSkill><name>…</name><url>…</url><description>…</description></expertSkill>`.
 
-**Optional operator tuning (expert skills only):** Markdown from `<expertSkill>` URLs is chunked and embedded into a per-skill in-memory index on the Studio server; defaults are usually enough. If you hit size or memory limits, optional JVM tuning keys are documented in **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)** (section **Expert skills**). This is **not** agent `ui.xml` configuration and is unrelated to CrafterQ bearer tokens.
+**Optional tuning (expert skills only):** Markdown from `<expertSkill>` URLs is chunked and embedded into a per-skill in-memory index on the Studio server; defaults are usually enough. If you hit size or memory limits, optional JVM tuning keys are documented in **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)** (section **Expert skills**). This is **not** agent `ui.xml` configuration and is unrelated to CrafterQ bearer tokens.
 
 ---
 

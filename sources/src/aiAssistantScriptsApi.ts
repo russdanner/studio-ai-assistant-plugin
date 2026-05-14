@@ -98,6 +98,47 @@ export async function fetchAiAssistantScriptsIndex(siteId: string): Promise<AiAs
   return data;
 }
 
+export type AiAssistantMcpToolPreviewItem = {
+  wireName: string;
+  mcpToolName: string;
+  description: string;
+};
+
+export type AiAssistantMcpPreviewServer = {
+  serverId: string;
+  ok: boolean;
+  message?: string;
+  tools: AiAssistantMcpToolPreviewItem[];
+};
+
+export type AiAssistantMcpToolsPreviewResponse = {
+  ok?: boolean;
+  message?: string;
+  mcpEnabled?: boolean;
+  servers?: AiAssistantMcpPreviewServer[];
+};
+
+export async function postAiAssistantMcpToolsPreview(
+  siteId: string,
+  body: { mcpEnabled: boolean; mcpServers: Record<string, unknown>[] }
+): Promise<AiAssistantMcpToolsPreviewResponse> {
+  const res = await fetch(withSite(`${BASE}/mcp-tools-preview`, siteId), {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...buildStudioAuthHeaders()
+    },
+    body: JSON.stringify({ siteId, ...body })
+  });
+  const raw = await res.json().catch(() => ({}));
+  const data = unwrapPluginScriptBody(raw) as AiAssistantMcpToolsPreviewResponse;
+  if (!res.ok) {
+    return { ok: false, message: data.message ?? (raw as { message?: string }).message ?? res.statusText };
+  }
+  return data;
+}
+
 export async function postAiAssistantScriptsMutate(
   siteId: string,
   payload: Record<string, unknown>

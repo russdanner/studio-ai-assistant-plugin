@@ -23,11 +23,12 @@ Use this skill when editing **this repo**: `plugin-studio-crafterq` — Studio p
 
 ## Documentation map
 
-- **`docs/internals/spec.md`** — **Official** product requirements & mechanics; update when behavior or contracts change. **Studio UI flags:** anchor **`#studio-ui-flags-studio-uijson`** (`studio-ui.json`, Project Tools).
-- **`docs/README.md`** — Index: **using & extending** vs **internals**.
-- **`docs/using-and-extending/configuration-guide.md`** — Operators: `ui.xml` surfaces, plugin id, agents, keys checklist; **`§1e`** `studio-ui.json` + Project Tools UI.
+- **`docs/using-and-extending/installation.md`** — Install the plugin (Studio UI, CLI, Marketplace **`copy`**, build-before-install).
+- **`docs/using-and-extending/configuration-guide.md`** — Admins configure a site: `ui.xml`, plugin id, agents, keys, **`§1e`** **`studio-ui.json`** + Project Tools UI, forms. **Screenshots:** anchor **`#cg-screenshots`**.
+- **`docs/README.md`** — Documentation index (**using & extending** vs **internals**).
 - **`docs/using-and-extending/product-requirements.md`** — Product obligations (authors, admins, integrators); wire and build contracts live in **`spec.md`** and linked guides.
-- **`docs/using-and-extending/`** — **`llm-configuration.md`**, **`studio-plugins-guide.md`**, **`README.md`** (install, `user-tools/`, script LLM paths).
+- **`docs/internals/spec.md`** — **Official** product requirements & mechanics; update when behavior or contracts change. **Studio UI flags:** anchor **`#studio-ui-flags-studio-uijson`** (`studio-ui.json`, Project Tools).
+- **`docs/using-and-extending/`** — **`llm-configuration.md`**, **`studio-plugins-guide.md`**, **`README.md`** (`user-tools/`, script LLM paths, other guides).
 - **`docs/internals/`** — Maintainers: **`docs/internals/README.md`**, **`docs/internals/spec.md`**, **`docs/internals/stream-endpoint-design.md`**, MCP client notes in **`chat-and-tools-runtime.md`**.
 
 ## Mechanical checklist (non-UI changes)
