@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import useActiveSiteId from '@craftercms/studio-ui/hooks/useActiveSiteId';
-import { fetchConfigurationJSON, writeConfiguration } from '@craftercms/studio-ui/services/configuration';
+import { writeConfiguration } from '@craftercms/studio-ui/services/configuration';
 import { firstValueFrom } from 'rxjs';
 import AddRounded from '@mui/icons-material/AddRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
@@ -46,9 +46,17 @@ import {
   type ToolsPolicyFormState
 } from './aiAssistantToolsMcpUiModel';
 import {
+  defaultToolsPolicyFormState,
+  parseToolsPolicyFromJsonText,
+  serializeToolsPolicyToJson,
+  validateToolsPolicy,
+  type ToolsPolicyFormState
+} from './aiAssistantToolsMcpUiModel';
+import {
   fetchAiAssistantPromptDetail,
   fetchAiAssistantScriptsIndex,
   fetchOptionalStudioSandboxUtf8,
+  fetchStudioConfigFileUtf8,
   postAiAssistantScriptsMutate,
   studioConfigRelativePath,
   TOOLS_JSON_SANDBOX_PATH,
@@ -240,13 +248,8 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
   const loadFileForEditor = async (title: string, studioPath: string, stub: string) => {
     if (!siteId) return;
     const rel = studioConfigRelativePath(studioPath);
-    try {
-      const data = await firstValueFrom(fetchConfigurationJSON(siteId, rel, 'studio'));
-      const text = typeof data === 'string' ? data : '';
-      openEditor(title, studioPath, text, stub);
-    } catch {
-      openEditor(title, studioPath, '', stub);
-    }
+    const text = await fetchStudioConfigFileUtf8(siteId, rel);
+    openEditor(title, studioPath, text, stub);
   };
 
   const saveEditor = async () => {

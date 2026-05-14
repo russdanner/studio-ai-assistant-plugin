@@ -1886,8 +1886,13 @@ For **content XML** (pages/components): do not invent a new element tree — pre
         }
         def bodyStr = new String(bytes, StandardCharsets.UTF_8)
         if (!status.is2xxSuccessful()) {
+          String hint401 = ''
+          if (status.value() == 401) {
+            hint401 =
+              ' Troubleshooting (401): the Bearer key must match the tools-loop host (e.g. Groq keys start with gsk_; using an OpenAI sk-* key in <openAiApiKey> or the wrong env var while <llm>script:groq</llm> calls api.groq.com causes 401 with an empty body).'
+          }
           def msg =
-            "Tools-loop chat HTTP ${status.value()} ${statusText} responseBody=\n${AiHttpProxy.elideForLog(bodyStr, 4000)}"
+            "Tools-loop chat HTTP ${status.value()} ${statusText} responseBody=\n${AiHttpProxy.elideForLog(bodyStr, 4000)}${hint401}"
           if (logFailuresAsWarn) {
             log.warn(msg)
           } else {

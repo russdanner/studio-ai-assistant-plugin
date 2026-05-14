@@ -4,6 +4,8 @@
 //
 // Full vendor replacement: this script builds the entire Spring AI session (library chat types + AiOrchestrationTools)
 // for Studio’s tools-loop chat. It does NOT delegate to the plugin’s built-in Spring chat LLM runtimes.
+// Spring AI is vendor-neutral; OpenAi* types here are the spring-ai-openai module’s client for one HTTP JSON shape — your
+// base URL + model id are whatever vendor you configure (not necessarily OpenAI Inc.).
 //
 // Configure Studio (host-only base URL, no trailing /v1). Env/JVM identifiers below are legacy plugin spellings:
 //   export SCRIPT_LLM_OPENAI_COMPAT_BASE_URL=https://api.example.com

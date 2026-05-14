@@ -19,7 +19,7 @@ const MicRounded = craftercms.utils.constants.components.get('@mui/icons-materia
 const AssignmentRounded = craftercms.utils.constants.components.get('@mui/icons-material/AssignmentRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/AssignmentRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/AssignmentRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/AssignmentRounded');
 const { useSelector, useDispatch } = craftercms.libs.ReactRedux;
 const { fetchContentXML, fetchItemsByPath } = craftercms.services.content;
-const { fetchConfigurationXML, writeConfiguration, fetchConfigurationJSON } = craftercms.services.configuration;
+const { fetchConfigurationXML, writeConfiguration } = craftercms.services.configuration;
 const { createAction } = craftercms.libs.ReduxToolkit;
 const { getHostToGuestBus, getHostToHostBus, getGuestToHostBus } = craftercms.utils.subjects;
 const { firstValueFrom, of } = craftercms.libs.rxjs;
@@ -34545,14 +34545,15 @@ async function postAiAssistantScriptsMutate(siteId, payload) {
     }
     return data;
 }
-/** Studio configuration path for {@code writeConfiguration} / {@code fetchConfigurationJSON} (no leading slash). */
+/** Studio configuration path for {@code writeConfiguration} / {@code fetchConfigurationXML} (no leading slash). */
 function studioConfigRelativePath(studioModulePath) {
     const p = (studioModulePath ?? '').trim();
     return p.startsWith('/') ? p.slice(1) : p;
 }
 /** Sandbox repo path for {@code tools.json} (same file as Studio module {@code scripts/aiassistant/config/tools.json}). */
 const TOOLS_JSON_SANDBOX_PATH = '/config/studio/scripts/aiassistant/config/tools.json';
-function utf8TextFromContentPayload(raw) {
+/** Raw UTF-8 from Studio {@code fetchContentXML} / similar payloads (string or {@code content}/{@code configuration} envelope). */
+function utf8FromStudioContentPayload(raw) {
     if (raw == null)
         return '';
     if (typeof raw === 'string')
@@ -34586,7 +34587,47 @@ async function fetchOptionalStudioSandboxUtf8(siteId, sandboxPath) {
             return '';
         }
         const raw = await firstValueFrom(fetchContentXML(sid, path, { lock: false }).pipe(catchError(() => of(null))));
-        return utf8TextFromContentPayload(raw).trim();
+        return utf8FromStudioContentPayload(raw).trim();
+    }
+    catch {
+        return '';
+    }
+}
+/**
+ * Reads a site file under {@code /config/studio/<relative>} for the script sandbox editor.
+ * <ol>
+ *   <li>{@code get-content.json} via {@code fetchContentXML} when the path is not listed as missing from {@code sandbox_items_by_path}
+ *       (does <strong>not</strong> require {@code items[0]} — that slot can be empty right after writes while the file still exists).</li>
+ *   <li>If still empty, {@code get_configuration} raw string via {@code fetchConfigurationXML} — same stack as {@code write_configuration}.
+ *       Do <strong>not</strong> use {@code fetchConfigurationJSON}: it runs XML {@code deserialize} and destroys Groovy/JSON/plain text.</li>
+ * </ol>
+ */
+async function fetchStudioConfigFileUtf8(siteId, studioConfigRelativeNoLeadingSlash) {
+    const sid = (siteId || '').trim();
+    const rel = (studioConfigRelativeNoLeadingSlash || '').trim().replace(/^\/+/, '');
+    if (!sid || !rel)
+        return '';
+    const path = `/config/studio/${rel}`;
+    try {
+        const listings = (await firstValueFrom(fetchItemsByPath(sid, [path], { preferContent: true })));
+        if (Array.isArray(listings?.missingItems) && listings.missingItems.includes(path)) {
+            return tryFetchConfigurationXmlPlain(sid, rel);
+        }
+        const raw = await firstValueFrom(fetchContentXML(sid, path, { lock: false }).pipe(catchError(() => of(null))));
+        const fromGetContent = utf8FromStudioContentPayload(raw);
+        if (fromGetContent.length > 0) {
+            return fromGetContent;
+        }
+        return tryFetchConfigurationXmlPlain(sid, rel);
+    }
+    catch {
+        return tryFetchConfigurationXmlPlain(sid, rel);
+    }
+}
+async function tryFetchConfigurationXmlPlain(siteId, configPathRelative) {
+    try {
+        const s = await firstValueFrom(fetchConfigurationXML(siteId, configPathRelative, 'studio'));
+        return typeof s === 'string' ? s : '';
     }
     catch {
         return '';
@@ -35599,14 +35640,8 @@ function AiAssistantScriptsSandboxConfiguration(props) {
         if (!siteId)
             return;
         const rel = studioConfigRelativePath(studioPath);
-        try {
-            const data = await firstValueFrom(fetchConfigurationJSON(siteId, rel, 'studio'));
-            const text = typeof data === 'string' ? data : '';
-            openEditor(title, studioPath, text, stub);
-        }
-        catch {
-            openEditor(title, studioPath, '', stub);
-        }
+        const text = await fetchStudioConfigFileUtf8(siteId, rel);
+        openEditor(title, studioPath, text, stub);
     };
     const saveEditor = async () => {
         if (!siteId || !editorStudioPath)

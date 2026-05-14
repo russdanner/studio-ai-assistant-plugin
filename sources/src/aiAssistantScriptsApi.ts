@@ -1,3 +1,4 @@
+import { fetchConfigurationXML } from '@craftercms/studio-ui/services/configuration';
 import { fetchContentXML, fetchItemsByPath } from '@craftercms/studio-ui/services/content';
 import { firstValueFrom, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -118,7 +119,7 @@ export async function postAiAssistantScriptsMutate(
   return data;
 }
 
-/** Studio configuration path for {@code writeConfiguration} / {@code fetchConfigurationJSON} (no leading slash). */
+/** Studio configuration path for {@code writeConfiguration} / {@code fetchConfigurationXML} (no leading slash). */
 export function studioConfigRelativePath(studioModulePath: string): string {
   const p = (studioModulePath ?? '').trim();
   return p.startsWith('/') ? p.slice(1) : p;
@@ -127,7 +128,8 @@ export function studioConfigRelativePath(studioModulePath: string): string {
 /** Sandbox repo path for {@code tools.json} (same file as Studio module {@code scripts/aiassistant/config/tools.json}). */
 export const TOOLS_JSON_SANDBOX_PATH = '/config/studio/scripts/aiassistant/config/tools.json';
 
-function utf8TextFromContentPayload(raw: unknown): string {
+/** Raw UTF-8 from Studio {@code fetchContentXML} / similar payloads (string or {@code content}/{@code configuration} envelope). */
+export function utf8FromStudioContentPayload(raw: unknown): string {
   if (raw == null) return '';
   if (typeof raw === 'string') return raw;
   if (typeof raw === 'object' && !Array.isArray(raw)) {
@@ -159,7 +161,48 @@ export async function fetchOptionalStudioSandboxUtf8(siteId: string, sandboxPath
       return '';
     }
     const raw = await firstValueFrom(fetchContentXML(sid, path, { lock: false }).pipe(catchError(() => of(null))));
-    return utf8TextFromContentPayload(raw).trim();
+    return utf8FromStudioContentPayload(raw).trim();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Reads a site file under {@code /config/studio/<relative>} for the script sandbox editor.
+ * <ol>
+ *   <li>{@code get-content.json} via {@code fetchContentXML} when the path is not listed as missing from {@code sandbox_items_by_path}
+ *       (does <strong>not</strong> require {@code items[0]} — that slot can be empty right after writes while the file still exists).</li>
+ *   <li>If still empty, {@code get_configuration} raw string via {@code fetchConfigurationXML} — same stack as {@code write_configuration}.
+ *       Do <strong>not</strong> use {@code fetchConfigurationJSON}: it runs XML {@code deserialize} and destroys Groovy/JSON/plain text.</li>
+ * </ol>
+ */
+export async function fetchStudioConfigFileUtf8(siteId: string, studioConfigRelativeNoLeadingSlash: string): Promise<string> {
+  const sid = (siteId || '').trim();
+  const rel = (studioConfigRelativeNoLeadingSlash || '').trim().replace(/^\/+/, '');
+  if (!sid || !rel) return '';
+  const path = `/config/studio/${rel}`;
+  try {
+    const listings = (await firstValueFrom(
+      fetchItemsByPath(sid, [path], { preferContent: true })
+    )) as unknown as { missingItems?: string[] };
+    if (Array.isArray(listings?.missingItems) && listings.missingItems.includes(path)) {
+      return tryFetchConfigurationXmlPlain(sid, rel);
+    }
+    const raw = await firstValueFrom(fetchContentXML(sid, path, { lock: false }).pipe(catchError(() => of(null))));
+    const fromGetContent = utf8FromStudioContentPayload(raw);
+    if (fromGetContent.length > 0) {
+      return fromGetContent;
+    }
+    return tryFetchConfigurationXmlPlain(sid, rel);
+  } catch {
+    return tryFetchConfigurationXmlPlain(sid, rel);
+  }
+}
+
+async function tryFetchConfigurationXmlPlain(siteId: string, configPathRelative: string): Promise<string> {
+  try {
+    const s = await firstValueFrom(fetchConfigurationXML(siteId, configPathRelative, 'studio'));
+    return typeof s === 'string' ? s : '';
   } catch {
     return '';
   }

@@ -4,6 +4,8 @@ Site script LLMs (**`<llm>script:{id}</llm>`**) are **not** required to call bui
 
 **Related:** [llm-configuration.md](llm-configuration.md) (`script:{id}`), [studio-plugins-guide.md](studio-plugins-guide.md), [scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md) (bindings / `llmId`). The small **Map** proxy demo in **`docs/examples/aiassistant-llm/demo/runtime.groovy`** only shows wiring; it is **not** the product contract for how you must implement scripts.
 
+**Spring AI** is **not** tied to the OpenAI vendor: it is a multi-provider integration layer (Anthropic, Ollama, Azure, OpenAI, and others). This plugin sometimes uses types from the **`spring-ai-openai`** artifact because that module implements a **widely reused chat-completions JSON API** many hosts expose — the **`OpenAi*`** Java names reflect that **HTTP wire**, not “your stack must be OpenAI.”
+
 **Tools-compatible LLM:** A chat host whose HTTP API matches what Studio’s **native CMS tools** path expects (the same request/response shape the built-in **`openAI`** row uses through Spring **`OpenAiApi`**). Groq, xAI, and others can be **different vendors**; configuration keys such as **`SCRIPT_LLM_OPENAI_COMPAT_BASE_URL`** are **legacy names** in code, not a statement that your backend is OpenAI’s product.
 
 ## What you must return
@@ -50,9 +52,11 @@ Copy to **`config/studio/scripts/aiassistant/llm/groq/runtime.groovy`** and set 
 | **`GROQ_API_KEY`** | Yes (typical) | [Groq API key](https://console.groq.com/keys) (`gsk_…`). |
 | **`GROQ_OPENAI_COMPAT_BASE_URL`** | No | Defaults to **`https://api.groq.com/openai`** (host only, no trailing **`/v1`**). Name is legacy. |
 | **`SCRIPT_LLM_*`** | No | Same overrides as **`byo-openai-compat`** if you prefer generic env names. |
-| **`<llmModel>`** / POST **`llmModel`** | No | Groq model id (default in sample: **`llama-3.3-70b-versatile`**). See [Groq models](https://console.groq.com/docs/models). |
+| **`<llmModel>`** / POST **`llmModel`** | Yes (unless you set **`GROQ_LLM_MODEL`** / **`SCRIPT_LLM_MODEL`** / **`-Dstudio.scriptLlm.groqModel`**) | **Groq** chat model id (this sample does not hardcode a default — Groq rotates model ids). See [Groq models](https://console.groq.com/docs/models). |
 
-Same **`OpenAiApi` + `OpenAiChatModel`** wiring as **`byo-openai-compat`**, with Groq defaults and **`GROQ_API_KEY`**.
+Same **`OpenAiApi` + `OpenAiChatModel`** types from Spring AI’s **`spring-ai-openai`** module as **`byo-openai-compat`** (one HTTP client implementation, usable against **any** compatible base URL — here Groq’s). **`GROQ_API_KEY`** and **`llmModel`** are **Groq** credentials and **Groq** model strings.
+
+**Example `llmModel`:** `meta-llama/llama-4-scout-17b-16e-instruct` — set on the agent, or export **`GROQ_LLM_MODEL`** / **`SCRIPT_LLM_MODEL`** with the same value for a site-wide default. Confirm the id is still listed under [Groq models](https://console.groq.com/docs/models) before relying on it in production.
 
 ## Anthropic-style session
 

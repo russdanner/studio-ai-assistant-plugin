@@ -316,9 +316,9 @@ The plugin expects this XML shape in `config/studio/ui.xml`. The `<configuration
 - **agent.openAsPopup** — Optional boolean (default **false** when omitted). **`true`** opens chat in the floating MUI dialog; **`false`** or omitted opens chat in the **ICE / Experience Builder** right sidebar panel (and enables preview edit mode).
 - **agent.translateBatchConcurrency** — Optional integer **1–64** for parallel **`translate_content_batch`** work on the server. ui.xml **`<translateBatchConcurrency>`** (aliases **`translate_batch_concurrency`**). Omitted on the stream request → server default **25** (attribute unset).
 
-### Server-side chat (Spring AI: CrafterQ or OpenAI)
+### Server-side chat (AiOrchestration; Spring AI is multi-vendor)
 
-When the plugin’s **REST** chat or stream endpoints are used (`ai/agent/chat` or `ai/stream`), the server uses **`AiOrchestration`**, which selects the backend from **`llm`** in the JSON body (mirrors widget `<llm>`).
+When the plugin’s **REST** chat or stream endpoints are used (`ai/agent/chat` or `ai/stream`), the server uses **`AiOrchestration`**, which selects the backend from **`llm`** in the JSON body (mirrors widget `<llm>`). **Spring AI** supplies several **`ChatModel`** integrations (including **`OpenAiChatModel`** for hosts that speak a common chat-completions JSON API, and **`AnthropicChatModel`** for Anthropic); the **`OpenAi*`** type names describe that **wire**, not “Spring AI only supports OpenAI’s product.”
 
 - **`crafterQ`** (when **`llm`** resolves to **`crafterQ`** after merge + normalize): **`ExpertChatModel`** POSTs a **single string `prompt`** (and optional `chatId`) to CrafterQ’s `/v1/chats` API. **No CMS tools** on this path.
 - **`openAI`**: **`OpenAiChatModel`** with **`AiOrchestrationTools`** (GetContent, **ListContentTranslationScope** (reference tree + suggested chunks — default one path per chunk, no XML bodies), WriteContent, ListPagesAndComponents, **GenerateImage**, ConsultCrafterQExpert, **ListCrafterQAgentChats**, **GetCrafterQAgentChat** when **`crafterQAgentId`** is set, etc.) and native tool calling.
