@@ -17,12 +17,12 @@ interface StudioAiLlmRuntime {
   boolean supportsNativeStudioTools()
 
   /**
- * Returns the same structure {@link AiOrchestration} historically used: {@code chatClient}, {@code chatModel},
+ * Returns the same structure {@link AiOrchestration} uses: {@code chatClient}, {@code chatModel},
  * {@code tools}, {@code llm}, {@code useTools}, {@code studioOps},
- * {@link StudioAiLlmKind#BUNDLE_TOOLS_LOOP_CHAT_API_KEY} (preferred) or legacy {@code openAiApiKeyResolved} (nullable),
- * and for tools-loop / script proxies {@link StudioAiLlmKind#BUNDLE_TOOLS_LOOP_CHAT_BASE_URL} or legacy {@code openAiWireBaseUrl},
- * {@code resolvedChatModel}. Optional {@code nativeToolTransport}
- * ({@link StudioAiLlmKind#NATIVE_TRANSPORT_TOOLS_LOOP_WIRE} / legacy {@code openAiWire}, or {@code anthropic}) overrides transport detection for {@code scriptLlm:…} kinds.
+ * {@link StudioAiLlmKind#BUNDLE_TOOLS_LOOP_CHAT_API_KEY} (nullable when unused),
+ * {@link StudioAiLlmKind#BUNDLE_TOOLS_LOOP_CHAT_BASE_URL} and {@code resolvedChatModel} for tools-loop / script sessions.
+ * Optional {@code nativeToolTransport} ({@link StudioAiLlmKind#NATIVE_TRANSPORT_TOOLS_LOOP_WIRE} or {@code anthropic})
+ * overrides transport detection for {@code scriptLlm:…} kinds.
    */
   Map buildSessionBundle(StudioAiRuntimeBuildRequest req)
 }

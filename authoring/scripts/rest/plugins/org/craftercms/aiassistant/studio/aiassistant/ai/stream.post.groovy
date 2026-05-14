@@ -113,10 +113,10 @@ try {
       log.debug('Agent ui.xml merge skipped: {}', mergeEx.message ?: mergeEx.toString())
     }
   }
-  if (body instanceof Map) {
-    AiHttpProxy.installCrafterQBearerFromChatBody(request, (Map) body)
-  }
   def llm = body?.llm?.toString()
+  if (body instanceof Map) {
+    AiHttpProxy.installCrafterQBearerFromChatBody(request, (Map) body, llm ?: '')
+  }
   String llmNorm
   try {
     llmNorm = AiOrchestration.normalizeLlmProvider(llm)

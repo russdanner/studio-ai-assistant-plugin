@@ -104,8 +104,6 @@ class OpenAiSpringAiLlmRuntime implements StudioAiLlmRuntime {
       studioOps               : req.studioOps,
       toolsLoopChatApiKey     : apiKey,
       toolsLoopChatBaseUrl    : wireBase,
-      openAiApiKeyResolved    : apiKey,
-      openAiWireBaseUrl       : wireBase,
       resolvedChatModel       : modelName
     ]
   }

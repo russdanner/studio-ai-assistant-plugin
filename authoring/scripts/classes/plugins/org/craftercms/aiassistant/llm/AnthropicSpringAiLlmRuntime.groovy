@@ -90,8 +90,6 @@ class AnthropicSpringAiLlmRuntime implements StudioAiLlmRuntime {
       studioOps               : req.studioOps,
       toolsLoopChatApiKey     : apiKey,
       toolsLoopChatBaseUrl    : null,
-      openAiApiKeyResolved    : apiKey,
-      openAiWireBaseUrl       : null,
       resolvedChatModel       : modelName
     ]
   }

@@ -10,9 +10,9 @@
 //
 // Required on the Studio host:
 //   export GROQ_API_KEY=gsk_...
-// Optional — tools-loop chat base URL (host only, no trailing /v1). Env var names are legacy plugin spellings:
+// Optional — tools-loop chat base URL (host only, no trailing /v1). Plugin env names:
 //   export GROQ_OPENAI_COMPAT_BASE_URL=https://api.groq.com/openai
-//   export SCRIPT_LLM_OPENAI_COMPAT_BASE_URL=...   (same meaning as GROQ_* if you share one pattern across script LLMs)
+//   export SCRIPT_LLM_OPENAI_COMPAT_BASE_URL=...   (same meaning if you share one pattern across script LLMs)
 //   export SCRIPT_LLM_API_KEY=...                  (optional alias for GROQ_API_KEY)
 // If unset, this sample uses Groq’s documented public base for that wire (path ends with `/openai` on **api.groq.com** —
 // Groq’s routing, not OpenAI’s servers). Pin the URL yourself if policy requires it.
@@ -23,9 +23,9 @@
 // provider (`resolveOpenAiApiKey` below) — that may be OpenAI or another vendor depending on Studio config, not Groq chat.
 //
 // Chat model id (required — Groq deprecates model ids over time; this sample does not bake a default):
-//   <llmModel>…</llmModel> or POST llmModel → `req.openAiModelParam` (**Studio’s legacy request field name** — value is still your Groq model id).
+//   <llmModel>…</llmModel> or POST llmModel → `req.openAiModelParam` (Studio request field name — value is your Groq model id).
 // Example (slash form is normal on Groq): meta-llama/llama-4-scout-17b-16e-instruct
-// Site-wide optional fallbacks: env GROQ_LLM_MODEL or SCRIPT_LLM_MODEL
+// Site-wide optional model env: GROQ_LLM_MODEL or SCRIPT_LLM_MODEL
 // Model list: https://console.groq.com/docs/models
 //
 // Built-in GenerateImage / expert embeddings use Studio’s separate image-and-embedding configuration (not GROQ_API_KEY); see plugin docs.
@@ -92,7 +92,7 @@ class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
     return k
   }
 
-  /** Groq chat model id from agent/request, then optional site env (`openAiModelParam` is Studio’s legacy field name only). */
+  /** Groq chat model id from agent/request, then optional site env (`openAiModelParam` is the Studio request field name). */
   private static String compatModelId(StudioAiRuntimeBuildRequest req) {
     String m = (req.openAiModelParam ?: '').toString().trim()
     if (m) {
@@ -140,7 +140,7 @@ class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
     refuseIfChatBaseIsOpenAiApiHost(base)
     if (!apiKey) {
       throw new IllegalStateException(
-        'Script LLM groq: set GROQ_API_KEY (or SCRIPT_LLM_API_KEY), or testing-only per-agent <openAiApiKey> (legacy XML name). Use a **gsk_** Groq key — a non-Groq vendor key in that slot returns HTTP 401 from Groq.'
+        'Script LLM groq: set GROQ_API_KEY (or SCRIPT_LLM_API_KEY), or testing-only per-agent <openAiApiKey>. Use a **gsk_** Groq key — a non-Groq vendor key in that slot returns HTTP 401 from Groq.'
       )
     }
     if (base.contains('groq.com') && !apiKey.startsWith('gsk_')) {
@@ -220,8 +220,6 @@ class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
       studioOps               : req.studioOps,
       toolsLoopChatApiKey     : apiKey,
       toolsLoopChatBaseUrl    : base,
-      openAiApiKeyResolved    : apiKey,
-      openAiWireBaseUrl       : base,
       resolvedChatModel       : modelName,
       nativeToolTransport     : 'toolsLoopWire',
       toolsLoopChatPreferMaxCompletionTokens: true,

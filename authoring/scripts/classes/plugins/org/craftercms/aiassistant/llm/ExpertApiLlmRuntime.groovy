@@ -59,8 +59,6 @@ class ExpertApiLlmRuntime implements StudioAiLlmRuntime {
       studioOps               : req.studioOps,
       toolsLoopChatApiKey     : null,
       toolsLoopChatBaseUrl    : null,
-      openAiApiKeyResolved    : null,
-      openAiWireBaseUrl       : null,
       resolvedChatModel       : null
     ]
   }

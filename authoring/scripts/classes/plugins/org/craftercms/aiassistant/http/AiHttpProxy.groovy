@@ -4,6 +4,7 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import plugins.org.craftercms.aiassistant.llm.StudioAiLlmKind
 
 import java.io.BufferedReader
 import java.io.InputStream
@@ -68,8 +69,10 @@ class AiHttpProxy {
    * is used when it returns a non-blank value; otherwise {@code crafterQBearerToken} (literal JWT) is used.
    * A leading {@code Bearer } prefix on the literal is stripped. Studio's inbound {@code Authorization} header is still
    * never forwarded to CrafterQ — this is a separate CrafterQ-only credential.</p>
+   * <p>When {@code llm} is not the hosted CrafterQ adapter and neither bearer field is set on the body, this is a
+   * no-op with no logs (tools-loop chat / Claude / script paths do not use this token).</p>
    */
-  static void installCrafterQBearerFromChatBody(def servletRequest, Map body) {
+  static void installCrafterQBearerFromChatBody(def servletRequest, Map body, String llmRaw) {
     if (!servletRequest || !(body instanceof Map)) {
       return
     }
@@ -78,6 +81,19 @@ class AiHttpProxy {
       (b.crafterQBearerTokenEnv ?: b.get('crafterQ-bearer-token-env') ?: b.crafter_q_bearer_token_env)?.toString()?.trim() ?: ''
     String literal =
       (b.crafterQBearerToken ?: b.get('crafterQ-bearer-token') ?: b.crafter_q_bearer_token)?.toString()?.trim() ?: ''
+    if (!envKey && !literal) {
+      boolean crafterQChat = false
+      String rawLlm = (llmRaw ?: '').toString().trim()
+      if (rawLlm) {
+        try {
+          crafterQChat = StudioAiLlmKind.isCrafterQRemoteApi(StudioAiLlmKind.normalize(rawLlm))
+        } catch (Throwable ignoredNorm) {
+        }
+      }
+      if (!crafterQChat) {
+        return
+      }
+    }
     boolean literalPresent = literal != null && literal.length() > 0
     boolean getenvResolved = false
     if (envKey) {

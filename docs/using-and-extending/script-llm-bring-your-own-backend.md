@@ -6,7 +6,7 @@ Site script LLMs (**`<llm>script:{id}</llm>`**) are **not** required to call bui
 
 **Spring AI** is **not** tied to the OpenAI vendor: it is a multi-provider integration layer (Anthropic, Ollama, Azure, OpenAI, and others). This plugin sometimes uses types from the **`spring-ai-openai`** artifact because that module implements a **widely reused chat-completions JSON API** many hosts expose — the **`OpenAi*`** Java names reflect that **HTTP wire**, not “your stack must be OpenAI.”
 
-**Tools-compatible LLM:** A chat host whose HTTP API matches what Studio’s **native CMS tools** path expects (the same request/response shape the built-in **`openAI`** row uses through Spring **`OpenAiApi`**). Groq, xAI, and others can be **different vendors**; configuration keys such as **`SCRIPT_LLM_OPENAI_COMPAT_BASE_URL`** are **legacy names** in code, not a statement that your backend is OpenAI’s product.
+**Tools-compatible LLM:** A chat host whose HTTP API matches what Studio’s **native CMS tools** path expects (the same request/response shape the built-in **`openAI`** row uses through Spring **`OpenAiApi`**). Groq, xAI, and others can be **different vendors**; env names such as **`SCRIPT_LLM_OPENAI_COMPAT_BASE_URL`** are fixed plugin conventions, not a claim your backend is OpenAI’s product.
 
 ## What You Must Return
 
@@ -19,9 +19,9 @@ Implement **`StudioAiLlmRuntime`** (or a **Map** with **`buildSessionBundle`** �
 | **`tools`** | Built with **`AiOrchestrationTools.build(...)`** when CMS tools should be available (same arguments pattern as **`OpenAiSpringAiLlmRuntime`** / **`AnthropicSpringAiLlmRuntime`**). |
 | **`useTools`** | Mirrors **`req.enableTools`**. |
 | **`studioOps`** | Pass through **`req.studioOps`**. |
-| **`toolsLoopChatApiKey`** | Preferred: API key the **native tools REST loop** uses toward **`/v1/chat/completions`** on your chat host. (Legacy alias: **`openAiApiKeyResolved`**.) |
-| **`toolsLoopChatBaseUrl`** + **`resolvedChatModel`** | Preferred: when both are set on a **script** session, orchestration uses the **same tools-loop** as the built-in **`openAI`** row (see **`StudioAiLlmKind#useToolsLoopChatRestClient`**). (Legacy alias for base URL: **`openAiWireBaseUrl`**.) |
-| **`nativeToolTransport`** | Optional override: **`toolsLoopWire`** (preferred) or legacy **`openAiWire`**, or **`anthropic`** (see **`StudioAiLlmKind`**). |
+| **`toolsLoopChatApiKey`** | API key the **native tools REST loop** uses toward **`/v1/chat/completions`** on your chat host. |
+| **`toolsLoopChatBaseUrl`** + **`resolvedChatModel`** | When both are set on a **script** session, orchestration uses the **same tools-loop** as the built-in **`openAI`** row (see **`StudioAiLlmKind#useToolsLoopChatRestClient`**). |
+| **`nativeToolTransport`** | Optional override: **`toolsLoopWire`** or **`anthropic`** (see **`StudioAiLlmKind`**). |
 | **`toolsLoopChatPreferMaxCompletionTokens`** | Optional **`boolean`**: when true, tools-loop and simple wire completions send **`max_completion_tokens`** instead of **`max_tokens`** on **`/v1/chat/completions`**. Hosts that only accept the newer field (for example some OpenAI-compatible APIs) should set this from script. |
 | **`toolsLoopChatMaxCompletionOutTokens`** | Optional positive **`int`**: caps the completion output budget for that session’s tools-loop and simple wire completions toward your chat host. |
 | **`toolsLoopChatMaxWirePayloadChars`** | Optional non-negative **`int`**: when **`> 0`**, serialized tools-loop JSON (messages + tools) is shrunk before each POST until under this character budget (helps strict TPM / payload limits). **`0`** = disabled. |
@@ -38,7 +38,7 @@ Secrets and base URL are **yours** (any **tools-loop** chat vendor), not necessa
 
 | Variable | Purpose |
 |----------|---------|
-| **`SCRIPT_LLM_OPENAI_COMPAT_BASE_URL`** | Host-only API base (no trailing **`/v1`**). Name is legacy; the host is your chosen vendor. |
+| **`SCRIPT_LLM_OPENAI_COMPAT_BASE_URL`** | Host-only API base (no trailing **`/v1`**). |
 | **`SCRIPT_LLM_API_KEY`** | Bearer/API key for that host. |
 | **`<llmModel>`** / POST **`llmModel`** | Chat model id forwarded as **`req.openAiModelParam`**. |
 
@@ -55,7 +55,7 @@ Copy to **`config/studio/scripts/aiassistant/llm/groq/runtime.groovy`** and set 
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | **`GROQ_API_KEY`** | Yes (typical) | [Groq API key](https://console.groq.com/keys) (`gsk_…`). |
-| **`GROQ_OPENAI_COMPAT_BASE_URL`** | No | Defaults to **`https://api.groq.com/openai`** (host only, no trailing **`/v1`**). Name is legacy. |
+| **`GROQ_OPENAI_COMPAT_BASE_URL`** | No | Defaults to **`https://api.groq.com/openai`** (host only, no trailing **`/v1`**). |
 | **`SCRIPT_LLM_*`** | No | Same overrides as **`byo-openai-compat`** if you prefer generic env names. |
 | **`GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS`** | No | **Read only in the Groq sample script** (not by core): mapped into **`toolsLoopChatMaxCompletionOutTokens`** and used together with **`toolsLoopChatPreferMaxCompletionTokens: true`** (default cap **8192** when unset). Tunes Groq **`max_completion_tokens`** for tools-loop and simple wire completions. |
 | **`GROQ_TOOLS_LOOP_MAX_WIRE_CHARS`** | No | **Read only in the Groq sample script**: mapped into **`toolsLoopChatMaxWirePayloadChars`** (default **56000** when unset). Triggers generic wire shrink when the serialized tools-loop JSON exceeds the budget. |

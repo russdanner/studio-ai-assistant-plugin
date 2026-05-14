@@ -955,7 +955,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
 
   /**
    * Image model for logging only: returns canonical id or {@code null} when the agent/request sent no {@code imageModel}.
-   * No JVM or legacy-key fallback.
+   * No JVM-side override; only the request value is considered.
    */
   static String imageModelFromRequestOrNull(String fromRequest) {
     String base = (fromRequest ?: '').toString().trim()
@@ -1688,7 +1688,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
   }
 
   private static void openAiCapToolsLoopWireMessageContents(List<Map> wireMessages, int maxPerMessage) {
-    if (!(wireMessages instanceof List) || maxPerMessage < 2000) {
+    if (!(wireMessages instanceof List) || maxPerMessage < 256) {
       return
     }
     int lastUserIdx = -1
@@ -1713,7 +1713,8 @@ For **content XML** (pages/components): do not invent a new element tree — pre
         cap = (int) Math.min((long) maxPerMessage * 2L, 200_000L)
       }
       if (s.length() > cap) {
-        int head = Math.max(100, cap - 220)
+        int reserve = Math.min(220, Math.max(48, (int) (cap * 0.14d)))
+        int head = Math.max(64, cap - reserve)
         m.put(
           'content',
           s.substring(0, head) +
@@ -1791,7 +1792,9 @@ For **content XML** (pages/components): do not invent a new element tree — pre
       log.info('Tools-loop: shrink ok after stripping nested JSON-schema descriptions newChars={}', n)
       return
     }
-    for (mc in [48_000, 28_000, 18_000, 12_000, 9000, 6000]) {
+    for (mc in [
+      48_000, 28_000, 18_000, 12_000, 9000, 6000, 5000, 4000, 3200, 2600, 2000, 1600, 1200, 900, 768, 640, 512, 448, 384, 320, 288, 256
+    ]) {
       openAiCapToolsLoopWireMessageContents(wireMessages, mc as int)
       body = JsonOutput.toJson(reqMap)
       n = body.length()
@@ -2068,8 +2071,41 @@ For **content XML** (pages/components): do not invent a new element tree — pre
   }
 
   /**
+   * Groq and similar hosts return 429 with {@code try again in Ns} in JSON; honors {@code Retry-After} when numeric.
+   */
+  private static long openAiToolsLoop429BackoffMs(RestClientResponseException e, int zeroBasedAttempt) {
+    try {
+      String ra = e.getResponseHeaders()?.getFirst(HttpHeaders.RETRY_AFTER)
+      if (ra?.trim()) {
+        String firstToken = ra.trim().split(/\s+/)[0]
+        long sec = Long.parseLong(firstToken)
+        if (sec > 0 && sec < 900) {
+          return Math.min(180_000L, Math.max(400L, sec * 1000L))
+        }
+      }
+    } catch (Throwable ignored) {
+    }
+    try {
+      String body = e.getResponseBodyAsString(StandardCharsets.UTF_8)
+      if (body) {
+        Matcher m = Pattern.compile('(?i)try again in\\s+([0-9.]+)\\s*s').matcher(body)
+        if (m.find()) {
+          double sec = Double.parseDouble(m.group(1))
+          if (sec > 0 && sec < 900) {
+            return (long) Math.min(180_000L, Math.max(400L, Math.round(sec * 1000.0)))
+          }
+        }
+      }
+    } catch (Throwable ignored) {
+    }
+    long exp = 900L * (1L << Math.min(3, zeroBasedAttempt))
+    return Math.min(45_000L, exp)
+  }
+
+  /**
    * POST {@code /v1/chat/completions} with {@code stream:false} and return the raw JSON body (UTF-8).
    * Bypasses {@link org.springframework.ai.openai.api.OpenAiApi#chatCompletionEntity} / Jackson binding.
+   * On HTTP 429, sleeps with backoff and retries up to two additional attempts (helps Groq on_demand TPM bursts).
    */
   private static String openAiHttpPostChatCompletionsReadBody(
     String apiKey,
@@ -2078,6 +2114,38 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     String wireBaseUrl = null
   ) {
     jsonBody = openAiChatCompletionsWireBodyApplyNeoTemperaturePolicy(jsonBody)
+    final int maxTries = 3
+    for (int attempt = 1; attempt <= maxTries; attempt++) {
+      try {
+        return openAiHttpPostChatCompletionsReadBodyOnce(apiKey, jsonBody, logFailuresAsWarn, wireBaseUrl)
+      } catch (RestClientResponseException e) {
+        if (e.getStatusCode()?.value() != 429 || attempt >= maxTries) {
+          throw e
+        }
+        long ms = openAiToolsLoop429BackoffMs(e, attempt - 1)
+        log.warn(
+          'Tools-loop chat HTTP 429 Too Many Requests; backing off {} ms then retry {}/{}',
+          ms,
+          attempt + 1,
+          maxTries
+        )
+        try {
+          Thread.sleep(ms)
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt()
+          throw ie
+        }
+      }
+    }
+    throw new IllegalStateException('Tools-loop chat: 429 retries exhausted')
+  }
+
+  private static String openAiHttpPostChatCompletionsReadBodyOnce(
+    String apiKey,
+    String jsonBody,
+    boolean logFailuresAsWarn,
+    String wireBaseUrl
+  ) {
     crafterQToolWorkerDiagPhase("native_tools_RestClient_POST_/v1/chat/completions stream=false jsonChars=${(jsonBody ?: '').toString().length()}")
     openAiRestClientBuilder(apiKey, wireBaseUrl)
       .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
@@ -2111,8 +2179,13 @@ For **content XML** (pages/components): do not invent a new element tree — pre
             hint413 =
               ' Troubleshooting (413): request too large for the chat host (token / TPM limits). Reduce tools or prompt size, set toolsLoopChatMaxWirePayloadChars on the script session bundle, or raise your provider tier.'
           }
+          String hint429 = ''
+          if (status.value() == 429) {
+            hint429 =
+              ' Troubleshooting (429): rate limit / TPM — the plugin retries a few times with backoff; if this persists, reduce prompt and tool output, disable unused tools on the agent, or upgrade the chat host tier.'
+          }
           def msg =
-            "Tools-loop chat HTTP ${status.value()} ${statusText} responseBody=\n${AiHttpProxy.elideForLog(bodyStr, 4000)}${hint401}${hint413}"
+            "Tools-loop chat HTTP ${status.value()} ${statusText} responseBody=\n${AiHttpProxy.elideForLog(bodyStr, 4000)}${hint401}${hint413}${hint429}"
           if (logFailuresAsWarn) {
             log.warn(msg)
           } else {

@@ -1,17 +1,17 @@
 // Copy to: config/studio/scripts/aiassistant/llm/byo-openai-compat/runtime.groovy
 // Agent: <llm>script:byo-openai-compat</llm>
-// Script id "byo-openai-compat" is historical; this sample is a tools-loop (tools-compatible) custom chat host.
+// Script id "byo-openai-compat" matches the folder name under `llm/`; this sample is a tools-loop (tools-compatible) custom chat host.
 //
 // Full vendor replacement: this script builds the entire Spring AI session (library chat types + AiOrchestrationTools)
 // for Studio’s tools-loop chat. It does NOT delegate to the plugin’s built-in Spring chat LLM runtimes.
 // Spring AI is vendor-neutral; OpenAi* types here are the spring-ai-openai module’s client for one HTTP JSON shape — your
 // base URL + model id are whatever vendor you configure (not necessarily OpenAI Inc.).
 //
-// Configure Studio (host-only base URL, no trailing /v1). Env identifiers below are legacy plugin spellings:
+// Configure Studio (host-only base URL, no trailing /v1). Plugin env names:
 //   export SCRIPT_LLM_OPENAI_COMPAT_BASE_URL=https://api.example.com
 //   export SCRIPT_LLM_API_KEY=...
-// Per-agent chat model: <llmModel> or POST llmModel → req.openAiModelParam (legacy request field name)
-// Testing-only key from widget: optional agent <openAiApiKey> → req.openAiApiKeyFromRequest (legacy names)
+// Per-agent chat model: <llmModel> or POST llmModel → req.openAiModelParam (Studio request field name)
+// Testing-only key from widget: optional agent <openAiApiKey> → req.openAiApiKeyFromRequest
 //
 // Optional session-bundle tuning (same keys as the Groq sample): `toolsLoopChatPreferMaxCompletionTokens`,
 // `toolsLoopChatMaxCompletionOutTokens`, `toolsLoopChatMaxWirePayloadChars` — add to the returned map if your host
@@ -76,7 +76,7 @@ class BringYourOwnToolsLoopHostRuntime implements StudioAiLlmRuntime {
     }
     if (!apiKey) {
       throw new IllegalStateException(
-        'Script LLM byo-openai-compat: set SCRIPT_LLM_API_KEY on Studio, or agent <openAiApiKey> for local testing only (legacy agent field name).'
+        'Script LLM byo-openai-compat: set SCRIPT_LLM_API_KEY on Studio, or agent <openAiApiKey> for local testing only.'
       )
     }
     String modelName = (req.openAiModelParam ?: 'gpt-4o-mini').toString().trim()
@@ -130,8 +130,6 @@ class BringYourOwnToolsLoopHostRuntime implements StudioAiLlmRuntime {
       studioOps               : req.studioOps,
       toolsLoopChatApiKey     : apiKey,
       toolsLoopChatBaseUrl    : base,
-      openAiApiKeyResolved    : apiKey,
-      openAiWireBaseUrl       : base,
       resolvedChatModel       : modelName,
       nativeToolTransport     : 'toolsLoopWire'
     ]

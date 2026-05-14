@@ -60,7 +60,6 @@ if (AuthoringPreviewContext.isFormEngineSurface(body?.authoringSurface)) {
     promptForOrchestration, request, siteIdBody ?: params?.siteId, body?.contentPath, body?.studioPreviewPageUrl)
 }
 def chatId = body.chatId?.toString()
-def llm = body.llm?.toString()
 def openAiApiKey = body.openAiApiKey?.toString()
 if (siteIdBody) {
   try {
@@ -85,8 +84,9 @@ if (body instanceof Map && siteForBearer && agentId) {
     log.debug('Agent ui.xml merge skipped: {}', mergeEx.message ?: mergeEx.toString())
   }
 }
+def llm = body.llm?.toString()
 if (body instanceof Map) {
-  AiHttpProxy.installCrafterQBearerFromChatBody(request, (Map) body)
+  AiHttpProxy.installCrafterQBearerFromChatBody(request, (Map) body, llm ?: '')
 }
 def openAiModel = body.llmModel?.toString()
 def imageModelRaw = body.imageModel?.toString()

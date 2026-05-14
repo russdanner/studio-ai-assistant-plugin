@@ -198,8 +198,8 @@ final class CrafterQBearerUiXmlMerge {
     String xmlImgGen = (extracted.imageGenerator ?: '').toString().trim()
     String xmlLlmTransport = (extracted.llm ?: '').toString().trim()
     if (!xmlEnv && !xmlTok && !xmlImg && !xmlLlmModel && !xmlImgGen && !xmlLlmTransport) {
-      log.info(
-        'Agent ui.xml merge: no crafterQBearerTokenEnv/crafterQBearerToken/imageModel/llmModel/imageGenerator/llm on matching <agent> for crafterQAgentId={} siteId={}',
+      log.debug(
+        'Agent ui.xml merge: no overlay fields for stream agentId={} siteId={} (no <agent> with matching <crafterQAgentId>, or that row has no mergeable fields)',
         agent,
         site
       )
