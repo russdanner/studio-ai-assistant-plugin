@@ -12,6 +12,10 @@
 //   export SCRIPT_LLM_API_KEY=...
 // Per-agent chat model: <llmModel> or POST llmModel → req.openAiModelParam (legacy request field name)
 // Testing-only key from widget: optional agent <openAiApiKey> → req.openAiApiKeyFromRequest (legacy names)
+//
+// Optional session-bundle tuning (same keys as the Groq sample): `toolsLoopChatPreferMaxCompletionTokens`,
+// `toolsLoopChatMaxCompletionOutTokens`, `toolsLoopChatMaxWirePayloadChars` — add to the returned map if your host
+// requires `max_completion_tokens` or a serialized tools-loop size cap; see StudioAiLlmKind / script-llm-bring-your-own-backend.md.
 
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.DefaultChatClientBuilder

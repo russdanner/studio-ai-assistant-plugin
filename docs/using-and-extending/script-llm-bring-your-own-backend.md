@@ -22,6 +22,9 @@ Implement **`StudioAiLlmRuntime`** (or a **Map** with **`buildSessionBundle`** �
 | **`toolsLoopChatApiKey`** | Preferred: API key the **native tools REST loop** uses toward **`/v1/chat/completions`** on your chat host. (Legacy alias: **`openAiApiKeyResolved`**.) |
 | **`toolsLoopChatBaseUrl`** + **`resolvedChatModel`** | Preferred: when both are set on a **script** session, orchestration uses the **same tools-loop** as the built-in **`openAI`** row (see **`StudioAiLlmKind#useToolsLoopChatRestClient`**). (Legacy alias for base URL: **`openAiWireBaseUrl`**.) |
 | **`nativeToolTransport`** | Optional override: **`toolsLoopWire`** (preferred) or legacy **`openAiWire`**, or **`anthropic`** (see **`StudioAiLlmKind`**). |
+| **`toolsLoopChatPreferMaxCompletionTokens`** | Optional **`boolean`**: when true, tools-loop and simple wire completions send **`max_completion_tokens`** instead of **`max_tokens`** on **`/v1/chat/completions`**. Hosts that only accept the newer field (for example some OpenAI-compatible APIs) should set this from script. |
+| **`toolsLoopChatMaxCompletionOutTokens`** | Optional positive **`int`**: caps the completion output budget for that session’s tools-loop and simple wire completions toward your chat host. |
+| **`toolsLoopChatMaxWirePayloadChars`** | Optional non-negative **`int`**: when **`> 0`**, serialized tools-loop JSON (messages + tools) is shrunk before each POST until under this character budget (helps strict TPM / payload limits). **`0`** = disabled. |
 
 **Note:** **`StudioAiScriptLlmContainerRuntime`** overwrites **`bundle.llm`** with **`scriptLlm:{id}`** after your script returns — do not rely on **`llm`** inside the map for transport detection; use **`nativeToolTransport`** / wire fields as needed.
 
@@ -41,6 +44,8 @@ Secrets and base URL are **yours** (any **tools-loop** chat vendor), not necessa
 
 **GenerateImage** and expert embeddings still use the Studio **`OPENAI_API_KEY`** path where the built-in tool stack expects it — configure that separately if authors need images or expert-vector tools.
 
+Add the optional **`toolsLoopChat*`** session-bundle keys from the table above when your host requires **`max_completion_tokens`** or a serialized tools-loop size cap; the sample’s header comments note the same.
+
 ## Example: Groq (Alternative Vendor)
 
 **Source:** [`docs/examples/aiassistant-llm/groq/runtime.groovy`](../examples/aiassistant-llm/groq/runtime.groovy)
@@ -52,14 +57,15 @@ Copy to **`config/studio/scripts/aiassistant/llm/groq/runtime.groovy`** and set 
 | **`GROQ_API_KEY`** | Yes (typical) | [Groq API key](https://console.groq.com/keys) (`gsk_…`). |
 | **`GROQ_OPENAI_COMPAT_BASE_URL`** | No | Defaults to **`https://api.groq.com/openai`** (host only, no trailing **`/v1`**). Name is legacy. |
 | **`SCRIPT_LLM_*`** | No | Same overrides as **`byo-openai-compat`** if you prefer generic env names. |
-| **`GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS`** | No | When the **native CMS tools** loop posts to **Groq** (`groq.com` in the wire URL), the server clamps **`max_completion_tokens`** to this integer (default **8192** when unset). Prevents HTTP **400** when the model’s completion ceiling is below the generic tools-loop budget. Applies to **simple** completions toward Groq when **`wireBaseUrl`** is set too. |
+| **`GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS`** | No | **Read only in the Groq sample script** (not by core): mapped into **`toolsLoopChatMaxCompletionOutTokens`** and used together with **`toolsLoopChatPreferMaxCompletionTokens: true`** (default cap **8192** when unset). Tunes Groq **`max_completion_tokens`** for tools-loop and simple wire completions. |
+| **`GROQ_TOOLS_LOOP_MAX_WIRE_CHARS`** | No | **Read only in the Groq sample script**: mapped into **`toolsLoopChatMaxWirePayloadChars`** (default **56000** when unset). Triggers generic wire shrink when the serialized tools-loop JSON exceeds the budget. |
 | **`<llmModel>`** / POST **`llmModel`** | Yes (unless you set **`GROQ_LLM_MODEL`** / **`SCRIPT_LLM_MODEL`**) | **Groq** chat model id (this sample does not hardcode a default — Groq rotates model ids). See [Groq models](https://console.groq.com/docs/models). |
 
 Same **`OpenAiApi` + `OpenAiChatModel`** types from Spring AI’s **`spring-ai-openai`** module as **`byo-openai-compat`** (one HTTP client implementation, usable against **any** compatible base URL — here Groq’s). **`GROQ_API_KEY`** and **`llmModel`** are **Groq** credentials and **Groq** model strings.
 
 **Example `llmModel`:** `meta-llama/llama-4-scout-17b-16e-instruct` — set on the agent, or export **`GROQ_LLM_MODEL`** / **`SCRIPT_LLM_MODEL`** with the same value for a site-wide default. Confirm the id is still listed under [Groq models](https://console.groq.com/docs/models) before relying on it in production.
 
-When **`script:groq`** (or any tools-loop base URL on **`api.groq.com`**) runs **native CMS tools**, the server sends Groq’s documented **`max_completion_tokens`** on each tools-loop round, clamped to **8192** by default (so Groq does not return HTTP **400** when the model’s completion ceiling is below the plugin’s generic tools-loop budget). Set **`GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS`** on the Studio host to raise or lower that cap. Script LLM **simple** completions to Groq use the same clamp when **`wireBaseUrl`** is set.
+When **`script:groq`** runs **native CMS tools**, the sample returns **`toolsLoopChatPreferMaxCompletionTokens: true`** plus **`toolsLoopChatMaxCompletionOutTokens`** / **`toolsLoopChatMaxWirePayloadChars`** (from optional **`GROQ_TOOLS_LOOP_*`** env in the script, or your own values) so orchestration matches Groq’s **`max_completion_tokens`** expectations and can shrink oversized tool-loop payloads. Any other script LLM can set the same bundle keys for a non-Groq host without core reading vendor-specific environment variables.
 
 ## Anthropic-style Session
 

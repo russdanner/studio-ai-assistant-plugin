@@ -240,7 +240,8 @@ final class AutonomousAssistantWorker {
           8192,
           180_000,
           'AutonomousAssistant',
-          wireBaseUrl
+          wireBaseUrl,
+          bundle
         )
         } finally {
           ToolPromptsSiteContext.exit()

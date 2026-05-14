@@ -2603,11 +2603,18 @@ class AiOrchestrationTools {
             continue
           }
           Object isch = tdef.get('inputSchema')
-          Map schema =
-            isch instanceof Map ? new LinkedHashMap<>((Map) isch) : [type: 'object', properties: [:]]
-          if (!schema.containsKey('type')) {
-            schema = new LinkedHashMap<>(schema)
-            schema.put('type', 'object')
+          // Spring AI 1.x FunctionToolCallback.Builder#inputSchema expects JSON text, not a Map.
+          String schemaJson
+          if (isch instanceof CharSequence && isch.toString().trim()) {
+            schemaJson = isch.toString().trim()
+          } else {
+            Map schema =
+              isch instanceof Map ? new LinkedHashMap<>((Map) isch) : [type: 'object', properties: [:]]
+            if (!schema.containsKey('type')) {
+              schema = new LinkedHashMap<>(schema)
+              schema.put('type', 'object')
+            }
+            schemaJson = JsonOutput.toJson(schema)
           }
           String desc = tdef.get('description')?.toString()?.trim()
           if (!desc) {
@@ -2630,7 +2637,7 @@ class AiOrchestrationTools {
             }
           })
             .description(desc)
-            .inputSchema(schema)
+            .inputSchema(schemaJson)
             .inputType(Map.class)
             .invokeMethod('toolCallResultConverter', converter)
             .build()

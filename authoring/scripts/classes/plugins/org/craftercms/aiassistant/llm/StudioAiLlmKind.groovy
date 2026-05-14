@@ -25,6 +25,18 @@ final class StudioAiLlmKind {
   /** Bundle: API key for the tools-loop chat host (any vendor). Prefer this over legacy {@code openAiApiKeyResolved}. */
   static final String BUNDLE_TOOLS_LOOP_CHAT_API_KEY = 'toolsLoopChatApiKey'
 
+  /** Bundle: when {@code true}, tools-loop / simple-completion JSON uses {@code max_completion_tokens} instead of {@code max_tokens} (script/vendor choice). */
+  static final String BUNDLE_TOOLS_LOOP_CHAT_PREFER_MAX_COMPLETION_TOKENS = 'toolsLoopChatPreferMaxCompletionTokens'
+
+  /** Bundle: optional positive int — caps completion budget for tools-loop + simple-completion toward this wire host. */
+  static final String BUNDLE_TOOLS_LOOP_CHAT_MAX_COMPLETION_OUT_TOKENS = 'toolsLoopChatMaxCompletionOutTokens'
+
+  /**
+   * Bundle: optional non-negative int — when {@code > 0}, serialized tools-loop request JSON (messages + tools) is shrunk in-place
+   * before each POST until under this char budget (helps TPM / payload limits on strict hosts). {@code 0} = disabled.
+   */
+  static final String BUNDLE_TOOLS_LOOP_CHAT_MAX_WIRE_PAYLOAD_CHARS = 'toolsLoopChatMaxWirePayloadChars'
+
   /** Bundle: host-only base URL for tools-loop chat (no trailing {@code /v1}). Prefer over legacy {@code openAiWireBaseUrl}. */
   static final String BUNDLE_TOOLS_LOOP_CHAT_BASE_URL = 'toolsLoopChatBaseUrl'
 
@@ -111,6 +123,61 @@ final class StudioAiLlmKind {
     return (bundle.get('openAiWireBaseUrl') ?: '').toString().trim()
   }
 
+  /** Script/vendor: prefer {@code max_completion_tokens} on {@code /v1/chat/completions} for this session. */
+  static boolean toolsLoopChatPreferMaxCompletionTokensFromBundle(Map bundle) {
+    if (bundle == null) {
+      return false
+    }
+    Object v = bundle.get(BUNDLE_TOOLS_LOOP_CHAT_PREFER_MAX_COMPLETION_TOKENS)
+    if (v == null) {
+      return false
+    }
+    if (v instanceof Boolean) {
+      return ((Boolean) v).booleanValue()
+    }
+    return Boolean.parseBoolean(v.toString().trim())
+  }
+
+  /** Script/vendor: optional positive cap on completion output tokens for tools-loop + simple wire completions. */
+  static Integer toolsLoopChatMaxCompletionOutTokensFromBundle(Map bundle) {
+    if (bundle == null) {
+      return null
+    }
+    Object v = bundle.get(BUNDLE_TOOLS_LOOP_CHAT_MAX_COMPLETION_OUT_TOKENS)
+    if (v == null) {
+      return null
+    }
+    try {
+      if (v instanceof Number) {
+        int n = ((Number) v).intValue()
+        return n > 0 ? n : null
+      }
+      int n = Integer.parseInt(v.toString().trim())
+      return n > 0 ? n : null
+    } catch (Throwable ignored) {
+      return null
+    }
+  }
+
+  /** Script/vendor: optional char budget for tools-loop POST JSON; {@code 0} = do not shrink. */
+  static int toolsLoopChatMaxWirePayloadCharsFromBundle(Map bundle) {
+    if (bundle == null) {
+      return 0
+    }
+    Object v = bundle.get(BUNDLE_TOOLS_LOOP_CHAT_MAX_WIRE_PAYLOAD_CHARS)
+    if (v == null) {
+      return 0
+    }
+    try {
+      if (v instanceof Number) {
+        return Math.max(0, ((Number) v).intValue())
+      }
+      return Math.max(0, Integer.parseInt(v.toString().trim()))
+    } catch (Throwable ignored) {
+      return 0
+    }
+  }
+
   static boolean nativeToolTransportIsToolsLoopWire(String transportToken) {
     String t = (transportToken ?: '').toString().trim()
     if (!t) {
@@ -124,6 +191,8 @@ final class StudioAiLlmKind {
    * {@code StudioAiLlmRuntime#buildSessionBundle}, script-hosted sessions may set {@code nativeToolTransport} to
    * {@link #NATIVE_TRANSPORT_TOOLS_LOOP_WIRE} (or legacy {@code openAiWire}) or supply {@link #BUNDLE_TOOLS_LOOP_CHAT_BASE_URL}
    * (or legacy {@code openAiWireBaseUrl}) + {@code resolvedChatModel} to opt into the same path.
+   * Optional wire tuning (vendor-agnostic): {@link #BUNDLE_TOOLS_LOOP_CHAT_PREFER_MAX_COMPLETION_TOKENS},
+   * {@link #BUNDLE_TOOLS_LOOP_CHAT_MAX_COMPLETION_OUT_TOKENS}, {@link #BUNDLE_TOOLS_LOOP_CHAT_MAX_WIRE_PAYLOAD_CHARS}.
    */
   static boolean useToolsLoopChatRestClient(String normalizedKind, Map springAiBundle = null) {
     if (springAiBundle != null) {

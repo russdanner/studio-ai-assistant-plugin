@@ -29,8 +29,10 @@
 // Model list: https://console.groq.com/docs/models
 //
 // Built-in GenerateImage / expert embeddings use Studio’s separate image-and-embedding configuration (not GROQ_API_KEY); see plugin docs.
-// Native CMS tools: the server tools-loop POST to Groq clamps completion `max_completion_tokens` when the host is groq.com
-// (default 8192). Override on the Studio process: export GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS=<integer>
+// Native CMS tools: this sample returns **session-bundle** keys (`toolsLoopChatPreferMaxCompletionTokens`, `toolsLoopChatMaxCompletionOutTokens`,
+// `toolsLoopChatMaxWirePayloadChars`) so orchestration can emit `max_completion_tokens` and shrink oversized tool-loop JSON (vendor-neutral; see
+// **StudioAiLlmKind** and docs/using-and-extending/script-llm-bring-your-own-backend.md). This script optionally reads
+// `GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS` / `GROQ_TOOLS_LOOP_MAX_WIRE_CHARS` and maps them into that bundle (core does not read those env vars).
 
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.DefaultChatClientBuilder
@@ -195,6 +197,20 @@ class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
       AiOrchestration.openAiApiKeyLogPreview(apiKey),
       apiKey.length()
     )
+    int maxCompOut = 8192
+    try {
+      String e = System.getenv('GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS')?.toString()?.trim()
+      if (e) {
+        maxCompOut = Math.max(1, Integer.parseInt(e))
+      }
+    } catch (Throwable ignored) {}
+    int maxWireChars = 56_000
+    try {
+      String ew = System.getenv('GROQ_TOOLS_LOOP_MAX_WIRE_CHARS')?.toString()?.trim()
+      if (ew) {
+        maxWireChars = Math.max(18_000, Integer.parseInt(ew))
+      }
+    } catch (Throwable ignored) {}
     return [
       chatClient              : chatClient,
       chatModel               : chatModel,
@@ -207,7 +223,10 @@ class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
       openAiApiKeyResolved    : apiKey,
       openAiWireBaseUrl       : base,
       resolvedChatModel       : modelName,
-      nativeToolTransport     : 'toolsLoopWire'
+      nativeToolTransport     : 'toolsLoopWire',
+      toolsLoopChatPreferMaxCompletionTokens: true,
+      toolsLoopChatMaxCompletionOutTokens   : maxCompOut,
+      toolsLoopChatMaxWirePayloadChars      : maxWireChars
     ]
   }
 }

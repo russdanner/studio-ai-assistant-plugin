@@ -1545,18 +1545,6 @@ For **content XML** (pages/components): do not invent a new element tree — pre
   }
 
   /**
-   * Groq's OpenAI-compatible docs use {@code max_completion_tokens} on {@code /v1/chat/completions}; sending only
-   * {@code max_tokens} can yield undersized completion budgets vs their console examples. Prefer the Groq field when
-   * the wire base URL targets {@code groq.com}.
-   */
-  private static boolean groqChatCompletionsWireUsesMaxCompletionTokens(String wireBaseUrl) {
-    if (wireBaseUrl == null) {
-      return false
-    }
-    return wireBaseUrl.toString().trim().toLowerCase(Locale.ROOT).contains('groq.com')
-  }
-
-  /**
    * Reasoning / gpt-5 family: {@code max_completion_tokens} instead of {@code max_tokens}, and non-default
    * {@code temperature} rejected (400 {@code unsupported_value}).
    */
@@ -1580,13 +1568,13 @@ For **content XML** (pages/components): do not invent a new element tree — pre
 
   /**
    * Output token limit map for {@code /v1/chat/completions}. Uses {@code max_completion_tokens} for OpenAI
-   * reasoning / gpt-5 family models and for any request whose {@code wireBaseUrl} targets Groq (their documented
-   * curl shape). Other hosts use {@code max_tokens}.
+   * reasoning / gpt-5 family models, or when {@link StudioAiLlmKind#toolsLoopChatPreferMaxCompletionTokensFromBundle} is true
+   * on the script session bundle. Other hosts use {@code max_tokens}.
    *
-   * @param wireBaseUrl optional tools-loop / simple-completion base URL (e.g. script LLM host); {@code null} = default OpenAI wire
+   * @param toolsLoopSessionBundle optional map from {@code StudioAiLlmRuntime#buildSessionBundle} (script or future built-ins)
    */
-  private static Map openAiChatCompletionOutputLimitParams(String model, int cap, String wireBaseUrl = null) {
-    if (groqChatCompletionsWireUsesMaxCompletionTokens(wireBaseUrl)) {
+  private static Map openAiChatCompletionOutputLimitParams(String model, int cap, Map toolsLoopSessionBundle = null) {
+    if (StudioAiLlmKind.toolsLoopChatPreferMaxCompletionTokensFromBundle(toolsLoopSessionBundle)) {
       return [max_completion_tokens: cap]
     }
     if (openAiModelNeedsNeoChatCompletionWireParams(model)) {
@@ -1610,47 +1598,213 @@ For **content XML** (pages/components): do not invent a new element tree — pre
   }
 
   /**
-   * Groq tools-loop completion budget from the Studio process environment: {@code GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS}
-   * (integer, min 1, max 2M). When unset or invalid, {@code defaultCap} applies.
+   * Native tools-loop sync POSTs default a high completion budget ({@code 16000}); hosts may reject large values.
+   * Optional {@link StudioAiLlmKind#toolsLoopChatMaxCompletionOutTokensFromBundle} caps completion output for script LLMs.
    */
-  private static int groqToolsLoopMaxCompletionTokensFromEnv(int defaultCap) {
-    int cap = defaultCap
-    try {
-      String e = System.getenv('GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS')?.toString()?.trim()
-      if (e) {
-        cap = Math.max(1, Integer.parseInt(e))
-      }
-    } catch (Throwable ignored) {
-      cap = defaultCap
-    }
-    return Math.min(cap, 2_000_000)
-  }
-
-  /**
-   * Native tools-loop sync POSTs default a high completion budget ({@code 16000}); some tools-loop hosts reject
-   * {@code max_tokens} above a per-model ceiling. Groq returns HTTP 400 when it exceeds the model limit (e.g.
-   * {@code meta-llama/llama-4-scout-17b-16e-instruct}: 8192). Clamp from {@code wireBaseUrl} when conservative caps apply.
-   * Override Groq cap: set {@code GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS} on the Studio host (integer, min 1); default {@code 8192}.
-   */
-  private static int openAiClampMaxOutTokensForToolsLoopWire(String model, String wireBaseUrl, int requested) {
+  private static int openAiClampMaxOutTokensForToolsLoopWire(String model, int requested, Map toolsLoopSessionBundle = null) {
     int r = requested > 0 ? requested : 8192
-    String base = (wireBaseUrl ?: '').toString().trim().toLowerCase(Locale.ROOT)
-    if (base.contains('groq.com')) {
-      int groqCap = groqToolsLoopMaxCompletionTokensFromEnv(8192)
-      int out = Math.min(r, groqCap)
+    Integer scriptCap = StudioAiLlmKind.toolsLoopChatMaxCompletionOutTokensFromBundle(toolsLoopSessionBundle)
+    if (scriptCap != null) {
+      int out = Math.min(r, scriptCap)
       if (out < r) {
         log.debug(
-          'Tools-loop: Groq max completion tokens clamped requested={} -> {} (model={} wireBaseUrl={}; effective cap {} from GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS or default)',
+          'Tools-loop: completion out tokens clamped requested={} -> {} (model={}; bundle {}={})',
           r,
           out,
           model,
-          wireBaseUrl,
-          groqCap
+          StudioAiLlmKind.BUNDLE_TOOLS_LOOP_CHAT_MAX_COMPLETION_OUT_TOKENS,
+          scriptCap
         )
       }
       return out
     }
     return openAiClampMaxOutTokensForChatCompletionsModel(model, r)
+  }
+
+  private static void openAiTruncateToolsLoopWireToolTopLevelDescriptions(List wireTools, int maxLen) {
+    if (!(wireTools instanceof List) || maxLen < 40) {
+      return
+    }
+    for (def t : (List) wireTools) {
+      if (!(t instanceof Map)) {
+        continue
+      }
+      Map tm = (Map) t
+      def fn = tm.get('function')
+      if (!(fn instanceof Map)) {
+        continue
+      }
+      Map fm = (Map) fn
+      String d = fm.get('description')?.toString() ?: ''
+      if (d.length() > maxLen) {
+        fm.put('description', d.substring(0, Math.max(0, maxLen - 1)) + '…')
+      }
+    }
+  }
+
+  private static void openAiShrinkToolsLoopJsonSchemaDescriptionStrings(Object node, int maxLen) {
+    if (node == null || maxLen < 8) {
+      return
+    }
+    if (node instanceof Map) {
+      Map map = (Map) node
+      for (Object k : new ArrayList<>(map.keySet())) {
+        Object val = map.get(k)
+        String key = k != null ? k.toString() : ''
+        if ('description'.equals(key) && val instanceof CharSequence) {
+          String s = val.toString()
+          if (s.length() > maxLen) {
+            map.put(k, s.substring(0, Math.max(0, maxLen - 1)) + '…')
+          }
+        } else {
+          openAiShrinkToolsLoopJsonSchemaDescriptionStrings(val, maxLen)
+        }
+      }
+    } else if (node instanceof List) {
+      for (Object item : (List) node) {
+        openAiShrinkToolsLoopJsonSchemaDescriptionStrings(item, maxLen)
+      }
+    }
+  }
+
+  private static void openAiClearToolsLoopJsonSchemaDescriptionStrings(Object node) {
+    if (node == null) {
+      return
+    }
+    if (node instanceof Map) {
+      Map map = (Map) node
+      for (Object k : new ArrayList<>(map.keySet())) {
+        if ('description'.equals(k?.toString())) {
+          map.remove(k)
+        } else {
+          openAiClearToolsLoopJsonSchemaDescriptionStrings(map.get(k))
+        }
+      }
+    } else if (node instanceof List) {
+      for (Object item : (List) node) {
+        openAiClearToolsLoopJsonSchemaDescriptionStrings(item)
+      }
+    }
+  }
+
+  private static void openAiCapToolsLoopWireMessageContents(List<Map> wireMessages, int maxPerMessage) {
+    if (!(wireMessages instanceof List) || maxPerMessage < 2000) {
+      return
+    }
+    int lastUserIdx = -1
+    for (int i = 0; i < wireMessages.size(); i++) {
+      Map m = wireMessages.get(i) as Map
+      if (m != null && 'user'.equalsIgnoreCase((m.get('role') ?: '').toString().trim())) {
+        lastUserIdx = i
+      }
+    }
+    for (int i = 0; i < wireMessages.size(); i++) {
+      Map m = wireMessages.get(i) as Map
+      if (m == null) {
+        continue
+      }
+      def c = m.get('content')
+      if (!(c instanceof CharSequence)) {
+        continue
+      }
+      String s = c.toString()
+      int cap = maxPerMessage
+      if (i == lastUserIdx) {
+        cap = (int) Math.min((long) maxPerMessage * 2L, 200_000L)
+      }
+      if (s.length() > cap) {
+        int head = Math.max(100, cap - 220)
+        m.put(
+          'content',
+          s.substring(0, head) +
+            '\n\n[crafterq: content truncated for tools-loop request size; originalChars=' +
+            s.length() +
+            ']\n'
+        )
+      }
+    }
+  }
+
+  /**
+   * When {@code maxWireChars > 0} and serialized {@code reqMap} exceeds that budget, shrinks tool copy + message text in place.
+   * Session bundle key: {@link StudioAiLlmKind#BUNDLE_TOOLS_LOOP_CHAT_MAX_WIRE_PAYLOAD_CHARS} (set from site script for strict hosts).
+   */
+  private static void openAiShrinkToolsLoopWirePayloadIfOverBudget(Map reqMap, List<Map> wireMessages, List wireTools, int maxWireChars) {
+    if (maxWireChars <= 0) {
+      return
+    }
+    String body
+    try {
+      body = JsonOutput.toJson(reqMap)
+    } catch (Throwable t) {
+      return
+    }
+    int n = body.length()
+    if (n <= maxWireChars) {
+      return
+    }
+    log.warn(
+      'Tools-loop: wire JSON large ({} chars > cap {}); shrinking tool + message payload before POST',
+      n,
+      maxWireChars
+    )
+    for (topDesc in [2000, 900, 450, 220, 120]) {
+      openAiTruncateToolsLoopWireToolTopLevelDescriptions(wireTools, topDesc as int)
+      body = JsonOutput.toJson(reqMap)
+      n = body.length()
+      if (n <= maxWireChars) {
+        log.info('Tools-loop: shrink ok after top-level tool description cap={} newChars={}', topDesc, n)
+        return
+      }
+    }
+    for (sl in [360, 180, 90]) {
+      for (def t : (List) wireTools) {
+        if (!(t instanceof Map)) {
+          continue
+        }
+        def fn = ((Map) t).get('function')
+        if (fn instanceof Map) {
+          def params = ((Map) fn).get('parameters')
+          openAiShrinkToolsLoopJsonSchemaDescriptionStrings(params, sl as int)
+        }
+      }
+      body = JsonOutput.toJson(reqMap)
+      n = body.length()
+      if (n <= maxWireChars) {
+        log.info('Tools-loop: shrink ok after JSON-schema description cap={} newChars={}', sl, n)
+        return
+      }
+    }
+    for (def t : (List) wireTools) {
+      if (!(t instanceof Map)) {
+        continue
+      }
+      def fn = ((Map) t).get('function')
+      if (fn instanceof Map) {
+        def params = ((Map) fn).get('parameters')
+        openAiClearToolsLoopJsonSchemaDescriptionStrings(params)
+      }
+    }
+    body = JsonOutput.toJson(reqMap)
+    n = body.length()
+    if (n <= maxWireChars) {
+      log.info('Tools-loop: shrink ok after stripping nested JSON-schema descriptions newChars={}', n)
+      return
+    }
+    for (mc in [48_000, 28_000, 18_000, 12_000, 9000, 6000]) {
+      openAiCapToolsLoopWireMessageContents(wireMessages, mc as int)
+      body = JsonOutput.toJson(reqMap)
+      n = body.length()
+      if (n <= maxWireChars) {
+        log.info('Tools-loop: shrink ok after message content cap={} newChars={}', mc, n)
+        return
+      }
+    }
+    log.warn(
+      'Tools-loop: wire JSON still large after shrink ({} chars > cap {}); upstream may reject the request',
+      n,
+      maxWireChars
+    )
   }
 
   /**
@@ -1950,10 +2104,15 @@ For **content XML** (pages/components): do not invent a new element tree — pre
           String hint401 = ''
           if (status.value() == 401) {
             hint401 =
-              ' Troubleshooting (401): the Bearer key must match the tools-loop host (e.g. Groq keys start with gsk_; using an OpenAI sk-* key in <openAiApiKey> or the wrong env var while <llm>script:groq</llm> calls api.groq.com causes 401 with an empty body).'
+              ' Troubleshooting (401): the Bearer key for tools-loop chat must be the API key for the configured wire base URL (script bundle or Studio provider config). A secret issued for a different vendor than the host typically returns 401.'
+          }
+          String hint413 = ''
+          if (status.value() == 413) {
+            hint413 =
+              ' Troubleshooting (413): request too large for the chat host (token / TPM limits). Reduce tools or prompt size, set toolsLoopChatMaxWirePayloadChars on the script session bundle, or raise your provider tier.'
           }
           def msg =
-            "Tools-loop chat HTTP ${status.value()} ${statusText} responseBody=\n${AiHttpProxy.elideForLog(bodyStr, 4000)}${hint401}"
+            "Tools-loop chat HTTP ${status.value()} ${statusText} responseBody=\n${AiHttpProxy.elideForLog(bodyStr, 4000)}${hint401}${hint413}"
           if (logFailuresAsWarn) {
             log.warn(msg)
           } else {
@@ -1992,7 +2151,8 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     int maxOutTokens,
     int readTimeoutMs = 600_000,
     String workerPhasePrefix = null,
-    String wireBaseUrl = null
+    String wireBaseUrl = null,
+    Map toolsLoopSessionBundle = null
   ) {
     String phasePfx = (workerPhasePrefix != null && workerPhasePrefix.toString().trim())
       ? workerPhasePrefix.toString().trim() + '_'
@@ -2006,9 +2166,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
       crafterQToolWorkerDiagPhase(phasePfx + 'simple_completion_skipped_pipeline_cancelled')
       throw new InterruptedException(CRAFTQ_PIPELINE_CANCELLED)
     }
-    int effMaxOut = wireBaseUrl != null && wireBaseUrl.toString().trim()
-      ? openAiClampMaxOutTokensForToolsLoopWire(model, wireBaseUrl, maxOutTokens)
-      : openAiClampMaxOutTokensForChatCompletionsModel(model, maxOutTokens)
+    int effMaxOut = openAiClampMaxOutTokensForToolsLoopWire(model, maxOutTokens, toolsLoopSessionBundle)
     if (effMaxOut < maxOutTokens) {
       log.info(
         'openAiSimpleCompletionAssistantText: clamping maxOutTokens {} -> {} for model {} wireBaseUrl={}',
@@ -2026,7 +2184,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
       ],
       stream  : false
     ]
-    reqMap.putAll(openAiChatCompletionOutputLimitParams(model, effMaxOut, wireBaseUrl))
+    reqMap.putAll(openAiChatCompletionOutputLimitParams(model, effMaxOut, toolsLoopSessionBundle))
     String jsonBody = openAiChatCompletionsWireBodyApplyNeoTemperaturePolicy(JsonOutput.toJson(reqMap))
     String urlStr = resolveOpenAiSyncChatCompletionsUrl(wireBaseUrl)
     crafterQToolWorkerDiagPhase(
@@ -2135,7 +2293,8 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     int maxOutTokens = 8192,
     int readTimeoutMs = 600_000,
     String workerPhasePrefix = 'HeadlessOpenAi',
-    String wireBaseUrl = null
+    String wireBaseUrl = null,
+    Map toolsLoopSessionBundle = null
   ) {
     if (tools == null || tools.isEmpty()) {
       throw new IllegalStateException(
@@ -2156,7 +2315,8 @@ For **content XML** (pages/components): do not invent a new element tree — pre
       null,
       null,
       null,
-      wireBaseUrl
+      wireBaseUrl,
+      toolsLoopSessionBundle
     )
   }
 
@@ -2798,6 +2958,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     OutputStream ssePreToolAssistantText = null,
     AtomicBoolean cancelRequested = null,
     String wireBaseUrl = null,
+    Map toolsLoopSessionBundle = null,
     Map<String, String> generateImageDataUrlByToolCallId = null
   ) {
     def slurper = new JsonSlurper()
@@ -2817,8 +2978,10 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
         tool_choice: 'auto',
         stream: false
       ]
-      int effMaxOut = openAiClampMaxOutTokensForToolsLoopWire(model, wireBaseUrl, 16000)
-      reqMap.putAll(openAiChatCompletionOutputLimitParams(model, effMaxOut, wireBaseUrl))
+      int effMaxOut = openAiClampMaxOutTokensForToolsLoopWire(model, 16000, toolsLoopSessionBundle)
+      reqMap.putAll(openAiChatCompletionOutputLimitParams(model, effMaxOut, toolsLoopSessionBundle))
+      int maxWire = StudioAiLlmKind.toolsLoopChatMaxWirePayloadCharsFromBundle(toolsLoopSessionBundle)
+      openAiShrinkToolsLoopWirePayloadIfOverBudget(reqMap, wireMessages, wireTools, maxWire)
       def jsonBody = openAiChatCompletionsWireBodyApplyNeoTemperaturePolicy(JsonOutput.toJson(reqMap))
       if (logFirstPostChars && round == 0) {
         log.debug(
@@ -3062,7 +3225,8 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     OutputStream sseOut = null,
     Map toolTimingCtx = null,
     AtomicBoolean cancelRequested = null,
-    String wireBaseUrl = null
+    String wireBaseUrl = null,
+    Map toolsLoopSessionBundle = null
   ) {
     markPipelineWallStart(toolTimingCtx)
     if (cancelRequested != null && cancelRequested.get()) {
@@ -3103,6 +3267,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
       sseOut,
       cancelRequested,
       wireBaseUrl,
+      toolsLoopSessionBundle,
       cqGenerateImageDataUrlByToolCallId
     )
     if (openAiPostToolReviewEnabled() && (cancelRequested == null || !cancelRequested.get())) {
@@ -3140,6 +3305,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
               sseOut,
               cancelRequested,
               wireBaseUrl,
+              toolsLoopSessionBundle,
               cqGenerateImageDataUrlByToolCallId
             )
           }
@@ -3185,14 +3351,15 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     Map toolTimingCtx = null,
     AtomicBoolean cancelRequested = null,
     AtomicBoolean terminalEmitted = null,
-    String wireBaseUrl = null
+    String wireBaseUrl = null,
+    Map toolsLoopSessionBundle = null
   ) {
     crafterQToolWorkerDiagPhase("openai_tools_worker_start agentId=${agentId ?: ''} model=${model ?: ''}")
     try {
       String text
       try {
         text = openAiExecuteNativeToolsViaRestClientReturnText(
-          apiKey, model, openAiPrompt, tools, agentId, out, toolTimingCtx, cancelRequested, wireBaseUrl)
+          apiKey, model, openAiPrompt, tools, agentId, out, toolTimingCtx, cancelRequested, wireBaseUrl, toolsLoopSessionBundle)
       } catch (InterruptedException ie) {
         log.warn(
           'AI Assistant chat stream: Tools-loop tools worker stopped after cancel (client abort / Stop). agentId={} reason={}',
@@ -3487,7 +3654,8 @@ Technical detail: ''' + msg
           null,
           null,
           null,
-          StudioAiLlmKind.toolsLoopChatBaseUrlFromBundle(springAi)
+          StudioAiLlmKind.toolsLoopChatBaseUrlFromBundle(springAi),
+          springAi
         )
       } else {
         def callResult = callSpec.call()
@@ -4344,7 +4512,8 @@ Check Studio logs for Spring AI / WebClient / reactor.netty lines emitted for th
                 toolTimingCtx,
                 cancelRequested,
                 openAiToolsTerminalEmitted,
-                StudioAiLlmKind.toolsLoopChatBaseUrlFromBundle(springAi)
+                StudioAiLlmKind.toolsLoopChatBaseUrlFromBundle(springAi),
+                springAi
               )
               null
             } as Callable)
