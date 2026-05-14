@@ -7,10 +7,9 @@
 // Spring AI is vendor-neutral; OpenAi* types here are the spring-ai-openai module’s client for one HTTP JSON shape — your
 // base URL + model id are whatever vendor you configure (not necessarily OpenAI Inc.).
 //
-// Configure Studio (host-only base URL, no trailing /v1). Env/JVM identifiers below are legacy plugin spellings:
+// Configure Studio (host-only base URL, no trailing /v1). Env identifiers below are legacy plugin spellings:
 //   export SCRIPT_LLM_OPENAI_COMPAT_BASE_URL=https://api.example.com
 //   export SCRIPT_LLM_API_KEY=...
-// JVM: -Dstudio.scriptLlm.openAiCompatBaseUrl=... -Dstudio.scriptLlm.apiKey=...
 // Per-agent chat model: <llmModel> or POST llmModel → req.openAiModelParam (legacy request field name)
 // Testing-only key from widget: optional agent <openAiApiKey> → req.openAiApiKeyFromRequest (legacy names)
 
@@ -51,17 +50,11 @@ class BringYourOwnToolsLoopHostRuntime implements StudioAiLlmRuntime {
 
   private static String compatBaseUrl() {
     String u = System.getenv('SCRIPT_LLM_OPENAI_COMPAT_BASE_URL')?.toString()?.trim()
-    if (!u) {
-      u = System.getProperty('studio.scriptLlm.openAiCompatBaseUrl')?.toString()?.trim()
-    }
     return u ? u.replaceAll(/\/+$/, '') : ''
   }
 
   private static String compatApiKey(StudioAiRuntimeBuildRequest req) {
     String k = System.getenv('SCRIPT_LLM_API_KEY')?.toString()?.trim()
-    if (!k) {
-      k = System.getProperty('studio.scriptLlm.apiKey')?.toString()?.trim()
-    }
     if (!k) {
       k = (req.openAiApiKeyFromRequest ?: '').toString().trim()
     }
@@ -74,12 +67,12 @@ class BringYourOwnToolsLoopHostRuntime implements StudioAiLlmRuntime {
     String apiKey = compatApiKey(req)
     if (!base) {
       throw new IllegalStateException(
-        'Script LLM byo-openai-compat: set tools-loop chat base URL — SCRIPT_LLM_OPENAI_COMPAT_BASE_URL (host only, no trailing /v1) or JVM studio.scriptLlm.openAiCompatBaseUrl (legacy property name).'
+        'Script LLM byo-openai-compat: set tools-loop chat base URL — SCRIPT_LLM_OPENAI_COMPAT_BASE_URL (host only, no trailing /v1).'
       )
     }
     if (!apiKey) {
       throw new IllegalStateException(
-        'Script LLM byo-openai-compat: set SCRIPT_LLM_API_KEY or JVM studio.scriptLlm.apiKey on Studio, or agent <openAiApiKey> for local testing only (legacy agent field name).'
+        'Script LLM byo-openai-compat: set SCRIPT_LLM_API_KEY on Studio, or agent <openAiApiKey> for local testing only (legacy agent field name).'
       )
     }
     String modelName = (req.openAiModelParam ?: 'gpt-4o-mini').toString().trim()

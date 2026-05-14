@@ -33,10 +33,10 @@ Copy to **`config/studio/scripts/aiassistant/llm/byo-openai-compat/runtime.groov
 
 Secrets and base URL are **yours** (any **tools-loop** chat vendor), not necessarily **`OPENAI_API_KEY`** / OpenAI’s default host:
 
-| Variable / JVM | Purpose |
-|----------------|---------|
-| **`SCRIPT_LLM_OPENAI_COMPAT_BASE_URL`** or **`-Dstudio.scriptLlm.openAiCompatBaseUrl`** | Host-only API base (no trailing **`/v1`**). Property names are legacy; the host is your chosen vendor. |
-| **`SCRIPT_LLM_API_KEY`** or **`-Dstudio.scriptLlm.apiKey`** | Bearer/API key for that host. |
+| Variable | Purpose |
+|----------|---------|
+| **`SCRIPT_LLM_OPENAI_COMPAT_BASE_URL`** | Host-only API base (no trailing **`/v1`**). Name is legacy; the host is your chosen vendor. |
+| **`SCRIPT_LLM_API_KEY`** | Bearer/API key for that host. |
 | **`<llmModel>`** / POST **`llmModel`** | Chat model id forwarded as **`req.openAiModelParam`**. |
 
 **GenerateImage** and expert embeddings still use the Studio **`OPENAI_API_KEY`** path where the built-in tool stack expects it — configure that separately if authors need images or expert-vector tools.
@@ -47,18 +47,19 @@ Secrets and base URL are **yours** (any **tools-loop** chat vendor), not necessa
 
 Copy to **`config/studio/scripts/aiassistant/llm/groq/runtime.groovy`** and set **`<llm>script:groq</llm>`** (folder name under **`llm/`** must match the id after **`script:`**).
 
-| Variable / JVM | Required | Purpose |
-|----------------|----------|---------|
+| Variable | Required | Purpose |
+|----------|----------|---------|
 | **`GROQ_API_KEY`** | Yes (typical) | [Groq API key](https://console.groq.com/keys) (`gsk_…`). |
 | **`GROQ_OPENAI_COMPAT_BASE_URL`** | No | Defaults to **`https://api.groq.com/openai`** (host only, no trailing **`/v1`**). Name is legacy. |
 | **`SCRIPT_LLM_*`** | No | Same overrides as **`byo-openai-compat`** if you prefer generic env names. |
-| **`<llmModel>`** / POST **`llmModel`** | Yes (unless you set **`GROQ_LLM_MODEL`** / **`SCRIPT_LLM_MODEL`** / **`-Dstudio.scriptLlm.groqModel`**) | **Groq** chat model id (this sample does not hardcode a default — Groq rotates model ids). See [Groq models](https://console.groq.com/docs/models). |
+| **`GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS`** | No | When the **native CMS tools** loop posts to **Groq** (`groq.com` in the wire URL), the server clamps **`max_completion_tokens`** to this integer (default **8192** when unset). Prevents HTTP **400** when the model’s completion ceiling is below the generic tools-loop budget. Applies to **simple** completions toward Groq when **`wireBaseUrl`** is set too. |
+| **`<llmModel>`** / POST **`llmModel`** | Yes (unless you set **`GROQ_LLM_MODEL`** / **`SCRIPT_LLM_MODEL`**) | **Groq** chat model id (this sample does not hardcode a default — Groq rotates model ids). See [Groq models](https://console.groq.com/docs/models). |
 
 Same **`OpenAiApi` + `OpenAiChatModel`** types from Spring AI’s **`spring-ai-openai`** module as **`byo-openai-compat`** (one HTTP client implementation, usable against **any** compatible base URL — here Groq’s). **`GROQ_API_KEY`** and **`llmModel`** are **Groq** credentials and **Groq** model strings.
 
 **Example `llmModel`:** `meta-llama/llama-4-scout-17b-16e-instruct` — set on the agent, or export **`GROQ_LLM_MODEL`** / **`SCRIPT_LLM_MODEL`** with the same value for a site-wide default. Confirm the id is still listed under [Groq models](https://console.groq.com/docs/models) before relying on it in production.
 
-When **`script:groq`** (or any tools-loop base URL on **`api.groq.com`**) runs **native CMS tools**, the server caps **`max_tokens`** on each tools-loop round (default **8192**) so Groq does not return HTTP **400** for models with a lower completion ceiling than the plugin’s generic tools-loop budget. Tune with JVM **`studio.scriptLlm.groqToolsLoopMaxOutTokens`** (see [studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md)).
+When **`script:groq`** (or any tools-loop base URL on **`api.groq.com`**) runs **native CMS tools**, the server sends Groq’s documented **`max_completion_tokens`** on each tools-loop round, clamped to **8192** by default (so Groq does not return HTTP **400** when the model’s completion ceiling is below the plugin’s generic tools-loop budget). Set **`GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS`** on the Studio host to raise or lower that cap. Script LLM **simple** completions to Groq use the same clamp when **`wireBaseUrl`** is set.
 
 ## Anthropic-style Session
 

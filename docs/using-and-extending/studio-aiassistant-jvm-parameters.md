@@ -86,14 +86,6 @@ Use this file when you need to tune timeouts, logging, or defaults that are not 
 
 ---
 
-## Tools-loop Host Caps (`studio.scriptLlm.*`)
-
-| Property | Default / notes |
-|----------|-----------------|
-| **`studio.scriptLlm.groqToolsLoopMaxOutTokens`** | When the tools-loop **`/v1/chat/completions`** POST targets **Groq** (`wireBaseUrl` contains **`groq.com`**), completion **`max_tokens`** is clamped to this value (default **8192** if unset). Prevents HTTP **400** from Groq for models whose max completion is below the plugin’s generic tools-loop budget. |
-
----
-
 ## Misc
 
 | Property | Role |
@@ -104,4 +96,4 @@ Use this file when you need to tune timeouts, logging, or defaults that are not 
 
 ## Implementation Source
 
-Property names and defaults are defined in plugin Groovy under **`authoring/scripts/classes/plugins/org/craftercms/aiassistant/`** (search for **`System.getProperty`**). This document is descriptive; behavior is authoritative in code.
+Property names and defaults are defined in plugin Groovy under **`authoring/scripts/classes/plugins/org/craftercms/aiassistant/`** (search for **`System.getProperty`** where applicable). **Groq** tools-loop **`max_completion_tokens`** clamp reads **`GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS`** on the Studio process (see [script-llm-bring-your-own-backend.md](script-llm-bring-your-own-backend.md)), not a JVM system property. This document is descriptive; behavior is authoritative in code.

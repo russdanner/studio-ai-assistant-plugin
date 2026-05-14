@@ -14,20 +14,18 @@
 //   export GROQ_OPENAI_COMPAT_BASE_URL=https://api.groq.com/openai
 //   export SCRIPT_LLM_OPENAI_COMPAT_BASE_URL=...   (same meaning as GROQ_* if you share one pattern across script LLMs)
 //   export SCRIPT_LLM_API_KEY=...                  (optional alias for GROQ_API_KEY)
-// JVM overrides use the same legacy spellings (they configure *this* script LLM only, regardless of name):
-//   -Dstudio.scriptLlm.openAiCompatBaseUrl=...   -Dstudio.scriptLlm.apiKey=...
 // If unset, this sample uses Groq’s documented public base for that wire (path ends with `/openai` on **api.groq.com** —
 // Groq’s routing, not OpenAI’s servers). Pin the URL yourself if policy requires it.
 //
 // Chat model id (required — Groq deprecates model ids over time; this sample does not bake a default):
 //   <llmModel>…</llmModel> or POST llmModel → `req.openAiModelParam` (**Studio’s legacy request field name** — value is still your Groq model id).
 // Example (slash form is normal on Groq): meta-llama/llama-4-scout-17b-16e-instruct
-// Site-wide optional fallbacks: env GROQ_LLM_MODEL or SCRIPT_LLM_MODEL, or JVM -Dstudio.scriptLlm.groqModel=...
+// Site-wide optional fallbacks: env GROQ_LLM_MODEL or SCRIPT_LLM_MODEL
 // Model list: https://console.groq.com/docs/models
 //
-// Built-in GenerateImage / expert embeddings use Studio’s separate image-and-embedding configuration (not GROQ_API_KEY); see plugin docs for env/JVM names.
-// Native CMS tools use the server tools-loop POST to Groq: orchestration clamps completion max_tokens when the host is
-// groq.com (default cap 8192; JVM studio.scriptLlm.groqToolsLoopMaxOutTokens — see studio-aiassistant-jvm-parameters.md).
+// Built-in GenerateImage / expert embeddings use Studio’s separate image-and-embedding configuration (not GROQ_API_KEY); see plugin docs.
+// Native CMS tools: the server tools-loop POST to Groq clamps completion `max_completion_tokens` when the host is groq.com
+// (default 8192). Override on the Studio process: export GROQ_TOOLS_LOOP_MAX_COMPLETION_TOKENS=<integer>
 
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.DefaultChatClientBuilder
@@ -71,9 +69,6 @@ class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
       u = System.getenv('SCRIPT_LLM_OPENAI_COMPAT_BASE_URL')?.toString()?.trim()
     }
     if (!u) {
-      u = System.getProperty('studio.scriptLlm.openAiCompatBaseUrl')?.toString()?.trim()
-    }
-    if (!u) {
       u = GROQ_DOCUMENTED_CHAT_API_BASE
     }
     return u.replaceAll(/\/+$/, '')
@@ -85,15 +80,12 @@ class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
       k = System.getenv('SCRIPT_LLM_API_KEY')?.toString()?.trim()
     }
     if (!k) {
-      k = System.getProperty('studio.scriptLlm.apiKey')?.toString()?.trim()
-    }
-    if (!k) {
       k = (req.openAiApiKeyFromRequest ?: '').toString().trim()
     }
     return k
   }
 
-  /** Groq chat model id from agent/request, then optional site env/JVM (`openAiModelParam` is Studio’s legacy field name only). */
+  /** Groq chat model id from agent/request, then optional site env (`openAiModelParam` is Studio’s legacy field name only). */
   private static String compatModelId(StudioAiRuntimeBuildRequest req) {
     String m = (req.openAiModelParam ?: '').toString().trim()
     if (m) {
@@ -107,8 +99,7 @@ class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
     if (m) {
       return m
     }
-    m = System.getProperty('studio.scriptLlm.groqModel')?.toString()?.trim()
-    return m ?: ''
+    return ''
   }
 
   @Override
@@ -117,12 +108,12 @@ class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
     String apiKey = compatApiKey(req)
     if (!base?.toString()?.trim()) {
       throw new IllegalStateException(
-        'Script LLM groq: tools-loop chat base URL ended up empty after normalization — check GROQ_OPENAI_COMPAT_BASE_URL / SCRIPT_LLM_OPENAI_COMPAT_BASE_URL / JVM studio.scriptLlm.openAiCompatBaseUrl (host only, no trailing /v1).'
+        'Script LLM groq: tools-loop chat base URL ended up empty after normalization — check GROQ_OPENAI_COMPAT_BASE_URL / SCRIPT_LLM_OPENAI_COMPAT_BASE_URL (host only, no trailing /v1).'
       )
     }
     if (!apiKey) {
       throw new IllegalStateException(
-        'Script LLM groq: set GROQ_API_KEY (or SCRIPT_LLM_API_KEY / JVM studio.scriptLlm.apiKey), or testing-only per-agent <openAiApiKey> (legacy XML name). Use a **gsk_** Groq key — a non-Groq vendor key in that slot returns HTTP 401 from Groq.'
+        'Script LLM groq: set GROQ_API_KEY (or SCRIPT_LLM_API_KEY), or testing-only per-agent <openAiApiKey> (legacy XML name). Use a **gsk_** Groq key — a non-Groq vendor key in that slot returns HTTP 401 from Groq.'
       )
     }
     if (base.contains('groq.com') && !apiKey.startsWith('gsk_')) {
@@ -133,7 +124,7 @@ class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
     String modelName = compatModelId(req)
     if (!modelName) {
       throw new IllegalStateException(
-        'Script LLM groq: set a Groq chat model id on the agent (<llmModel>) or POST llmModel, or set env GROQ_LLM_MODEL / SCRIPT_LLM_MODEL, or JVM -Dstudio.scriptLlm.groqModel=.... Groq deprecates model ids — see https://console.groq.com/docs/models'
+        'Script LLM groq: set a Groq chat model id on the agent (<llmModel>) or POST llmModel, or set env GROQ_LLM_MODEL / SCRIPT_LLM_MODEL. Groq deprecates model ids — see https://console.groq.com/docs/models'
       )
     }
     def orch = req.orchestration
