@@ -208,6 +208,14 @@ function normalizeCatalogForSave(f: CentralAgentsFile): CentralAgentsFile {
     if (!llmChat.includes('crafterq') && !String(outChat.imageModel ?? '').trim()) {
       outChat.imageModel = STUDIO_AI_DEFAULT_IMAGE_MODEL;
     }
+    const opensPopup =
+      recChat.openAsPopup === true ||
+      String(recChat.openAsPopup ?? '').trim().toLowerCase() === 'true';
+    if (opensPopup) recChat.openAsPopup = true;
+    else {
+      delete recChat.openAsPopup;
+      delete recChat.open_as_popup;
+    }
     return outChat;
   });
   return { version: f.version ?? 1, agents };
@@ -713,6 +721,29 @@ export default function AiAssistantCentralAgentsConfiguration() {
                           />
                         }
                         label="Enable CMS tools (native tool loop)"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={
+                              draft.openAsPopup === true ||
+                              String(draft.openAsPopup ?? '').trim().toLowerCase() === 'true'
+                            }
+                            onChange={(ev) =>
+                              setDraft((d) => {
+                                if (!d) return d;
+                                if (!ev.target.checked) {
+                                  const next = { ...d } as Record<string, unknown>;
+                                  delete next.openAsPopup;
+                                  delete next.open_as_popup;
+                                  return next as CentralAgentFileEntry;
+                                }
+                                return { ...d, openAsPopup: true };
+                              })
+                            }
+                          />
+                        }
+                        label="Open chat in a floating dialog (default: Experience Builder tools panel)"
                       />
                       {draft.enableTools !== false ? (
                         <CmsToolCheckboxes

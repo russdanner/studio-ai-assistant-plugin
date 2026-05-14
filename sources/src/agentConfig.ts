@@ -27,7 +27,7 @@ export interface AgentConfig {
   icon?: string;
   /**
    * `true` = floating dialog. `false` or omitted = Experience Builder right (ICE) tools panel
-   * (edit mode on). XML: `<openAsPopup>true</openAsPopup>`.
+   * (edit mode on). Default is panel. XML / JSON: `<openAsPopup>true</openAsPopup>` or `"openAsPopup": true`.
    */
   openAsPopup?: boolean;
   /** From `<llm>crafterQ</llm>` or `<llm>openAI</llm>` in widget configuration. Omitted unless set in ui.xml; stream/chat then omit POST `llm` unless the server merges it from `/ui.xml` — missing `llm` after merge is **400**. Prefer setting explicitly. */
@@ -237,15 +237,16 @@ export type PromptConfig = {
 
 const DEFAULT_AGENT_ID = '';
 
-/** Fallback when no config or parsing fails — always show dropdown with one entry. */
+/** Fallback when no config or parsing fails — one toolbar/menu row so click always has a target. */
 const DEFAULT_AGENT: AgentConfig = {
-  id: DEFAULT_AGENT_ID,
+  id: CRAFTERQ_PLUGIN_SAMPLE_AGENT_ID,
   label: 'Studio AI Assistant',
+  llm: 'crafterQ',
   prompts: []
 };
 
-/** Fallback list so dropdown always works when config is missing. */
-export const DEFAULT_AGENTS: AgentConfig[] = [];
+/** Fallback list so Helper click / agent menus always have at least one entry (see {@link getAgentsFromConfiguration}). */
+export const DEFAULT_AGENTS: AgentConfig[] = [DEFAULT_AGENT];
 
 /**
  * Default agents for the Form Engine “CrafterQ assistant” control when no agents come from ui.xml / widget config.

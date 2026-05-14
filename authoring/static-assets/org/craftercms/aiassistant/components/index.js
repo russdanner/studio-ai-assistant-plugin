@@ -208,6 +208,7 @@ const reloadRequest = /*#__PURE__*/ createAction('RELOAD_REQUEST');
 const contentTypeDropTargetsResponse = /*#__PURE__*/ createAction('CONTENT_TYPE_DROP_TARGETS_RESPONSE');
 /*#__PURE__*/ createAction(contentTypeDropTargetsResponse.type);
 const setPreviewEditMode = /*#__PURE__*/ createAction('EDIT_MODE_CHANGED');
+const initToolbarConfig = /*#__PURE__*/ createAction('INIT_TOOLBAR_CONFIG');
 // endregion
 // region ICE panel stack
 const pushIcePanelPage = /*#__PURE__*/ createAction('PUSH_ICE_PANEL_PAGE');
@@ -31254,8 +31255,15 @@ function dropPlaceholderAgentsWhenRicherMatchesExist(agents) {
     });
 }
 const DEFAULT_AGENT_ID = '';
-/** Fallback list so dropdown always works when config is missing. */
-const DEFAULT_AGENTS = [];
+/** Fallback when no config or parsing fails — one toolbar/menu row so click always has a target. */
+const DEFAULT_AGENT = {
+    id: CRAFTERQ_PLUGIN_SAMPLE_AGENT_ID,
+    label: 'Studio AI Assistant',
+    llm: 'crafterQ',
+    prompts: []
+};
+/** Fallback list so Helper click / agent menus always have at least one entry (see {@link getAgentsFromConfiguration}). */
+const DEFAULT_AGENTS = [DEFAULT_AGENT];
 /**
  * Normalize agents from widget configuration.
  * Falls back to DEFAULT_AGENTS when no config or no agents found so the UI always works.
@@ -31796,8 +31804,11 @@ function entryToChatAgent(entry) {
         out.openAiApiKey = entry.openAiApiKey.trim();
     if (enableTools !== undefined)
         out.enableTools = enableTools;
-    if (entry.openAsPopup === true || String(entry.openAsPopup).toLowerCase() === 'true')
+    const popRaw = entry.openAsPopup;
+    if (popRaw === true || String(popRaw ?? '').trim().toLowerCase() === 'true')
         out.openAsPopup = true;
+    else if (popRaw === false || String(popRaw ?? '').trim().toLowerCase() === 'false')
+        out.openAsPopup = false;
     if (expertSkills)
         out.expertSkills = expertSkills;
     const tbc = entry.translateBatchConcurrency ?? entry.translate_batch_concurrency;
@@ -32484,6 +32495,102 @@ function shouldAugmentContentTypeForImagePatch(ct, cfg) {
     return id ? allow.has(id) : false;
 }
 
+const PREVIEW_TOOLBAR_ID = 'craftercms.components.PreviewToolbar';
+const ADDRESS_BAR_ID = 'craftercms.components.PreviewAddressBar';
+/** Avoid duplicate `initToolbarConfig` for the same broken `ui.xml` snapshot (multiple Helper mounts). */
+const patchedSourceXml = new Set();
+function ensureIconButtonConfiguration(doc, helper) {
+    let conf = helper.querySelector(':scope > configuration');
+    if (!conf) {
+        conf = doc.createElement('configuration');
+        conf.setAttribute('ui', 'IconButton');
+        helper.appendChild(conf);
+    }
+    else if (!conf.getAttribute('ui')) {
+        conf.setAttribute('ui', 'IconButton');
+    }
+}
+/**
+ * Studio marketplace merge can (a) put our `<plugin>` inside PreviewAddressBar, (b) leave the Helper under
+ * `rightSection/widgets` (descriptor default for safe wiring). Normalize to the supported shape: Helper is a
+ * sibling of PreviewAddressBar under `middleSection/widgets`.
+ */
+function normalizePreviewToolbarMiddleSectionUiXml(xml) {
+    if (!xml || xml.indexOf(PREVIEW_TOOLBAR_ID) === -1)
+        return null;
+    const doc = new DOMParser().parseFromString(xml, 'application/xml');
+    if (doc.querySelector('parsererror'))
+        return null;
+    const toolbar = doc.querySelector(`widget[id="${PREVIEW_TOOLBAR_ID}"]`);
+    const configuration = toolbar?.querySelector(':scope > configuration');
+    const middleSection = configuration?.querySelector(':scope > middleSection');
+    const widgets = middleSection?.querySelector(':scope > widgets');
+    if (!widgets || !middleSection)
+        return null;
+    let changed = false;
+    // Legacy descriptor merge stubs (no longer emitted); strip if present.
+    doc.querySelectorAll(`plugin[id="${aiAssistantStudioPluginId}"] > installationAnchor`).forEach((n) => {
+        n.remove();
+        changed = true;
+    });
+    // Marketplace-safe install merges the Helper under rightSection/widgets; move it beside the address bar.
+    const rightWidgets = configuration?.querySelector(':scope > rightSection > widgets');
+    const helperInRight = rightWidgets?.querySelector(`:scope > widget[id="${helperWidgetId}"]`) ?? null;
+    if (helperInRight) {
+        const dupMiddle = widgets.querySelector(`:scope > widget[id="${helperWidgetId}"]`);
+        if (dupMiddle && dupMiddle !== helperInRight) {
+            helperInRight.remove();
+            changed = true;
+        }
+        else if (!dupMiddle) {
+            widgets.appendChild(helperInRight);
+            ensureIconButtonConfiguration(doc, helperInRight);
+            changed = true;
+        }
+    }
+    // Case A: our plugin nested under PreviewAddressBar — lift into Helper widget sibling.
+    const addressBar = widgets.querySelector(`widget[id="${ADDRESS_BAR_ID}"]`);
+    const strayPlugin = addressBar?.querySelector(`:scope > plugin[id="${aiAssistantStudioPluginId}"]`) ?? null;
+    if (addressBar && strayPlugin) {
+        let helper = widgets.querySelector(`:scope > widget[id="${helperWidgetId}"]`);
+        if (!helper) {
+            helper = doc.createElement('widget');
+            helper.setAttribute('id', helperWidgetId);
+            widgets.appendChild(helper);
+        }
+        const already = helper.querySelector(`:scope > plugin[id="${aiAssistantStudioPluginId}"]`);
+        if (already && already !== strayPlugin) {
+            strayPlugin.remove();
+        }
+        else if (!already) {
+            helper.appendChild(strayPlugin);
+        }
+        ensureIconButtonConfiguration(doc, helper);
+        changed = true;
+    }
+    // Case B: Helper is a direct child of middleSection (sibling of widgets) — move into widgets.
+    const misplacedHelpers = Array.from(middleSection.querySelectorAll(':scope > widget')).filter((el) => el.getAttribute('id') === helperWidgetId);
+    for (const h of misplacedHelpers) {
+        widgets.appendChild(h);
+        ensureIconButtonConfiguration(doc, h);
+        changed = true;
+    }
+    if (!changed)
+        return null;
+    return new XMLSerializer().serializeToString(doc);
+}
+function dispatchPreviewToolbarUiXmlFixIfNeeded(xml, dispatch) {
+    if (!xml)
+        return;
+    if (patchedSourceXml.has(xml))
+        return;
+    const normalized = normalizePreviewToolbarMiddleSectionUiXml(xml);
+    if (normalized == null || normalized === xml)
+        return;
+    patchedSourceXml.add(xml);
+    dispatch(initToolbarConfig({ configXml: normalized }));
+}
+
 const DIALOG_WIDTH_STORAGE_KEY = 'aiassistant-dialog-width';
 const DEFAULT_DIALOG_WIDTH = 480;
 const MIN_DIALOG_WIDTH = 320;
@@ -32530,10 +32637,30 @@ function readIceChatConfiguration(props) {
     }
     return null;
 }
+/**
+ * Studio may pass `ui` on the widget root or only under nested `configuration` (from merged `ui.xml`).
+ */
+function readHelperUi(props) {
+    const raw = props;
+    const top = props.ui ?? raw['@_ui'];
+    if (top === 'IconButton' || top === 'ListItemButton')
+        return top;
+    const walk = (o) => {
+        if (o == null || typeof o !== 'object')
+            return undefined;
+        const rec = o;
+        const u = rec.ui ?? rec['@_ui'];
+        if (u === 'IconButton' || u === 'ListItemButton')
+            return u;
+        return walk(rec.configuration);
+    };
+    return walk(props.configuration);
+}
 function AiAssistantHelper(props) {
     const dispatch = useDispatch();
+    const studioUiXml = useSelector((state) => state.uiConfig?.xml ?? null);
     const { configuration, agents: agentsProp } = props;
-    const ui = props.ui ?? props['@_ui'] ?? undefined;
+    const ui = readHelperUi(props) ?? 'ListItemButton';
     const iceChatCfg = useMemo(() => readIceChatConfiguration(props), [configuration, props]);
     const activeSiteId = useActiveSiteId();
     const studioUiSiteKey = useMemo(() => effectiveStudioSiteId(activeSiteId), [activeSiteId]);
@@ -32541,6 +32668,9 @@ function AiAssistantHelper(props) {
     const subscribeUi = useCallback((onStoreChange) => subscribeStudioUiConfigChanged(studioUiSiteKey, onStoreChange), [studioUiSiteKey]);
     const studioUiEpoch = useSyncExternalStore(subscribeUi, () => getStudioUiConfigEpochSnapshot(studioUiSiteKey), () => 0);
     const showAiInTopNav = useMemo(() => syncReadStudioUiConfig(studioUiSiteKey).showAiAssistantsInTopNavigation !== false, [studioUiSiteKey, studioUiEpoch]);
+    useEffect(() => {
+        dispatchPreviewToolbarUiXmlFixIfNeeded(studioUiXml, dispatch);
+    }, [studioUiXml, dispatch]);
     const [siteChatOverlay, setSiteChatOverlay] = useState(null);
     useEffect(() => {
         if (!studioUiSiteKey || iceChatCfg) {
@@ -32618,8 +32748,18 @@ function AiAssistantHelper(props) {
             ], 'icePanel'))
         ]));
     };
+    const agentOpensAsPopup = (agent) => {
+        const v = agent.openAsPopup;
+        if (v === true)
+            return true;
+        if (typeof v === 'string') {
+            const s = v.trim().toLowerCase();
+            return s === 'true' || s === '1' || s === 'yes';
+        }
+        return false;
+    };
     const openAgent = (agent) => {
-        if (agent.openAsPopup === true) {
+        if (agentOpensAsPopup(agent)) {
             setMenuOpen(false);
             setMenuAnchor(null);
             const effectiveId = agent?.id?.trim() || '';
@@ -32681,9 +32821,10 @@ function AiAssistantHelper(props) {
     };
     const handleToolbarClick = (e) => {
         const list = agents.length > 0 ? agents : DEFAULT_AGENTS;
-        if (list.length <= 1) {
-            if (list.length === 1)
-                openAgent(list[0]);
+        if (list.length === 0)
+            return;
+        if (list.length === 1) {
+            openAgent(list[0]);
         }
         else {
             setMenuAnchor(e.currentTarget);
@@ -32718,8 +32859,7 @@ function AiAssistantHelper(props) {
         const iceBearerTok = iceRaw.crafterQBearerToken?.trim();
         return (jsx(AiAssistantIceChatShell, { children: jsx(AiAssistantChat, { agentId: agentId, llm: llm, llmModel: llmModel || undefined, imageModel: imageModel, imageGenerator: imageGenerator || undefined, openAiApiKey: openAiApiKey, enableTools: iceEnableTools, enabledBuiltInTools: iceEnabledBuiltIn, expertSkills: iceExpertSkills, configPrompts: configPrompts, embedTarget: "icePanel", ...(iceTranslateBatch != null ? { translateBatchConcurrency: iceTranslateBatch } : {}), ...(iceBearerEnv ? { crafterQBearerTokenEnv: iceBearerEnv } : {}), ...(iceBearerTok ? { crafterQBearerToken: iceBearerTok } : {}) }) }));
     }
-    return (jsxs(Fragment, { children: [Boolean(ui) &&
-                (ui === 'IconButton' ? (showAiInTopNav ? (jsx(Tooltip, { title: primaryAgent?.label ?? 'Studio AI Assistant', children: jsx(IconButton, { onClick: handleToolbarClick, "aria-haspopup": toolbarList.length > 1 ? 'menu' : undefined, "aria-expanded": toolbarList.length > 1 ? menuOpen : undefined, children: getAgentIcon(primaryAgent?.icon) }) })) : null) : (jsx(ToolsPanelListItemButton, { icon: { id: logoWidgetId }, title: primaryAgent?.label ?? 'Studio AI Assistant', onClick: handleToolbarClick }))), menuAnchor && (jsx(Menu, { open: true, anchorEl: menuAnchor, onClose: handleMenuClose, anchorOrigin: { vertical: 'bottom', horizontal: 'right' }, transformOrigin: { vertical: 'top', horizontal: 'right' }, disableAutoFocusItem: true, TransitionProps: { timeout: 0 }, children: toolbarList.map((agent) => (jsxs(MenuItem, { onClick: () => {
+    return (jsxs(Fragment, { children: [ui === 'IconButton' ? (showAiInTopNav ? (jsx(Tooltip, { title: primaryAgent?.label ?? 'Studio AI Assistant', children: jsx(IconButton, { onClick: handleToolbarClick, "aria-haspopup": toolbarList.length > 1 ? 'menu' : undefined, "aria-expanded": toolbarList.length > 1 ? menuOpen : undefined, children: getAgentIcon(primaryAgent?.icon) }) })) : null) : (jsx(ToolsPanelListItemButton, { icon: { id: logoWidgetId }, title: primaryAgent?.label ?? 'Studio AI Assistant', onClick: handleToolbarClick })), menuAnchor && (jsx(Menu, { open: true, anchorEl: menuAnchor, onClose: handleMenuClose, anchorOrigin: { vertical: 'bottom', horizontal: 'right' }, transformOrigin: { vertical: 'top', horizontal: 'right' }, disableAutoFocusItem: true, TransitionProps: { timeout: 0 }, children: toolbarList.map((agent) => (jsxs(MenuItem, { onClick: () => {
                         openAgent(agent);
                     }, children: [jsx(ListItemIcon, { children: getAgentIcon(agent.icon) }), jsx(ListItemText, { primary: agent.label })] }, agentKey(agent)))) })), typeof document !== 'undefined' &&
                 createPortal(jsxs(Fragment, { children: [openDialogs
@@ -34502,6 +34642,14 @@ function normalizeCatalogForSave(f) {
         if (!llmChat.includes('crafterq') && !String(outChat.imageModel ?? '').trim()) {
             outChat.imageModel = STUDIO_AI_DEFAULT_IMAGE_MODEL;
         }
+        const opensPopup = recChat.openAsPopup === true ||
+            String(recChat.openAsPopup ?? '').trim().toLowerCase() === 'true';
+        if (opensPopup)
+            recChat.openAsPopup = true;
+        else {
+            delete recChat.openAsPopup;
+            delete recChat.open_as_popup;
+        }
         return outChat;
     });
     return { version: f.version ?? 1, agents };
@@ -34735,7 +34883,18 @@ function AiAssistantCentralAgentsConfiguration() {
                                                             prompts: []
                                                         };
                                                     });
-                                                } }), label: "Autonomous (scheduled)" }), mode === 'chat' ? (jsxs(Fragment, { children: [jsx(TextField, { label: "Label", value: String(draft.label ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, label: ev.target.value } : d)), fullWidth: true, size: "small" }), jsx(TextField, { label: "CrafterQ agent id (optional for OpenAI-only)", value: String(draft.crafterQAgentId ?? draft.id ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, crafterQAgentId: ev.target.value, id: ev.target.value } : d)), fullWidth: true, size: "small" }), jsx(TextField, { label: "MUI icon id (optional)", value: String(draft.icon ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, icon: ev.target.value } : d)), fullWidth: true, size: "small", placeholder: "@mui/icons-material/AutoAwesomeRounded" }), llmVendorImageRows, jsx(FormControlLabel, { control: jsx(Switch, { checked: draft.enableTools !== false, onChange: (ev) => setDraft((d) => (d ? { ...d, enableTools: ev.target.checked } : d)) }), label: "Enable CMS tools (native tool loop)" }), draft.enableTools !== false ? (jsx(CmsToolCheckboxes, { draft: draft, onToggle: (toolId, checked) => setDraft((d) => (d ? setToolCheckedOnEntry(d, toolId, checked) : d)) })) : null, jsxs(Box, { children: [jsx(FormLabel, { component: "legend", children: "Quick prompts (chat chips)" }), jsxs(Typography, { variant: "caption", color: "text.secondary", display: "block", sx: { mt: 0.5, mb: 1 }, children: ["Each row: short chip label (", jsx("code", { children: "userText" }), ") plus optional instructions (", jsx("code", { children: "additionalContext" }), ") merged when the author clicks the chip. Up to 10 prompts."] }), jsx(Stack, { spacing: 1.5, children: chatPromptRows.map((row, idx) => (jsxs(Box, { sx: {
+                                                } }), label: "Autonomous (scheduled)" }), mode === 'chat' ? (jsxs(Fragment, { children: [jsx(TextField, { label: "Label", value: String(draft.label ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, label: ev.target.value } : d)), fullWidth: true, size: "small" }), jsx(TextField, { label: "CrafterQ agent id (optional for OpenAI-only)", value: String(draft.crafterQAgentId ?? draft.id ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, crafterQAgentId: ev.target.value, id: ev.target.value } : d)), fullWidth: true, size: "small" }), jsx(TextField, { label: "MUI icon id (optional)", value: String(draft.icon ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, icon: ev.target.value } : d)), fullWidth: true, size: "small", placeholder: "@mui/icons-material/AutoAwesomeRounded" }), llmVendorImageRows, jsx(FormControlLabel, { control: jsx(Switch, { checked: draft.enableTools !== false, onChange: (ev) => setDraft((d) => (d ? { ...d, enableTools: ev.target.checked } : d)) }), label: "Enable CMS tools (native tool loop)" }), jsx(FormControlLabel, { control: jsx(Switch, { checked: draft.openAsPopup === true ||
+                                                            String(draft.openAsPopup ?? '').trim().toLowerCase() === 'true', onChange: (ev) => setDraft((d) => {
+                                                            if (!d)
+                                                                return d;
+                                                            if (!ev.target.checked) {
+                                                                const next = { ...d };
+                                                                delete next.openAsPopup;
+                                                                delete next.open_as_popup;
+                                                                return next;
+                                                            }
+                                                            return { ...d, openAsPopup: true };
+                                                        }) }), label: "Open chat in a floating dialog (default: Experience Builder tools panel)" }), draft.enableTools !== false ? (jsx(CmsToolCheckboxes, { draft: draft, onToggle: (toolId, checked) => setDraft((d) => (d ? setToolCheckedOnEntry(d, toolId, checked) : d)) })) : null, jsxs(Box, { children: [jsx(FormLabel, { component: "legend", children: "Quick prompts (chat chips)" }), jsxs(Typography, { variant: "caption", color: "text.secondary", display: "block", sx: { mt: 0.5, mb: 1 }, children: ["Each row: short chip label (", jsx("code", { children: "userText" }), ") plus optional instructions (", jsx("code", { children: "additionalContext" }), ") merged when the author clicks the chip. Up to 10 prompts."] }), jsx(Stack, { spacing: 1.5, children: chatPromptRows.map((row, idx) => (jsxs(Box, { sx: {
                                                                     border: 1,
                                                                     borderColor: 'divider',
                                                                     borderRadius: 1,
@@ -34825,6 +34984,25 @@ const AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB = `{
   ]
 }
 `;
+/**
+ * Starter {@code config/studio/scripts/aiassistant/config/tools.json} — built-in tool allow/deny and MCP
+ * (see {@code StudioAiAssistantProjectConfig}).
+ */
+const AI_ASSISTANT_TOOLS_JSON_STUB = `{
+  "disabledBuiltInTools": [],
+  "enabledBuiltInTools": [],
+  "mcpEnabled": false,
+  "mcpServers": [
+    {
+      "id": "example",
+      "url": "https://your-mcp-host.example/mcp",
+      "headers": {},
+      "readTimeoutMs": 120000
+    }
+  ],
+  "disabledMcpTools": []
+}
+`;
 /** Starter markdown when creating a site override for {@code config/studio/scripts/aiassistant/prompts/&lt;KEY&gt;.md}. */
 function aiAssistantToolPromptMarkdownStub(key) {
     return `# ${key}
@@ -34898,6 +35076,8 @@ function studioConfigRelativePath(studioModulePath) {
 }
 
 const REGISTRY_REL = 'scripts/aiassistant/user-tools/registry.json';
+/** Site policy + MCP: {@code StudioAiAssistantProjectConfig#TOOLS_JSON_PATH}. */
+const TOOLS_JSON_REL = 'scripts/aiassistant/config/tools.json';
 function safeJsonParse(text) {
     try {
         return JSON.parse(text);
@@ -34918,6 +35098,9 @@ function AiAssistantScriptsSandboxConfiguration(props) {
     const [registryDraft, setRegistryDraft] = useState('');
     const [registryDirty, setRegistryDirty] = useState(false);
     const [savingRegistry, setSavingRegistry] = useState(false);
+    const [toolsJsonDraft, setToolsJsonDraft] = useState(AI_ASSISTANT_TOOLS_JSON_STUB);
+    const [toolsJsonDirty, setToolsJsonDirty] = useState(false);
+    const [savingToolsJson, setSavingToolsJson] = useState(false);
     const [editorOpen, setEditorOpen] = useState(false);
     const [editorFullscreen, setEditorFullscreen] = useState(false);
     const [editorTitle, setEditorTitle] = useState('');
@@ -34944,6 +35127,10 @@ function AiAssistantScriptsSandboxConfiguration(props) {
     React.useEffect(() => {
         registryDirtyRef.current = registryDirty;
     }, [registryDirty]);
+    const toolsJsonDirtyRef = React.useRef(false);
+    React.useEffect(() => {
+        toolsJsonDirtyRef.current = toolsJsonDirty;
+    }, [toolsJsonDirty]);
     const reload = useCallback(async () => {
         if (!siteId)
             return;
@@ -34960,6 +35147,16 @@ function AiAssistantScriptsSandboxConfiguration(props) {
             if (!registryDirtyRef.current) {
                 const t = (data.registryText ?? '').trim();
                 setRegistryDraft(t || AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB);
+            }
+            if (!toolsJsonDirtyRef.current) {
+                try {
+                    const raw = await firstValueFrom(fetchConfigurationJSON(siteId, TOOLS_JSON_REL, 'studio'));
+                    const text = typeof raw === 'string' ? raw : '';
+                    setToolsJsonDraft(text.trim() ? text : AI_ASSISTANT_TOOLS_JSON_STUB);
+                }
+                catch {
+                    setToolsJsonDraft(AI_ASSISTANT_TOOLS_JSON_STUB);
+                }
             }
         }
         catch (e) {
@@ -34997,6 +35194,31 @@ function AiAssistantScriptsSandboxConfiguration(props) {
         }
         finally {
             setSavingRegistry(false);
+        }
+    };
+    const saveToolsJson = async () => {
+        if (!siteId)
+            return;
+        const parsed = safeJsonParse(toolsJsonDraft);
+        if (parsed == null) {
+            setLoadError('tools.json is invalid JSON — fix syntax before saving.');
+            return;
+        }
+        const normalized = JSON.stringify(parsed, null, 2);
+        setSavingToolsJson(true);
+        setLoadError(null);
+        try {
+            await firstValueFrom(writeConfiguration(siteId, TOOLS_JSON_REL, 'studio', normalized));
+            setToolsJsonDraft(normalized);
+            setToolsJsonDirty(false);
+            await postAiAssistantScriptsMutate(siteId, { action: 'refreshSync' }).catch(() => { });
+            await reload();
+        }
+        catch (e) {
+            setLoadError(e instanceof Error ? e.message : String(e));
+        }
+        finally {
+            setSavingToolsJson(false);
         }
     };
     const openEditor = (title, studioPath, body, stub) => {
@@ -35191,15 +35413,19 @@ function AiAssistantScriptsSandboxConfiguration(props) {
     const pageTitle = panel === 'prompts'
         ? 'Tool prompt overrides'
         : panel === 'tools'
-            ? 'User tools & registry'
+            ? 'Tools and MCP'
             : panel === 'scripts'
                 ? 'Script backends'
                 : 'AI Assistant Scripts';
-    const pageIntro = panel === 'prompts' ? (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Markdown under ", jsx("code", { children: "scripts/aiassistant/prompts/<KEY>.md" }), " overrides built-in tool prompt text (see ToolPromptsLoader). Empty files open with a working stub."] })) : panel === 'tools' ? (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Edit ", jsx("code", { children: "user-tools/registry.json" }), " and Groovy tools under ", jsx("code", { children: "scripts/aiassistant/user-tools/" }), ". Empty files open with a working stub."] })) : panel === 'scripts' ? (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Script image generators under ", jsx("code", { children: "scripts/aiassistant/imagegen/<id>/generate.groovy" }), " and script LLMs under ", jsx("code", { children: "scripts/aiassistant/llm/<id>/runtime.groovy" }), ". Empty files open with a working stub."] })) : (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Edit ", jsx("code", { children: "user-tools/registry.json" }), ", site Groovy tools under ", jsx("code", { children: "scripts/aiassistant/user-tools/" }), ", script image generators under ", jsx("code", { children: "scripts/aiassistant/imagegen/<id>/generate.groovy" }), ", script LLMs under", ' ', jsx("code", { children: "scripts/aiassistant/llm/<id>/runtime.groovy" }), ", and optional markdown overrides for built-in tool prompts under ", jsx("code", { children: "scripts/aiassistant/prompts/<KEY>.md" }), ". Empty files open with a working stub you can replace."] }));
+    const pageIntro = panel === 'prompts' ? (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Markdown under ", jsx("code", { children: "scripts/aiassistant/prompts/<KEY>.md" }), " overrides built-in tool prompt text (see ToolPromptsLoader). Empty files open with a working stub."] })) : panel === 'tools' ? (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Edit ", jsx("code", { children: "scripts/aiassistant/config/tools.json" }), " to map built-in CMS tools (", jsx("code", { children: "disabledBuiltInTools" }), ",", ' ', jsx("code", { children: "enabledBuiltInTools" }), ") and attach MCP servers (", jsx("code", { children: "mcpEnabled" }), ", ", jsx("code", { children: "mcpServers" }), ",", ' ', jsx("code", { children: "disabledMcpTools" }), "). Edit ", jsx("code", { children: "user-tools/registry.json" }), " and Groovy tools under", ' ', jsx("code", { children: "scripts/aiassistant/user-tools/" }), ". Empty files open with a working stub."] })) : panel === 'scripts' ? (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Script image generators under ", jsx("code", { children: "scripts/aiassistant/imagegen/<id>/generate.groovy" }), " and script LLMs under ", jsx("code", { children: "scripts/aiassistant/llm/<id>/runtime.groovy" }), ". Empty files open with a working stub."] })) : (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Edit ", jsx("code", { children: "scripts/aiassistant/config/tools.json" }), " (built-in tool policy + MCP), ", jsx("code", { children: "user-tools/registry.json" }), ", site Groovy tools under ", jsx("code", { children: "scripts/aiassistant/user-tools/" }), ", script image generators under", ' ', jsx("code", { children: "scripts/aiassistant/imagegen/<id>/generate.groovy" }), ", script LLMs under", ' ', jsx("code", { children: "scripts/aiassistant/llm/<id>/runtime.groovy" }), ", and optional markdown overrides for built-in tool prompts under ", jsx("code", { children: "scripts/aiassistant/prompts/<KEY>.md" }), ". Empty files open with a working stub you can replace."] }));
     return (jsxs(Box, { sx: { p: 2, maxWidth: 1100, mx: 'auto' }, children: [jsx(Typography, { variant: "h5", component: "h1", gutterBottom: true, children: pageTitle }), pageIntro, !siteId ? (jsx(Alert, { severity: "info", children: "Select a site to edit scripts." })) : (jsxs(Fragment, { children: [loadError ? (jsx(Alert, { severity: "error", sx: { mb: 2 }, onClose: () => setLoadError(null), children: loadError })) : null, jsx(Stack, { direction: "row", spacing: 1, sx: { mb: 2 }, flexWrap: "wrap", alignItems: "center", children: jsx(Button, { size: "small", variant: "outlined", startIcon: jsx(RefreshRounded, {}), disabled: loading, onClick: () => {
                                 setRegistryDirty(false);
+                                setToolsJsonDirty(false);
                                 void reload();
-                            }, children: "Reload" }) }), showTools ? (jsxs(Fragment, { children: [jsxs(Typography, { variant: "subtitle1", gutterBottom: true, children: ["Registry (", jsx("code", { children: REGISTRY_REL }), ")"] }), jsx(TextField, { value: registryDraft, onChange: (ev) => {
+                            }, children: "Reload" }) }), showTools ? (jsxs(Fragment, { children: [jsxs(Typography, { variant: "subtitle1", gutterBottom: true, children: ["Built-in tools and MCP (", jsx("code", { children: TOOLS_JSON_REL }), ")"] }), jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Set ", jsx("code", { children: "mcpEnabled" }), " to ", jsx("code", { children: "true" }), " before ", jsx("code", { children: "mcpServers" }), " is used. Each server needs", ' ', jsx("code", { children: "id" }), " and ", jsx("code", { children: "url" }), " (Streamable HTTP POST endpoint); optional ", jsx("code", { children: "headers" }), " and", ' ', jsx("code", { children: "readTimeoutMs" }), ". MCP tools appear as ", jsx("code", { children: "mcp_<id>_<toolName>" }), " wire names. Non-empty", ' ', jsx("code", { children: "enabledBuiltInTools" }), " whitelists CMS built-ins only (exact wire names in product docs);", ' ', jsx("code", { children: "InvokeSiteUserTool" }), " and ", jsx("code", { children: "mcp_*" }), " stay unless listed in ", jsx("code", { children: "disabledBuiltInTools" }), " or", ' ', jsx("code", { children: "disabledMcpTools" }), "."] }), jsx(TextField, { value: toolsJsonDraft, onChange: (ev) => {
+                                    setToolsJsonDraft(ev.target.value);
+                                    setToolsJsonDirty(true);
+                                }, fullWidth: true, multiline: true, minRows: 12, size: "small", sx: { '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 13 } } }), jsx(Button, { sx: { mt: 1 }, size: "small", variant: "contained", startIcon: jsx(SaveRounded, {}), disabled: savingToolsJson || !toolsJsonDirty, onClick: () => void saveToolsJson(), children: "Save tools.json" }), jsx(Button, { sx: { mt: 1, ml: 1 }, size: "small", onClick: () => loadFileForEditor('tools.json', `/${TOOLS_JSON_REL}`, AI_ASSISTANT_TOOLS_JSON_STUB), children: "Open in editor" }), jsx(Divider, { sx: { my: 3 } }), jsxs(Typography, { variant: "subtitle1", gutterBottom: true, children: ["Registry (", jsx("code", { children: REGISTRY_REL }), ")"] }), jsx(TextField, { value: registryDraft, onChange: (ev) => {
                                     setRegistryDraft(ev.target.value);
                                     setRegistryDirty(true);
                                 }, fullWidth: true, multiline: true, minRows: 8, size: "small", sx: { '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 13 } } }), jsx(Button, { sx: { mt: 1 }, size: "small", variant: "contained", startIcon: jsx(SaveRounded, {}), disabled: savingRegistry || !registryDirty, onClick: () => void saveRegistry(), children: "Save registry" }), jsx(Button, { sx: { mt: 1, ml: 1 }, size: "small", onClick: () => loadFileForEditor('Registry', `/${REGISTRY_REL}`, AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB), children: "Open in editor" })] })) : null, showTools && showPrompts ? jsx(Divider, { sx: { my: 3 } }) : null, showPrompts ? (jsxs(Fragment, { children: [jsxs(Typography, { variant: "subtitle1", gutterBottom: true, children: ["Tool prompt overrides (", jsx("code", { children: "scripts/aiassistant/prompts/" }), ")"] }), jsx(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: "Non-empty markdown for a key replaces the plugin default (see ToolPromptsLoader). Remove the file to use the built-in text again. Click a row to read the default and the site file side by side." }), jsx(TableContainer, { sx: { maxHeight: 420, border: 1, borderColor: 'divider', borderRadius: 1 }, children: jsxs(Table, { size: "small", stickyHeader: true, children: [jsx(TableHead, { children: jsxs(TableRow, { children: [jsx(TableCell, { children: "Key" }), jsx(TableCell, { children: "Status" }), jsx(TableCell, { align: "right", children: "Actions" })] }) }), jsx(TableBody, { children: toolPromptOverrides.length === 0 ? (jsx(TableRow, { children: jsx(TableCell, { colSpan: 3, children: jsx(Typography, { variant: "body2", color: "text.secondary", children: "No prompt keys returned from the server." }) }) })) : (toolPromptOverrides.map((row) => (jsxs(TableRow, { hover: true, selected: promptReadOpen && promptReadKey === row.key, sx: { cursor: 'pointer' }, onClick: () => openPromptRead(row.key), children: [jsx(TableCell, { children: jsx("code", { children: row.key }) }), jsx(TableCell, { children: row.hasOverride ? `Site override (${row.byteLength} bytes)` : 'Built-in default' }), jsxs(TableCell, { align: "right", children: [jsx(Button, { size: "small", startIcon: jsx(EditRounded, {}), onClick: (ev) => {
@@ -35277,7 +35503,7 @@ function AiAssistantScriptsSandboxConfiguration(props) {
                             setPromptReadFullscreen(false);
                             setPromptReadOpen(false);
                             setPromptReadKey(null);
-                        }, fullScreen: promptReadFullscreen, maxWidth: "md", fullWidth: true, scroll: "paper", PaperProps: promptReadFullscreen
+                        }, fullScreen: promptReadFullscreen, maxWidth: "xl", fullWidth: true, scroll: "paper", PaperProps: promptReadFullscreen
                             ? {
                                 sx: {
                                     m: 0,
@@ -35287,7 +35513,16 @@ function AiAssistantScriptsSandboxConfiguration(props) {
                                     flexDirection: 'column'
                                 }
                             }
-                            : undefined, children: [jsxs(DialogTitle, { sx: {
+                            : {
+                                sx: {
+                                    width: '100%',
+                                    maxWidth: 1400,
+                                    minHeight: '72vh',
+                                    maxHeight: '92vh',
+                                    display: 'flex',
+                                    flexDirection: 'column'
+                                }
+                            }, children: [jsxs(DialogTitle, { sx: {
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'space-between',
@@ -35302,7 +35537,7 @@ function AiAssistantScriptsSandboxConfiguration(props) {
                                         display: 'flex',
                                         flexDirection: 'column'
                                     }
-                                    : undefined, children: [promptReadLoading ? jsx(Typography, { variant: "body2", children: "Loading\u2026" }) : null, promptReadError ? (jsx(Alert, { severity: "error", sx: { mb: 2 }, onClose: () => setPromptReadError(null), children: promptReadError })) : null, !promptReadLoading && !promptReadError ? (jsxs(Fragment, { children: [jsxs(Typography, { variant: "caption", color: "text.secondary", display: "block", sx: { mb: 0.5 }, children: ["Default (no site override): classpath ", jsxs("code", { children: ["prompts/", promptReadKey, ".md"] }), " if bundled, otherwise the built-in Groovy literal.", promptReadDefaultTrunc ? ' Truncated in this response for size.' : ''] }), jsx(TextField, { value: promptReadDefault, fullWidth: true, multiline: true, minRows: 10, InputProps: { readOnly: true }, size: "small", sx: { mb: 2, '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 12 } } }), jsxs(Typography, { variant: "caption", color: "text.secondary", display: "block", sx: { mb: 0.5 }, children: ["Site file ", jsxs("code", { children: ["/scripts/aiassistant/prompts/", promptReadKey, ".md"] }), " (raw). Non-blank file wins for this site. ", promptReadSiteEffective ? 'Override is active.' : 'Empty or whitespace only — default applies.', ' ', promptReadSiteTrunc ? 'Truncated in this response for size.' : ''] }), jsx(TextField, { value: promptReadSite, fullWidth: true, multiline: true, minRows: 8, InputProps: { readOnly: true }, size: "small", sx: { '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 12 } } })] })) : null] }), jsxs(DialogActions, { sx: { flexShrink: 0 }, children: [jsx(Button, { onClick: () => {
+                                    : undefined, children: [promptReadLoading ? jsx(Typography, { variant: "body2", children: "Loading\u2026" }) : null, promptReadError ? (jsx(Alert, { severity: "error", sx: { mb: 2 }, onClose: () => setPromptReadError(null), children: promptReadError })) : null, !promptReadLoading && !promptReadError ? (jsxs(Fragment, { children: [jsxs(Typography, { variant: "caption", color: "text.secondary", display: "block", sx: { mb: 0.5 }, children: ["Default (no site override): classpath ", jsxs("code", { children: ["prompts/", promptReadKey, ".md"] }), " if bundled, otherwise the built-in Groovy literal.", promptReadDefaultTrunc ? ' Truncated in this response for size.' : ''] }), jsx(TextField, { value: promptReadDefault, fullWidth: true, multiline: true, minRows: 18, InputProps: { readOnly: true }, size: "small", sx: { mb: 2, '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 12 } } }), jsxs(Typography, { variant: "caption", color: "text.secondary", display: "block", sx: { mb: 0.5 }, children: ["Site file ", jsxs("code", { children: ["/scripts/aiassistant/prompts/", promptReadKey, ".md"] }), " (raw). Non-blank file wins for this site. ", promptReadSiteEffective ? 'Override is active.' : 'Empty or whitespace only — default applies.', ' ', promptReadSiteTrunc ? 'Truncated in this response for size.' : ''] }), jsx(TextField, { value: promptReadSite, fullWidth: true, multiline: true, minRows: 14, InputProps: { readOnly: true }, size: "small", sx: { '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 12 } } })] })) : null] }), jsxs(DialogActions, { sx: { flexShrink: 0 }, children: [jsx(Button, { onClick: () => {
                                             setPromptReadFullscreen(false);
                                             setPromptReadOpen(false);
                                             setPromptReadKey(null);
@@ -35669,7 +35904,7 @@ function useDomFullscreen() {
 
 /**
  * Single Project Tools surface: **UI** (`studio-ui.json` + bulk), **Agents** (`agents.json`),
- * **Prompts** (tool markdown overrides), **Tools** (registry + user Groovy), **Scripts** (imagegen + script LLMs).
+ * **Prompts** (tool markdown overrides), **Tools and MCP** (`tools.json` + registry + user Groovy), **Scripts** (imagegen + script LLMs).
  * Primary widget id: {@link projectToolsAiAssistantConfigWidgetId}. Legacy ids still mount this component with a fixed default tab.
  */
 function AiAssistantProjectToolsConfiguration(props) {
@@ -35683,15 +35918,15 @@ function AiAssistantProjectToolsConfiguration(props) {
             minHeight: 0,
             alignSelf: 'stretch',
             ...(toolFullscreen ? { bgcolor: 'background.default' } : {})
-        }, children: [jsxs(Stack$1, { direction: "row", alignItems: "stretch", sx: { flexShrink: 0, borderBottom: 1, borderColor: 'divider' }, children: [jsxs(Tabs$1, { value: tab, onChange: (_, v) => setTab(v), variant: "scrollable", scrollButtons: "auto", allowScrollButtonsMobile: true, sx: { flex: '1 1 auto', minWidth: 0 }, children: [jsx(Tab$1, { label: "UI", value: "ui" }), jsx(Tab$1, { label: "Agents", value: "agents" }), jsx(Tab$1, { label: "Prompts", value: "prompts" }), jsx(Tab$1, { label: "Tools", value: "tools" }), jsx(Tab$1, { label: "Scripts", value: "scripts" })] }), jsx(Box$1, { sx: { display: 'flex', alignItems: 'center', flexShrink: 0, borderLeft: 1, borderColor: 'divider', px: 0.5 }, children: jsx(Tooltip$1, { title: toolFullscreen ? 'Exit fullscreen' : 'Fullscreen', children: jsx(IconButton$1, { size: "small", "aria-label": toolFullscreen ? 'Exit fullscreen' : 'Enter fullscreen', onClick: () => toggleToolFullscreen(), children: toolFullscreen ? jsx(FullscreenExitRounded, {}) : jsx(FullscreenRounded, {}) }) }) })] }), jsxs(Box$1, { sx: { flex: '1 1 auto', minHeight: 0, overflow: 'auto' }, children: [tab === 'ui' ? jsx(AiAssistantStudioUiSettings, {}) : null, tab === 'agents' ? jsx(AiAssistantCentralAgentsConfiguration, {}) : null, tab === 'prompts' ? jsx(AiAssistantScriptsSandboxConfiguration, { panel: "prompts" }) : null, tab === 'tools' ? jsx(AiAssistantScriptsSandboxConfiguration, { panel: "tools" }) : null, tab === 'scripts' ? jsx(AiAssistantScriptsSandboxConfiguration, { panel: "scripts" }) : null] })] }));
+        }, children: [jsxs(Stack$1, { direction: "row", alignItems: "stretch", sx: { flexShrink: 0, borderBottom: 1, borderColor: 'divider' }, children: [jsxs(Tabs$1, { value: tab, onChange: (_, v) => setTab(v), variant: "scrollable", scrollButtons: "auto", allowScrollButtonsMobile: true, sx: { flex: '1 1 auto', minWidth: 0 }, children: [jsx(Tab$1, { label: "UI", value: "ui" }), jsx(Tab$1, { label: "Agents", value: "agents" }), jsx(Tab$1, { label: "Prompts", value: "prompts" }), jsx(Tab$1, { label: "Tools and MCP", value: "tools" }), jsx(Tab$1, { label: "Scripts", value: "scripts" })] }), jsx(Box$1, { sx: { display: 'flex', alignItems: 'center', flexShrink: 0, borderLeft: 1, borderColor: 'divider', px: 0.5 }, children: jsx(Tooltip$1, { title: toolFullscreen ? 'Exit fullscreen' : 'Fullscreen', children: jsx(IconButton$1, { size: "small", "aria-label": toolFullscreen ? 'Exit fullscreen' : 'Enter fullscreen', onClick: () => toggleToolFullscreen(), children: toolFullscreen ? jsx(FullscreenExitRounded, {}) : jsx(FullscreenRounded, {}) }) }) })] }), jsxs(Box$1, { sx: { flex: '1 1 auto', minHeight: 0, overflow: 'auto' }, children: [tab === 'ui' ? jsx(AiAssistantStudioUiSettings, {}) : null, tab === 'agents' ? jsx(AiAssistantCentralAgentsConfiguration, {}) : null, tab === 'prompts' ? jsx(AiAssistantScriptsSandboxConfiguration, { panel: "prompts" }) : null, tab === 'tools' ? jsx(AiAssistantScriptsSandboxConfiguration, { panel: "tools" }) : null, tab === 'scripts' ? jsx(AiAssistantScriptsSandboxConfiguration, { panel: "scripts" }) : null] })] }));
 }
 /** Legacy widget id `craftercms.components.aiassistant.CentralAgentsConfiguration` — opens Agents tab. */
 function AiAssistantProjectToolsConfigurationAgentsTab() {
     return jsx(AiAssistantProjectToolsConfiguration, { defaultTab: "agents" });
 }
 /**
- * Legacy widget id `craftercms.components.aiassistant.ScriptsSandboxConfiguration` — opens **Tools** tab
- * (registry + user Groovy), closest to the old combined page’s top section.
+ * Legacy widget id `craftercms.components.aiassistant.ScriptsSandboxConfiguration` — opens **Tools and MCP** tab
+ * (`tools.json` + registry + user Groovy), closest to the old combined page’s top section.
  */
 function AiAssistantProjectToolsConfigurationScriptsTab() {
     return jsx(AiAssistantProjectToolsConfiguration, { defaultTab: "tools" });

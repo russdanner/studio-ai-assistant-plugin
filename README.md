@@ -12,7 +12,7 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 | **Form engine control** | Per–content-type AI panel on forms |
 | **Helper widget** | `ui.xml` registration for the Experience Builder toolbar and, if you add it, the Studio **Tools Panel** list |
 | **Autonomous assistants** (optional and experimental) | Scheduled server-side runs + human tasks |
-| **Project Tools** (optional) | One **AI Assistant** entry (tabs: **UI** / **Agents** / **Prompts** / **Tools** / **Scripts**) — `studio-ui.json` + bulk, `agents.json`, tool-prompt markdown overrides, `user-tools/registry.json` + Groovy tools, script imagegen + script LLMs under `scripts/aiassistant/…` |
+| **Project Tools** (optional) | One **AI Assistant** entry (tabs: **UI** / **Agents** / **Prompts** / **Tools and MCP** / **Scripts**) — `studio-ui.json` + bulk, `agents.json`, tool-prompt markdown overrides, `tools.json` (built-ins + MCP), `user-tools/registry.json` + Groovy tools, script imagegen + script LLMs under `scripts/aiassistant/…` |
 | **TinyMCE** (optional RTE wiring) | Toolbar actions + RTE config → chat / shortcuts |
 
 ## Capabilities (at a glance)

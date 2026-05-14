@@ -21,7 +21,7 @@ export interface AiAssistantProjectToolsConfigurationProps {
 
 /**
  * Single Project Tools surface: **UI** (`studio-ui.json` + bulk), **Agents** (`agents.json`),
- * **Prompts** (tool markdown overrides), **Tools** (registry + user Groovy), **Scripts** (imagegen + script LLMs).
+ * **Prompts** (tool markdown overrides), **Tools and MCP** (`tools.json` + registry + user Groovy), **Scripts** (imagegen + script LLMs).
  * Primary widget id: {@link projectToolsAiAssistantConfigWidgetId}. Legacy ids still mount this component with a fixed default tab.
  */
 export default function AiAssistantProjectToolsConfiguration(props: AiAssistantProjectToolsConfigurationProps) {
@@ -58,7 +58,7 @@ export default function AiAssistantProjectToolsConfiguration(props: AiAssistantP
           <Tab label="UI" value="ui" />
           <Tab label="Agents" value="agents" />
           <Tab label="Prompts" value="prompts" />
-          <Tab label="Tools" value="tools" />
+          <Tab label="Tools and MCP" value="tools" />
           <Tab label="Scripts" value="scripts" />
         </Tabs>
         <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, borderLeft: 1, borderColor: 'divider', px: 0.5 }}>
@@ -90,8 +90,8 @@ export function AiAssistantProjectToolsConfigurationAgentsTab() {
 }
 
 /**
- * Legacy widget id `craftercms.components.aiassistant.ScriptsSandboxConfiguration` — opens **Tools** tab
- * (registry + user Groovy), closest to the old combined page’s top section.
+ * Legacy widget id `craftercms.components.aiassistant.ScriptsSandboxConfiguration` — opens **Tools and MCP** tab
+ * (`tools.json` + registry + user Groovy), closest to the old combined page’s top section.
  */
 export function AiAssistantProjectToolsConfigurationScriptsTab() {
   return <AiAssistantProjectToolsConfiguration defaultTab="tools" />;

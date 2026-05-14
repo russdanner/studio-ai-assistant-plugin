@@ -21,8 +21,8 @@ plugin:
     url: https://github.com/craftercms/crafterQ-plugin
   media:
     screenshots:
-      - title: CrafterQ Studio  Plugin
-        description: CrafterCMS CrafterQ Studio  Plugin
+      - title: Crafter Studio AI Assistant Plugin
+        description: CrafterCMS Crafter Studio AI Assistant Plugin
         url: "https://raw.githubusercontent.com/craftercms/CrafterQ Studio -plugin/main/.crafter/logo.png"
   developer:
     company:
@@ -95,15 +95,19 @@ plugin:
                         value: components
                       - name: file
                         value: index.js
+                  # Studio performConfigurationWiring descends the descriptor tree while the site has a single
+                  # matching child per level; a widget with only <plugin> forces descent into plugin (empty
+                  # children) → IndexOutOfBoundsException and the Tools Panel row is never merged. Keep a
+                  # sibling <configuration> (may be empty; agents from agents.json / ui.xml).
+                  - name: configuration
+                    children: []
                   # Chat agents: define in Project Tools → AI Assistant Agents (`config/studio/ai-assistant/agents.json`) or legacy `ui.xml` Helper `<agents>`.
-    # Preview toolbar Helper: merged under rightSection/widgets (required for Studio marketplace wiring:
-    # performConfigurationWiring descends when each XML level has exactly one matching child; middleSection/widgets
-    # often has 0–1 widgets, so the walk reaches <plugin> and NPEs if the descriptor plugin has no child elements.)
-    # To place the icon next to the URL bar, move the merged <widget id="craftercms.components.aiassistant.Helper">…</widget>
-    # to configuration/middleSection/widgets in config/studio/ui.xml after install (see docs/examples/studio-ui-aiassistant-fragments.xml).
+    # Preview toolbar Helper: merge under rightSection/widgets (Studio wiring walks singleton XML levels;
+    # middleSection/widgets often has only PreviewAddressBar and triggers IndexOutOfBoundsException / bad merge).
+    # The Studio plugin moves the Helper into middleSection/widgets at runtime (see aiAssistantPreviewToolbarUiXmlFix.ts).
     - type: preview-app
       parentXpath: //widget[@id='craftercms.components.PreviewToolbar']/configuration/rightSection/widgets
-      elementXpath: //widget[@id='craftercms.components.PreviewToolbar']/configuration/rightSection/widgets/widget[@id='craftercms.components.aiassistant.Helper'][.//plugin[@id='org.craftercms.aiassistant.studio']]
+      elementXpath: //widget[@id='craftercms.components.PreviewToolbar']//widget[@id='craftercms.components.aiassistant.Helper'][.//plugin[@id='org.craftercms.aiassistant.studio']]
       element:
         name: widget
         attributes:
@@ -124,6 +128,7 @@ plugin:
             attributes:
               - name: ui
                 value: IconButton
+            children: []
           # Chat agents: `config/studio/ai-assistant/agents.json` (Project Tools) or legacy `<agents>` here / in `ui.xml`.
     # Studio AI assistant — autonomous: Tools Panel widget (in-memory state + supervisor; see authoring/scripts/classes/.../autonomous/).
     # Element shape must match Crafter sidebar plugin pattern: configuration → widgets → widget (see CrafterCMS docs plugin-sidebar-example).

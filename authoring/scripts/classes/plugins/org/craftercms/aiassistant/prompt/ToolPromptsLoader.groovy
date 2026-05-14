@@ -111,6 +111,93 @@ final class ToolPromptsLoader {
     return g != null ? g : ''
   }
 
+  /**
+   * Runs the {@link ToolPrompts} static getter whose {@code p(key, …)} side effect registers the built-in literal for
+   * {@code key}. Catalog keys are not always {@code get&lt;KEY&gt;()} (e.g. {@code CMS_CONTENT_DESC_GENERATE_IMAGE} →
+   * {@code getDESC_GENERATE_IMAGE}).
+   */
+  static void ensureBuiltinRegisteredForCatalogKey(String key) {
+    if (key == null || !key) {
+      return
+    }
+    if (ToolPromptsBuiltinDefaults.getBuiltin(key) != null) {
+      return
+    }
+    String mn = resolveBootstrapGetterNameForCatalogKey(key)
+    if (!mn) {
+      return
+    }
+    try {
+      ToolPrompts.class.getMethod(mn).invoke(null)
+    } catch (Throwable t) {
+      log.debug('ToolPrompts bootstrap for key {} via {} failed: {}', key, mn, t.toString())
+    }
+  }
+
+  private static String resolveBootstrapGetterNameForCatalogKey(String key) {
+    if (key.startsWith('CMS_CONTENT_DESC_')) {
+      return 'getDESC_' + key.substring('CMS_CONTENT_DESC_'.length())
+    }
+    if (key.startsWith('CMS_DEVELOPMENT_DESC_')) {
+      return 'getDESC_' + key.substring('CMS_DEVELOPMENT_DESC_'.length())
+    }
+    if (key.startsWith('GENERAL_DESC_')) {
+      return 'getDESC_' + key.substring('GENERAL_DESC_'.length())
+    }
+    if ('CRAFTERQ_DESC_GET_AGENT_CHAT' == key) {
+      return 'getDESC_GET_CRAFTERQ_AGENT_CHAT'
+    }
+    if ('CRAFTERQ_DESC_LIST_AGENT_CHATS' == key) {
+      return 'getDESC_LIST_CRAFTERQ_AGENT_CHATS'
+    }
+    if (key.startsWith('CRAFTERQ_DESC_')) {
+      return 'getDESC_' + key.substring('CRAFTERQ_DESC_'.length())
+    }
+    if (key.startsWith('GENERAL_OPENAI_')) {
+      return 'getOPENAI_' + key.substring('GENERAL_OPENAI_'.length())
+    }
+    if ('GENERAL_XML_REPAIR_REMINDER_AFTER_BAD_READ' == key) {
+      return 'getXML_REPAIR_REMINDER_AFTER_BAD_READ'
+    }
+    if ('CMS_CONTENT_UPDATE_CONTENT' == key) {
+      return 'getUPDATE_CONTENT'
+    }
+    if ('CMS_CONTENT_UPDATE_CONTENT_FORM_ENGINE' == key) {
+      return 'getUPDATE_CONTENT_FORM_ENGINE'
+    }
+    if ('CMS_DEVELOPMENT_ANALYZE_TEMPLATE' == key) {
+      return 'getANALYZE_TEMPLATE'
+    }
+    if ('CMS_DEVELOPMENT_UPDATE_TEMPLATE' == key) {
+      return 'getUPDATE_TEMPLATE'
+    }
+    if ('CMS_DEVELOPMENT_UPDATE_TEMPLATE_FORM_ENGINE' == key) {
+      return 'getUPDATE_TEMPLATE_FORM_ENGINE'
+    }
+    if ('CMS_DEVELOPMENT_UPDATE_CONTENT_TYPE' == key) {
+      return 'getUPDATE_CONTENT_TYPE'
+    }
+    if ('CMS_DEVELOPMENT_UPDATE_CONTENT_TYPE_FORM_ENGINE' == key) {
+      return 'getUPDATE_CONTENT_TYPE_FORM_ENGINE'
+    }
+    if ('CMS_CONTENT_TRANSFORM_SUBGRAPH_SYSTEM' == key) {
+      return 'getTRANSFORM_CONTENT_SUBGRAPH_SYSTEM'
+    }
+    if ('CMS_CONTENT_TRANSLATE_ITEM_INNER_SYSTEM' == key) {
+      return 'getTRANSLATE_CONTENT_ITEM_INNER_SYSTEM'
+    }
+    if ('CMS_CONTENT_TRANSLATE_ITEM_INNER_SYSTEM_RAW' == key) {
+      return 'getTRANSLATE_CONTENT_ITEM_INNER_SYSTEM_RAW'
+    }
+    if ('CMS_CONTENT_TRANSLATE_ITEM_INNER_USER_APPENDIX' == key) {
+      return 'getTRANSLATE_CONTENT_ITEM_INNER_USER_APPENDIX'
+    }
+    if ('CMS_CONTENT_TRANSLATE_ITEM_INNER_USER_APPENDIX_RAW' == key) {
+      return 'getTRANSLATE_CONTENT_ITEM_INNER_USER_APPENDIX_RAW'
+    }
+    return 'get' + key
+  }
+
   /** Non-blank text only; blank files must not replace a large built-in default with an empty string. */
   private static String meaningfulOverrideOrNull(String t) {
     if (t == null) {

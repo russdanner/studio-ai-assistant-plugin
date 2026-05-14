@@ -155,7 +155,9 @@ export function entryToChatAgent(entry: CentralAgentFileEntry): AgentConfig | nu
     out.imageGenerator = entry.imageGenerator.trim();
   if (typeof entry.openAiApiKey === 'string' && entry.openAiApiKey.trim()) out.openAiApiKey = entry.openAiApiKey.trim();
   if (enableTools !== undefined) out.enableTools = enableTools;
-  if (entry.openAsPopup === true || String(entry.openAsPopup).toLowerCase() === 'true') out.openAsPopup = true;
+  const popRaw = entry.openAsPopup;
+  if (popRaw === true || String(popRaw ?? '').trim().toLowerCase() === 'true') out.openAsPopup = true;
+  else if (popRaw === false || String(popRaw ?? '').trim().toLowerCase() === 'false') out.openAsPopup = false;
   if (expertSkills) out.expertSkills = expertSkills;
   const tbc = entry.translateBatchConcurrency ?? entry.translate_batch_concurrency;
   if (tbc != null) {

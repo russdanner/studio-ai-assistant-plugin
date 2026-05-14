@@ -61,6 +61,26 @@ export const AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB = `{
 }
 `;
 
+/**
+ * Starter {@code config/studio/scripts/aiassistant/config/tools.json} — built-in tool allow/deny and MCP
+ * (see {@code StudioAiAssistantProjectConfig}).
+ */
+export const AI_ASSISTANT_TOOLS_JSON_STUB = `{
+  "disabledBuiltInTools": [],
+  "enabledBuiltInTools": [],
+  "mcpEnabled": false,
+  "mcpServers": [
+    {
+      "id": "example",
+      "url": "https://your-mcp-host.example/mcp",
+      "headers": {},
+      "readTimeoutMs": 120000
+    }
+  ],
+  "disabledMcpTools": []
+}
+`;
+
 /** Starter markdown when creating a site override for {@code config/studio/scripts/aiassistant/prompts/&lt;KEY&gt;.md}. */
 export function aiAssistantToolPromptMarkdownStub(key: string): string {
   return `# ${key}

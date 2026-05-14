@@ -33,6 +33,7 @@ import {
 import {
   AI_ASSISTANT_IMAGEGEN_GROOVY_STUB,
   AI_ASSISTANT_LLM_RUNTIME_GROOVY_STUB,
+  AI_ASSISTANT_TOOLS_JSON_STUB,
   AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB,
   AI_ASSISTANT_USER_TOOL_GROOVY_STUB,
   aiAssistantToolPromptMarkdownStub
@@ -49,6 +50,8 @@ import {
 } from './aiAssistantScriptsApi';
 
 const REGISTRY_REL = 'scripts/aiassistant/user-tools/registry.json';
+/** Site policy + MCP: {@code StudioAiAssistantProjectConfig#TOOLS_JSON_PATH}. */
+const TOOLS_JSON_REL = 'scripts/aiassistant/config/tools.json';
 
 /** When embedded in Project Tools tabs, show only one vertical slice of this screen. */
 export type AiAssistantScriptsSandboxPanel = 'all' | 'prompts' | 'tools' | 'scripts';
@@ -80,6 +83,10 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
   const [registryDirty, setRegistryDirty] = useState(false);
   const [savingRegistry, setSavingRegistry] = useState(false);
 
+  const [toolsJsonDraft, setToolsJsonDraft] = useState(AI_ASSISTANT_TOOLS_JSON_STUB);
+  const [toolsJsonDirty, setToolsJsonDirty] = useState(false);
+  const [savingToolsJson, setSavingToolsJson] = useState(false);
+
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorFullscreen, setEditorFullscreen] = useState(false);
   const [editorTitle, setEditorTitle] = useState('');
@@ -110,6 +117,11 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
     registryDirtyRef.current = registryDirty;
   }, [registryDirty]);
 
+  const toolsJsonDirtyRef = React.useRef(false);
+  React.useEffect(() => {
+    toolsJsonDirtyRef.current = toolsJsonDirty;
+  }, [toolsJsonDirty]);
+
   const reload = useCallback(async () => {
     if (!siteId) return;
     setLoading(true);
@@ -125,6 +137,15 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
       if (!registryDirtyRef.current) {
         const t = (data.registryText ?? '').trim();
         setRegistryDraft(t || AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB);
+      }
+      if (!toolsJsonDirtyRef.current) {
+        try {
+          const raw = await firstValueFrom(fetchConfigurationJSON(siteId, TOOLS_JSON_REL, 'studio'));
+          const text = typeof raw === 'string' ? raw : '';
+          setToolsJsonDraft(text.trim() ? text : AI_ASSISTANT_TOOLS_JSON_STUB);
+        } catch {
+          setToolsJsonDraft(AI_ASSISTANT_TOOLS_JSON_STUB);
+        }
       }
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : String(e));
@@ -163,6 +184,29 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
       setLoadError(e instanceof Error ? e.message : String(e));
     } finally {
       setSavingRegistry(false);
+    }
+  };
+
+  const saveToolsJson = async () => {
+    if (!siteId) return;
+    const parsed = safeJsonParse(toolsJsonDraft);
+    if (parsed == null) {
+      setLoadError('tools.json is invalid JSON — fix syntax before saving.');
+      return;
+    }
+    const normalized = JSON.stringify(parsed, null, 2);
+    setSavingToolsJson(true);
+    setLoadError(null);
+    try {
+      await firstValueFrom(writeConfiguration(siteId, TOOLS_JSON_REL, 'studio', normalized));
+      setToolsJsonDraft(normalized);
+      setToolsJsonDirty(false);
+      await postAiAssistantScriptsMutate(siteId, { action: 'refreshSync' }).catch(() => {});
+      await reload();
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingToolsJson(false);
     }
   };
 
@@ -355,7 +399,7 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
     panel === 'prompts'
       ? 'Tool prompt overrides'
       : panel === 'tools'
-        ? 'User tools & registry'
+        ? 'Tools and MCP'
         : panel === 'scripts'
           ? 'Script backends'
           : 'AI Assistant Scripts';
@@ -368,8 +412,10 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
       </Typography>
     ) : panel === 'tools' ? (
       <Typography variant="body2" color="text.secondary" paragraph>
-        Edit <code>user-tools/registry.json</code> and Groovy tools under <code>scripts/aiassistant/user-tools/</code>. Empty
-        files open with a working stub.
+        Edit <code>scripts/aiassistant/config/tools.json</code> to map built-in CMS tools (<code>disabledBuiltInTools</code>,{' '}
+        <code>enabledBuiltInTools</code>) and attach MCP servers (<code>mcpEnabled</code>, <code>mcpServers</code>,{' '}
+        <code>disabledMcpTools</code>). Edit <code>user-tools/registry.json</code> and Groovy tools under{' '}
+        <code>scripts/aiassistant/user-tools/</code>. Empty files open with a working stub.
       </Typography>
     ) : panel === 'scripts' ? (
       <Typography variant="body2" color="text.secondary" paragraph>
@@ -378,8 +424,9 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
       </Typography>
     ) : (
       <Typography variant="body2" color="text.secondary" paragraph>
-        Edit <code>user-tools/registry.json</code>, site Groovy tools under <code>scripts/aiassistant/user-tools/</code>, script
-        image generators under <code>scripts/aiassistant/imagegen/&lt;id&gt;/generate.groovy</code>, script LLMs under{' '}
+        Edit <code>scripts/aiassistant/config/tools.json</code> (built-in tool policy + MCP), <code>user-tools/registry.json</code>, site
+        Groovy tools under <code>scripts/aiassistant/user-tools/</code>, script image generators under{' '}
+        <code>scripts/aiassistant/imagegen/&lt;id&gt;/generate.groovy</code>, script LLMs under{' '}
         <code>scripts/aiassistant/llm/&lt;id&gt;/runtime.groovy</code>, and optional markdown overrides for built-in tool
         prompts under <code>scripts/aiassistant/prompts/&lt;KEY&gt;.md</code>. Empty files open with a working stub you can
         replace.
@@ -410,6 +457,7 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
               disabled={loading}
               onClick={() => {
                 setRegistryDirty(false);
+                setToolsJsonDirty(false);
                 void reload();
               }}
             >
@@ -419,6 +467,45 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
 
           {showTools ? (
             <>
+          <Typography variant="subtitle1" gutterBottom>
+            Built-in tools and MCP (<code>{TOOLS_JSON_REL}</code>)
+          </Typography>
+          <Typography variant="body2" color="text.secondary" paragraph>
+            Set <code>mcpEnabled</code> to <code>true</code> before <code>mcpServers</code> is used. Each server needs{' '}
+            <code>id</code> and <code>url</code> (Streamable HTTP POST endpoint); optional <code>headers</code> and{' '}
+            <code>readTimeoutMs</code>. MCP tools appear as <code>mcp_&lt;id&gt;_&lt;toolName&gt;</code> wire names. Non-empty{' '}
+            <code>enabledBuiltInTools</code> whitelists CMS built-ins only (exact wire names in product docs);{' '}
+            <code>InvokeSiteUserTool</code> and <code>mcp_*</code> stay unless listed in <code>disabledBuiltInTools</code> or{' '}
+            <code>disabledMcpTools</code>.
+          </Typography>
+          <TextField
+            value={toolsJsonDraft}
+            onChange={(ev) => {
+              setToolsJsonDraft(ev.target.value);
+              setToolsJsonDirty(true);
+            }}
+            fullWidth
+            multiline
+            minRows={12}
+            size="small"
+            sx={{ '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 13 } }}
+          />
+          <Button
+            sx={{ mt: 1 }}
+            size="small"
+            variant="contained"
+            startIcon={<SaveRounded />}
+            disabled={savingToolsJson || !toolsJsonDirty}
+            onClick={() => void saveToolsJson()}
+          >
+            Save tools.json
+          </Button>
+          <Button sx={{ mt: 1, ml: 1 }} size="small" onClick={() => loadFileForEditor('tools.json', `/${TOOLS_JSON_REL}`, AI_ASSISTANT_TOOLS_JSON_STUB)}>
+            Open in editor
+          </Button>
+
+          <Divider sx={{ my: 3 }} />
+
           <Typography variant="subtitle1" gutterBottom>
             Registry (<code>{REGISTRY_REL}</code>)
           </Typography>
@@ -847,7 +934,7 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
               setPromptReadKey(null);
             }}
             fullScreen={promptReadFullscreen}
-            maxWidth="md"
+            maxWidth="xl"
             fullWidth
             scroll="paper"
             PaperProps={
@@ -861,7 +948,16 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
                       flexDirection: 'column'
                     }
                   }
-                : undefined
+                : {
+                    sx: {
+                      width: '100%',
+                      maxWidth: 1400,
+                      minHeight: '72vh',
+                      maxHeight: '92vh',
+                      display: 'flex',
+                      flexDirection: 'column'
+                    }
+                  }
             }
           >
             <DialogTitle
@@ -917,7 +1013,7 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
                     value={promptReadDefault}
                     fullWidth
                     multiline
-                    minRows={10}
+                    minRows={18}
                     InputProps={{ readOnly: true }}
                     size="small"
                     sx={{ mb: 2, '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 12 } }}
@@ -931,7 +1027,7 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
                     value={promptReadSite}
                     fullWidth
                     multiline
-                    minRows={8}
+                    minRows={14}
                     InputProps={{ readOnly: true }}
                     size="small"
                     sx={{ '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 12 } }}

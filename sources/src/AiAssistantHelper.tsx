@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import useActiveSiteId from '@craftercms/studio-ui/hooks/useActiveSiteId';
 import ToolsPanelListItemButton from '@craftercms/studio-ui/components/ToolsPanelListItemButton';
 import { batchActions } from '@craftercms/studio-ui/state/actions/misc';
@@ -48,6 +48,7 @@ import {
   subscribeStudioUiConfigChanged,
   syncReadStudioUiConfig
 } from './aiAssistantStudioUiConfig';
+import { dispatchPreviewToolbarUiXmlFixIfNeeded } from './aiAssistantPreviewToolbarUiXmlFix';
 
 const DIALOG_WIDTH_STORAGE_KEY = 'aiassistant-dialog-width';
 const DEFAULT_DIALOG_WIDTH = 480;
@@ -108,10 +109,29 @@ function readIceChatConfiguration(props: Readonly<AiAssistantHelperProps>): Reco
   return null;
 }
 
+/**
+ * Studio may pass `ui` on the widget root or only under nested `configuration` (from merged `ui.xml`).
+ */
+function readHelperUi(props: Readonly<AiAssistantHelperProps>): 'IconButton' | 'ListItemButton' | undefined {
+  const raw = props as Record<string, unknown>;
+  const top = props.ui ?? raw['@_ui'];
+  if (top === 'IconButton' || top === 'ListItemButton') return top;
+
+  const walk = (o: unknown): 'IconButton' | 'ListItemButton' | undefined => {
+    if (o == null || typeof o !== 'object') return undefined;
+    const rec = o as Record<string, unknown>;
+    const u = rec.ui ?? rec['@_ui'];
+    if (u === 'IconButton' || u === 'ListItemButton') return u;
+    return walk(rec.configuration);
+  };
+  return walk(props.configuration);
+}
+
 export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
   const dispatch = useDispatch();
+  const studioUiXml = useSelector((state: { uiConfig?: { xml?: string | null } }) => state.uiConfig?.xml ?? null);
   const { configuration, agents: agentsProp } = props;
-  const ui = props.ui ?? (props as Record<string, unknown>)['@_ui'] ?? undefined;
+  const ui = readHelperUi(props) ?? 'ListItemButton';
   const iceChatCfg = useMemo(() => readIceChatConfiguration(props), [configuration, props]);
   const activeSiteId = useActiveSiteId();
   const studioUiSiteKey = useMemo(() => effectiveStudioSiteId(activeSiteId), [activeSiteId]);
@@ -129,6 +149,9 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
     () => syncReadStudioUiConfig(studioUiSiteKey).showAiAssistantsInTopNavigation !== false,
     [studioUiSiteKey, studioUiEpoch]
   );
+  useEffect(() => {
+    dispatchPreviewToolbarUiXmlFixIfNeeded(studioUiXml, dispatch);
+  }, [studioUiXml, dispatch]);
   const [siteChatOverlay, setSiteChatOverlay] = useState<{
     agents: AgentConfig[];
     exclusive: boolean;
@@ -215,8 +238,18 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
     );
   };
 
+  const agentOpensAsPopup = (agent: AgentConfig): boolean => {
+    const v = agent.openAsPopup as unknown;
+    if (v === true) return true;
+    if (typeof v === 'string') {
+      const s = v.trim().toLowerCase();
+      return s === 'true' || s === '1' || s === 'yes';
+    }
+    return false;
+  };
+
   const openAgent = (agent: AgentConfig) => {
-    if (agent.openAsPopup === true) {
+    if (agentOpensAsPopup(agent)) {
       setMenuOpen(false);
       setMenuAnchor(null);
       const effectiveId = agent?.id?.trim() || '';
@@ -286,8 +319,9 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
 
   const handleToolbarClick = (e: React.MouseEvent<HTMLElement>) => {
     const list = agents.length > 0 ? agents : DEFAULT_AGENTS;
-    if (list.length <= 1) {
-      if (list.length === 1) openAgent(list[0]);
+    if (list.length === 0) return;
+    if (list.length === 1) {
+      openAgent(list[0]);
     } else {
       setMenuAnchor(e.currentTarget);
       setMenuOpen(true);
@@ -347,26 +381,25 @@ export function AiAssistantHelper(props: Readonly<AiAssistantHelperProps>) {
 
   return (
     <>
-      {Boolean(ui) &&
-        (ui === 'IconButton' ? (
-          showAiInTopNav ? (
-            <Tooltip title={primaryAgent?.label ?? 'Studio AI Assistant'}>
-              <IconButton
-                onClick={handleToolbarClick}
-                aria-haspopup={toolbarList.length > 1 ? 'menu' : undefined}
-                aria-expanded={toolbarList.length > 1 ? menuOpen : undefined}
-              >
-                {getAgentIcon(primaryAgent?.icon)}
-              </IconButton>
-            </Tooltip>
-          ) : null
-        ) : (
-          <ToolsPanelListItemButton
-            icon={{ id: logoWidgetId }}
-            title={primaryAgent?.label ?? 'Studio AI Assistant'}
-            onClick={handleToolbarClick}
-          />
-        ))}
+      {ui === 'IconButton' ? (
+        showAiInTopNav ? (
+          <Tooltip title={primaryAgent?.label ?? 'Studio AI Assistant'}>
+            <IconButton
+              onClick={handleToolbarClick}
+              aria-haspopup={toolbarList.length > 1 ? 'menu' : undefined}
+              aria-expanded={toolbarList.length > 1 ? menuOpen : undefined}
+            >
+              {getAgentIcon(primaryAgent?.icon)}
+            </IconButton>
+          </Tooltip>
+        ) : null
+      ) : (
+        <ToolsPanelListItemButton
+          icon={{ id: logoWidgetId }}
+          title={primaryAgent?.label ?? 'Studio AI Assistant'}
+          onClick={handleToolbarClick}
+        />
+      )}
       {menuAnchor && (
         <Menu
           open

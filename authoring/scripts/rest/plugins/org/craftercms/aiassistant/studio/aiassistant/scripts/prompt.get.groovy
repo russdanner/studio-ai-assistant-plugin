@@ -1,4 +1,3 @@
-import plugins.org.craftercms.aiassistant.prompt.ToolPrompts
 import plugins.org.craftercms.aiassistant.prompt.ToolPromptsBuiltinDefaults
 import plugins.org.craftercms.aiassistant.prompt.ToolPromptsLoader
 import plugins.org.craftercms.aiassistant.prompt.ToolPromptsOverrideCatalog
@@ -35,10 +34,7 @@ try {
     ToolPromptsSiteContext.exit()
   }
   if (!ToolPromptsBuiltinDefaults.getBuiltin(key)) {
-    try {
-      ToolPrompts.class.getMethod("get${key}" as String).invoke(null)
-    } catch (Throwable ignored) {
-    }
+    ToolPromptsLoader.ensureBuiltinRegisteredForCatalogKey(key)
   }
 
   String defaultFull = ToolPromptsLoader.previewBaseTextWithoutSiteFile(key)
