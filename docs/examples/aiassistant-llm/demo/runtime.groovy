@@ -1,8 +1,10 @@
 // Copy to: config/studio/scripts/aiassistant/llm/demo/runtime.groovy
 // Agent ui.xml: <llm>script:demo</llm>  (normalized scriptLlm:demo)
 //
-// This example proxies the built-in OpenAI Spring AI session while keeping script:demo as the visible llm token
-// (StudioAiScriptLlmContainerRuntime overwrites bundle.llm after this closure returns).
+// Minimal illustration: temporarily re-targets llmNormalized to the built-in OpenAI runtime for one call.
+// For production-style script LLMs that fully own keys, base URL, and ChatModel construction, see
+// docs/using-and-extending/script-llm-bring-your-own-backend.md and docs/examples/aiassistant-llm/byo-openai-compat/runtime.groovy
+// (StudioAiScriptLlmContainerRuntime overwrites bundle.llm to scriptLlm:demo after this closure returns).
 
 import plugins.org.craftercms.aiassistant.llm.OpenAiSpringAiLlmRuntime
 import plugins.org.craftercms.aiassistant.llm.StudioAiLlmKind

@@ -75,6 +75,24 @@ function parseLlmVendorAndScript(llm: unknown): { vendor: string; scriptId: stri
   return { vendor: s || 'openAI', scriptId: '' };
 }
 
+/**
+ * Older builds set `llmModel` to the script folder id when editing script LLMs — that collides with provider model
+ * (`<llmModel>` for Cursor, etc.). Strip that mistake so reload/edit round-trips correctly.
+ */
+function sanitizeScriptLlmModelField(entry: CentralAgentFileEntry): CentralAgentFileEntry {
+  const llmRaw = String(entry.llm ?? '').trim();
+  const low = llmRaw.toLowerCase();
+  if (!low.startsWith('script:')) return entry;
+  const scriptId = llmRaw.slice('script:'.length).trim();
+  const lm = String(entry.llmModel ?? '').trim();
+  if (scriptId && lm === scriptId) {
+    const next = { ...entry } as Record<string, unknown>;
+    delete next.llmModel;
+    return next as CentralAgentFileEntry;
+  }
+  return entry;
+}
+
 function parseImageGenKind(gen: unknown): 'openai' | 'none' | 'script' {
   const g = String(gen ?? '').trim().toLowerCase();
   if (g === 'none' || g === 'off' || g === 'disabled') return 'none';
@@ -292,7 +310,7 @@ export default function AiAssistantCentralAgentsConfiguration() {
   const openEdit = (index: number) => {
     setFormError(null);
     setAgentDialogFullscreen(false);
-    const entry = catalog.agents[index];
+    const entry = sanitizeScriptLlmModelField(catalog.agents[index]);
     setDraft({ ...entry });
     setChatPromptRows(rawPromptsToEditorRows(entry.prompts));
     setEditIndex(index);
@@ -373,7 +391,8 @@ export default function AiAssistantCentralAgentsConfiguration() {
         . When that file lists at least one agent, chat assistants use only <strong>chat</strong> rows here (not
         <code>ui.xml</code> agent widgets). <strong>Autonomous</strong> rows use schedule / prompt / scope / LLM
         fields (missing values get the same defaults the server uses on sync). Saving normalizes empty fields so you
-        do not need to pre-fill everything before the first write.
+        do not need to pre-fill everything before the first write. <strong>Reload</strong> reads that JSON from the
+        sandbox — if the file is missing or not yet written, you see template defaults until you click <strong>Save</strong>.
       </Typography>
 
       {!siteId ? (
@@ -541,7 +560,9 @@ export default function AiAssistantCentralAgentsConfiguration() {
                         const v = String(ev.target.value);
                         setDraft((d) => {
                           if (!d) return d;
-                          if (v === 'script') return { ...d, llm: 'script', llmModel: '' };
+                          // Do not stuff the script folder id into `llmModel` — that field is the provider model id
+                          // (e.g. Cursor `composer-2`) for `script:*` LLMs. Default when switching to script.
+                          if (v === 'script') return { ...d, llm: 'script', llmModel: 'composer-2' };
                           if (v === 'crafterQ') return { ...d, llm: 'crafterQ', llmModel: '' };
                           return { ...d, llm: v, llmModel: d.llmModel?.trim() ? d.llmModel : 'gpt-4o-mini' };
                         });
@@ -555,17 +576,27 @@ export default function AiAssistantCentralAgentsConfiguration() {
                     </Select>
                   </FormControl>
                   {sp.vendor === 'script' ? (
-                    <TextField
-                      label="Script id (saved as llm script:yourId)"
-                      value={sp.scriptId}
-                      onChange={(ev) => {
-                        const id = ev.target.value.trim();
-                        setDraft((d) => (d ? { ...d, llm: id ? `script:${id}` : 'script', llmModel: id } : d));
-                      }}
-                      fullWidth
-                      size="small"
-                      helperText="Lowercase letters, numbers, dash, underscore (1–64 chars)."
-                    />
+                    <>
+                      <TextField
+                        label="Script id (saved as llm script:yourId)"
+                        value={sp.scriptId}
+                        onChange={(ev) => {
+                          const id = ev.target.value.trim();
+                          setDraft((d) => (d ? { ...d, llm: id ? `script:${id}` : 'script' } : d));
+                        }}
+                        fullWidth
+                        size="small"
+                        helperText="Lowercase letters, numbers, dash, underscore (1–64 chars). Must match folder under scripts/aiassistant/llm/."
+                      />
+                      <TextField
+                        label="Provider model id (llmModel)"
+                        value={String(draft.llmModel ?? '').trim()}
+                        onChange={(ev) => setDraft((d) => (d ? { ...d, llmModel: ev.target.value } : d))}
+                        fullWidth
+                        size="small"
+                        helperText="For Cursor Cloud Agent example: e.g. composer-2 (see Cursor GET /v1/models). Not the script folder name."
+                      />
+                    </>
                   ) : sp.vendor === 'crafterQ' ? (
                     <Typography variant="caption" color="text.secondary">
                       Hosted CrafterQ — routing uses the CrafterQ agent id; no local chat model field.

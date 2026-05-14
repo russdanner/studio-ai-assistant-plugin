@@ -4,7 +4,7 @@
 
 **For site operators:** [configuration-guide.md](configuration-guide.md)  
 **For CMS tools, SSE, optional hosted SaaS API identity, and troubleshooting:** [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md)  
-**For script LLMs and `user-tools/`:** [studio-plugins-guide.md](studio-plugins-guide.md)  
+**For script LLMs and `user-tools/`:** [studio-plugins-guide.md](studio-plugins-guide.md) · **Script LLM — full session bundle (BYO backend):** [script-llm-bring-your-own-backend.md](script-llm-bring-your-own-backend.md)  
 **For pluggable image backends (`imageGenerator`, `imagegen/` scripts, site overrides):** [image-generation.md](image-generation.md) · **Integrators:** [scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md) (Groovy closure, `context` map, return shape)  
 **For `ui.xml` contracts, macros, and REST:** [spec.md](../internals/spec.md) · **Doc index:** [README.md](../README.md)
 
@@ -170,7 +170,7 @@ When **`siteId`** + **`agentId`** are present and the matching **`<agent>`** def
 
 - **Wire:** **`<llm>script:mybackend</llm>`** → **`scriptLlm:mybackend`**.
 - **Id pattern:** `{id}` = `a-z`, `0-9`, `_`, `-`, max **64** chars.
-- Full contract: [studio-plugins-guide.md](studio-plugins-guide.md) and **`docs/examples/aiassistant-llm/demo/runtime.groovy`**.
+- Full contract: [studio-plugins-guide.md](studio-plugins-guide.md) and **`docs/examples/aiassistant-llm/demo/runtime.groovy`**. **Full vendor replacement (Groovy class, no built-in runtime delegation):** [script-llm-bring-your-own-backend.md](script-llm-bring-your-own-backend.md). **Cursor Cloud Agents example:** **`docs/examples/aiassistant-llm/cursor-cloud-agent/runtime.groovy`**.
 
 ### `crafterQ` (hosted chat only — secondary)
 

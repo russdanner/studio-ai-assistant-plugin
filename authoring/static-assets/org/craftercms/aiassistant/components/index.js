@@ -34532,6 +34532,24 @@ function parseLlmVendorAndScript(llm) {
     }
     return { vendor: s || 'openAI', scriptId: '' };
 }
+/**
+ * Older builds set `llmModel` to the script folder id when editing script LLMs — that collides with provider model
+ * (`<llmModel>` for Cursor, etc.). Strip that mistake so reload/edit round-trips correctly.
+ */
+function sanitizeScriptLlmModelField(entry) {
+    const llmRaw = String(entry.llm ?? '').trim();
+    const low = llmRaw.toLowerCase();
+    if (!low.startsWith('script:'))
+        return entry;
+    const scriptId = llmRaw.slice('script:'.length).trim();
+    const lm = String(entry.llmModel ?? '').trim();
+    if (scriptId && lm === scriptId) {
+        const next = { ...entry };
+        delete next.llmModel;
+        return next;
+    }
+    return entry;
+}
 function parseImageGenKind(gen) {
     const g = String(gen ?? '').trim().toLowerCase();
     if (g === 'none' || g === 'off' || g === 'disabled')
@@ -34723,7 +34741,7 @@ function AiAssistantCentralAgentsConfiguration() {
     const openEdit = (index) => {
         setFormError(null);
         setAgentDialogFullscreen(false);
-        const entry = catalog.agents[index];
+        const entry = sanitizeScriptLlmModelField(catalog.agents[index]);
         setDraft({ ...entry });
         setChatPromptRows(rawPromptsToEditorRows(entry.prompts));
         setEditIndex(index);
@@ -34789,7 +34807,7 @@ function AiAssistantCentralAgentsConfiguration() {
         }
     };
     const mode = draft && String(draft.mode ?? 'chat').toLowerCase() === 'autonomous' ? 'autonomous' : 'chat';
-    return (jsxs(Box, { sx: { p: 2, maxWidth: 960, mx: 'auto' }, children: [jsx(Typography, { variant: "h5", component: "h1", gutterBottom: true, children: "AI Assistant Agents" }), jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["This site's chat and Autonomous agents are defined in", ' ', jsxs(Typography, { component: "span", variant: "body2", sx: { fontFamily: 'monospace' }, children: ["config/studio/", CENTRAL_AGENTS_STUDIO_PATH] }), ". When that file lists at least one agent, chat assistants use only ", jsx("strong", { children: "chat" }), " rows here (not", jsx("code", { children: "ui.xml" }), " agent widgets). ", jsx("strong", { children: "Autonomous" }), " rows use schedule / prompt / scope / LLM fields (missing values get the same defaults the server uses on sync). Saving normalizes empty fields so you do not need to pre-fill everything before the first write."] }), !siteId ? (jsx(Alert, { severity: "info", children: "Select a site to edit the catalog." })) : (jsxs(Fragment, { children: [loadError && (jsx(Alert, { severity: "error", sx: { mb: 2 }, children: loadError })), saveError && (jsx(Alert, { severity: "error", sx: { mb: 2 }, onClose: () => setSaveError(null), children: saveError })), jsxs(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", sx: { mb: 2 }, alignItems: "center", children: [jsx(Button, { startIcon: jsx(RefreshRounded, {}), onClick: () => void reload(), disabled: !loaded || saving, variant: "outlined", size: "small", children: "Reload" }), jsx(Button, { startIcon: jsx(AddRounded, {}), onClick: openAdd, disabled: !loaded || saving, variant: "outlined", size: "small", children: "Add agent" }), jsx(Button, { size: "small", variant: "outlined", disabled: !loaded || saving, onClick: () => {
+    return (jsxs(Box, { sx: { p: 2, maxWidth: 960, mx: 'auto' }, children: [jsx(Typography, { variant: "h5", component: "h1", gutterBottom: true, children: "AI Assistant Agents" }), jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["This site's chat and Autonomous agents are defined in", ' ', jsxs(Typography, { component: "span", variant: "body2", sx: { fontFamily: 'monospace' }, children: ["config/studio/", CENTRAL_AGENTS_STUDIO_PATH] }), ". When that file lists at least one agent, chat assistants use only ", jsx("strong", { children: "chat" }), " rows here (not", jsx("code", { children: "ui.xml" }), " agent widgets). ", jsx("strong", { children: "Autonomous" }), " rows use schedule / prompt / scope / LLM fields (missing values get the same defaults the server uses on sync). Saving normalizes empty fields so you do not need to pre-fill everything before the first write. ", jsx("strong", { children: "Reload" }), " reads that JSON from the sandbox \u2014 if the file is missing or not yet written, you see template defaults until you click ", jsx("strong", { children: "Save" }), "."] }), !siteId ? (jsx(Alert, { severity: "info", children: "Select a site to edit the catalog." })) : (jsxs(Fragment, { children: [loadError && (jsx(Alert, { severity: "error", sx: { mb: 2 }, children: loadError })), saveError && (jsx(Alert, { severity: "error", sx: { mb: 2 }, onClose: () => setSaveError(null), children: saveError })), jsxs(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", sx: { mb: 2 }, alignItems: "center", children: [jsx(Button, { startIcon: jsx(RefreshRounded, {}), onClick: () => void reload(), disabled: !loaded || saving, variant: "outlined", size: "small", children: "Reload" }), jsx(Button, { startIcon: jsx(AddRounded, {}), onClick: openAdd, disabled: !loaded || saving, variant: "outlined", size: "small", children: "Add agent" }), jsx(Button, { size: "small", variant: "outlined", disabled: !loaded || saving, onClick: () => {
                                     setCatalog(defaultCentralAgentsFile());
                                     setDirty(true);
                                 }, children: "Replace with example catalog" }), jsx(Button, { startIcon: jsx(SaveRounded, {}), variant: "contained", disabled: !loaded || saving || !dirty, onClick: () => void save(), children: saving ? 'Saving…' : 'Save' }), jsxs(Typography, { variant: "caption", color: "text.secondary", children: [chatCount, " chat \u00B7 ", autonomousCount, " Autonomous"] })] }), !loaded ? (jsx(Typography, { variant: "body2", children: "Loading\u2026" })) : catalog.agents.length === 0 ? (jsxs(Alert, { severity: "warning", children: ["No catalog file or empty ", jsx("code", { children: "agents" }), " array. Chat agents fall back to ", jsx("code", { children: "ui.xml" }), " until you add at least one ", jsx("strong", { children: "chat" }), " row here. Use \"Replace with example catalog\" for a starter file, then Save."] })) : (jsx(List, { dense: true, disablePadding: true, sx: { border: 1, borderColor: 'divider', borderRadius: 1 }, children: catalog.agents.map((e, i) => (jsxs(React.Fragment, { children: [i > 0 ? jsx(Divider, { component: "li" }) : null, jsxs(ListItem, { children: [jsx(ListItemText, { primary: summarizeEntry(e), secondary: String(e.mode ?? 'chat').toLowerCase() === 'autonomous' ? 'Autonomous' : 'Chat' }), jsxs(ListItemSecondaryAction, { children: [jsx(Button, { size: "small", startIcon: jsx(EditRounded, {}), onClick: () => openEdit(i), children: "Edit" }), jsx(Button, { size: "small", color: "error", startIcon: jsx(DeleteOutlineRounded, {}), onClick: () => removeAt(i), children: "Remove" })] })] })] }, i))) }))] })), jsxs(Dialog, { open: draft != null && editIndex !== null, onClose: closeDialog, fullScreen: agentDialogFullscreen, maxWidth: "md", fullWidth: true, scroll: "paper", PaperProps: agentDialogFullscreen
@@ -34832,16 +34850,18 @@ function AiAssistantCentralAgentsConfiguration() {
                                                         setDraft((d) => {
                                                             if (!d)
                                                                 return d;
+                                                            // Do not stuff the script folder id into `llmModel` — that field is the provider model id
+                                                            // (e.g. Cursor `composer-2`) for `script:*` LLMs. Default when switching to script.
                                                             if (v === 'script')
-                                                                return { ...d, llm: 'script', llmModel: '' };
+                                                                return { ...d, llm: 'script', llmModel: 'composer-2' };
                                                             if (v === 'crafterQ')
                                                                 return { ...d, llm: 'crafterQ', llmModel: '' };
                                                             return { ...d, llm: v, llmModel: d.llmModel?.trim() ? d.llmModel : 'gpt-4o-mini' };
                                                         });
-                                                    }, children: STUDIO_AI_LLM_VENDOR_IDS.map((id) => (jsx(MenuItem, { value: id, children: id }, id))) })] }), sp.vendor === 'script' ? (jsx(TextField, { label: "Script id (saved as llm script:yourId)", value: sp.scriptId, onChange: (ev) => {
-                                                const id = ev.target.value.trim();
-                                                setDraft((d) => (d ? { ...d, llm: id ? `script:${id}` : 'script', llmModel: id } : d));
-                                            }, fullWidth: true, size: "small", helperText: "Lowercase letters, numbers, dash, underscore (1\u201364 chars)." })) : sp.vendor === 'crafterQ' ? (jsx(Typography, { variant: "caption", color: "text.secondary", children: "Hosted CrafterQ \u2014 routing uses the CrafterQ agent id; no local chat model field." })) : (jsxs(Fragment, { children: [jsxs(FormControl, { fullWidth: true, size: "small", children: [jsx(InputLabel, { id: "cq-central-llm-m", children: "LLM model" }), jsxs(Select, { labelId: "cq-central-llm-m", label: "LLM model", value: modelSelectValue, onChange: (ev) => {
+                                                    }, children: STUDIO_AI_LLM_VENDOR_IDS.map((id) => (jsx(MenuItem, { value: id, children: id }, id))) })] }), sp.vendor === 'script' ? (jsxs(Fragment, { children: [jsx(TextField, { label: "Script id (saved as llm script:yourId)", value: sp.scriptId, onChange: (ev) => {
+                                                        const id = ev.target.value.trim();
+                                                        setDraft((d) => (d ? { ...d, llm: id ? `script:${id}` : 'script' } : d));
+                                                    }, fullWidth: true, size: "small", helperText: "Lowercase letters, numbers, dash, underscore (1\u201364 chars). Must match folder under scripts/aiassistant/llm/." }), jsx(TextField, { label: "Provider model id (llmModel)", value: String(draft.llmModel ?? '').trim(), onChange: (ev) => setDraft((d) => (d ? { ...d, llmModel: ev.target.value } : d)), fullWidth: true, size: "small", helperText: "For Cursor Cloud Agent example: e.g. composer-2 (see Cursor GET /v1/models). Not the script folder name." })] })) : sp.vendor === 'crafterQ' ? (jsx(Typography, { variant: "caption", color: "text.secondary", children: "Hosted CrafterQ \u2014 routing uses the CrafterQ agent id; no local chat model field." })) : (jsxs(Fragment, { children: [jsxs(FormControl, { fullWidth: true, size: "small", children: [jsx(InputLabel, { id: "cq-central-llm-m", children: "LLM model" }), jsxs(Select, { labelId: "cq-central-llm-m", label: "LLM model", value: modelSelectValue, onChange: (ev) => {
                                                                 const v = String(ev.target.value);
                                                                 setDraft((d) => (d ? { ...d, llmModel: v === '__custom__' ? d.llmModel : v } : d));
                                                             }, children: [presets.map((m) => (jsx(MenuItem, { value: m, children: m }, m))), jsx(MenuItem, { value: "__custom__", children: "Custom model id\u2026" })] })] }), modelSelectValue === '__custom__' ? (jsx(TextField, { label: "Custom LLM model id", value: String(draft.llmModel ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, llmModel: ev.target.value } : d)), fullWidth: true, size: "small" })) : null] })), jsxs(FormControl, { fullWidth: true, size: "small", children: [jsx(InputLabel, { id: "cq-central-img-gen", children: "Image generator" }), jsxs(Select, { labelId: "cq-central-img-gen", label: "Image generator", value: imgK, onChange: (ev) => {

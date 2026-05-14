@@ -230,7 +230,15 @@ Compiled closures are cached **per site + id** with a SHA-256 of the script text
 
 ---
 
-## 4. Side-by-side comparison
+## 4. Related: script LLM (`llm/{id}/runtime.groovy`)
+
+**Chat** backends live under **`config/studio/scripts/aiassistant/llm/{id}/`** (not `user-tools/` or `imagegen/`). They implement **`StudioAiLlmRuntime`** or the documented **Map** bundle contract — see **[llm-configuration.md](llm-configuration.md)** and the plugin **`docs/examples/aiassistant-llm/`** tree.
+
+For a **real-world Groovy `StudioAiLlmRuntime` class** that builds the **full** Spring AI session (your OpenAI-compatible base URL + API key, **no** delegation to built-in vendor runtimes), see **[script-llm-bring-your-own-backend.md](script-llm-bring-your-own-backend.md)** and **`docs/examples/aiassistant-llm/byo-openai-compat/runtime.groovy`**. For **Cursor Cloud Agents** (`api.cursor.com`, SSE), see **`docs/examples/aiassistant-llm/cursor-cloud-agent/runtime.groovy`** in the same doc.
+
+---
+
+## 5. Side-by-side comparison
 
 | Topic | User tool (`user-tools/`) | Script image (`imagegen/{id}/`) |
 |-------|---------------------------|----------------------------------|
@@ -242,7 +250,7 @@ Compiled closures are cached **per site + id** with a SHA-256 of the script text
 
 ---
 
-## 5. Configuration checklist
+## 6. Configuration checklist
 
 | Step | User tools | Script image |
 |------|------------|----------------|
@@ -253,7 +261,7 @@ Compiled closures are cached **per site + id** with a SHA-256 of the script text
 
 ---
 
-## 6. Source references (maintainers)
+## 7. Source references (maintainers)
 
 | Concern | Class |
 |---------|--------|
