@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import useActiveSiteId from '@craftercms/studio-ui/hooks/useActiveSiteId';
 import { writeConfiguration } from '@craftercms/studio-ui/services/configuration';
@@ -37,10 +37,12 @@ import {
   Stack,
   Switch,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material';
 import type { PromptConfig } from './agentConfig';
 import { normalizeEnabledBuiltInToolsRaw } from './agentConfig';
+import { fetchAiAssistantScriptsIndex, type AiAssistantScriptsIndexItem } from './aiAssistantScriptsApi';
 import {
   STUDIO_AI_BUILTIN_TOOL_IDS,
   STUDIO_AI_CLAUDE_CHAT_MODELS,
@@ -61,6 +63,11 @@ import {
   type CentralAgentMode,
   type CentralAgentsFile
 } from './centralAgentCatalog';
+
+/** Select value when the agent uses a script LLM id not found under {@code scripts/aiassistant/llm/} (manual id). */
+const CQ_SCRIPT_LLM_SELECT_CUSTOM = '__cqScriptLlmCustom__';
+/** Select value when image {@code script:} id is not under {@code scripts/aiassistant/imagegen/}. */
+const CQ_SCRIPT_IMAGE_SELECT_CUSTOM = '__cqScriptImageCustom__';
 
 function cloneCatalog(f: CentralAgentsFile): CentralAgentsFile {
   return { version: f.version ?? 1, agents: f.agents.map((a) => ({ ...a })) };
@@ -96,7 +103,7 @@ function sanitizeScriptLlmModelField(entry: CentralAgentFileEntry): CentralAgent
 function parseImageGenKind(gen: unknown): 'openai' | 'none' | 'script' {
   const g = String(gen ?? '').trim().toLowerCase();
   if (g === 'none' || g === 'off' || g === 'disabled') return 'none';
-  if (g.startsWith('script:')) return 'script';
+  if (g === 'script' || g.startsWith('script:')) return 'script';
   return 'openai';
 }
 
@@ -247,7 +254,22 @@ function summarizeEntry(e: CentralAgentFileEntry): string {
   return `${String(e.label ?? e.name ?? 'Unnamed')} (${String(e.llm ?? 'openAI')})`;
 }
 
-export default function AiAssistantCentralAgentsConfiguration() {
+/** Parent can call {@link save} before switching tabs (e.g. Project Tools shell). */
+export type AiAssistantCentralAgentsCatalogHandle = {
+  /** Writes `agents.json`; returns whether the write succeeded. */
+  save: () => Promise<boolean>;
+};
+
+export type AiAssistantCentralAgentsConfigurationProps = {
+  /** Notifies parent when in-memory catalog differs from last saved file (for tab-leave guard). */
+  onDirtyChange?: (dirty: boolean) => void;
+};
+
+const AiAssistantCentralAgentsConfiguration = forwardRef<
+  AiAssistantCentralAgentsCatalogHandle,
+  AiAssistantCentralAgentsConfigurationProps
+>(function AiAssistantCentralAgentsConfiguration(props, ref) {
+  const { onDirtyChange } = props;
   const siteId = useActiveSiteId() ?? '';
   const dispatch = useDispatch();
   const [catalog, setCatalog] = useState<CentralAgentsFile>({ version: 1, agents: [] });
@@ -262,9 +284,40 @@ export default function AiAssistantCentralAgentsConfiguration() {
   /** Chat quick-prompt rows while the edit dialog is open (trimmed on save). */
   const [chatPromptRows, setChatPromptRows] = useState<PromptConfig[]>([]);
   const [agentDialogFullscreen, setAgentDialogFullscreen] = useState(false);
+  const [scriptsIndexRows, setScriptsIndexRows] = useState<{
+    llm: AiAssistantScriptsIndexItem[];
+    imageGen: AiAssistantScriptsIndexItem[];
+  }>({ llm: [], imageGen: [] });
+
+  const scriptsRowsRef = React.useRef(scriptsIndexRows);
+  scriptsRowsRef.current = scriptsIndexRows;
+
+  const loadScriptsSandboxIndex = useCallback(async () => {
+    if (!siteId) {
+      setScriptsIndexRows({ llm: [], imageGen: [] });
+      return;
+    }
+    try {
+      const data = await fetchAiAssistantScriptsIndex(siteId);
+      setScriptsIndexRows({
+        llm: Array.isArray(data.llmScripts) ? data.llmScripts : [],
+        imageGen: Array.isArray(data.imageGenerators) ? data.imageGenerators : []
+      });
+    } catch {
+      setScriptsIndexRows({ llm: [], imageGen: [] });
+    }
+  }, [siteId]);
+
+  const dirtyRef = React.useRef(dirty);
+  dirtyRef.current = dirty;
 
   const reload = useCallback(async () => {
     if (!siteId) return;
+    if (dirtyRef.current) {
+      if (!window.confirm('You have unsaved agent catalog changes. Reload from disk and discard them?')) {
+        return;
+      }
+    }
     setLoadError(null);
     setLoaded(false);
     try {
@@ -281,7 +334,22 @@ export default function AiAssistantCentralAgentsConfiguration() {
     } finally {
       setLoaded(true);
     }
-  }, [siteId]);
+    void loadScriptsSandboxIndex();
+  }, [siteId, loadScriptsSandboxIndex]);
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
 
   useEffect(() => {
     void reload();
@@ -357,8 +425,8 @@ export default function AiAssistantCentralAgentsConfiguration() {
     setDirty(true);
   };
 
-  const save = async () => {
-    if (!siteId) return;
+  const persistCatalog = useCallback(async (): Promise<boolean> => {
+    if (!siteId) return false;
     setSaveError(null);
     setSaving(true);
     try {
@@ -368,12 +436,24 @@ export default function AiAssistantCentralAgentsConfiguration() {
       setCatalog(toWrite);
       setDirty(false);
       dispatch(fetchSiteUiConfig({ site: siteId }));
+      return true;
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : String(e));
+      return false;
     } finally {
       setSaving(false);
     }
-  };
+  }, [siteId, catalog, dispatch]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      save: () => persistCatalog()
+    }),
+    [persistCatalog]
+  );
+
+  const save = () => void persistCatalog();
 
   const mode: CentralAgentMode =
     draft && String(draft.mode ?? 'chat').toLowerCase() === 'autonomous' ? 'autonomous' : 'chat';
@@ -383,20 +463,15 @@ export default function AiAssistantCentralAgentsConfiguration() {
       <Typography variant="h5" component="h1" gutterBottom>
         AI Assistant Agents
       </Typography>
-      <Typography variant="body2" color="text.secondary" paragraph>
-        This site&apos;s chat and Autonomous agents are defined in{' '}
-        <Typography component="span" variant="body2" sx={{ fontFamily: 'monospace' }}>
-          config/studio/{CENTRAL_AGENTS_STUDIO_PATH}
-        </Typography>
-        . When that file lists at least one agent, chat assistants use only <strong>chat</strong> rows here (not
-        <code>ui.xml</code> agent widgets). <strong>Autonomous</strong> rows use schedule / prompt / scope / LLM
-        fields (missing values get the same defaults the server uses on sync). Saving normalizes empty fields so you
-        do not need to pre-fill everything before the first write. <strong>Reload</strong> reads that JSON from the
-        sandbox — if the file is missing or not yet written, you see template defaults until you click <strong>Save</strong>.
-      </Typography>
+
+      {dirty ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Unsaved changes — save before you leave this tab.
+        </Alert>
+      ) : null}
 
       {!siteId ? (
-        <Alert severity="info">Select a site to edit the catalog.</Alert>
+        <Alert severity="info">Select a site.</Alert>
       ) : (
         <>
           {loadError && (
@@ -428,6 +503,15 @@ export default function AiAssistantCentralAgentsConfiguration() {
               variant="outlined"
               disabled={!loaded || saving}
               onClick={() => {
+                if (dirtyRef.current) {
+                  if (
+                    !window.confirm(
+                      'Replace the in-memory catalog with the built-in example? Unsaved edits will be lost.'
+                    )
+                  ) {
+                    return;
+                  }
+                }
                 setCatalog(defaultCentralAgentsFile());
                 setDirty(true);
               }}
@@ -437,10 +521,11 @@ export default function AiAssistantCentralAgentsConfiguration() {
             <Button
               startIcon={<SaveRounded />}
               variant="contained"
+              color={dirty ? 'warning' : 'primary'}
               disabled={!loaded || saving || !dirty}
-              onClick={() => void save()}
+              onClick={save}
             >
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? 'Saving…' : 'Save to site'}
             </Button>
             <Typography variant="caption" color="text.secondary">
               {chatCount} chat · {autonomousCount} Autonomous
@@ -451,9 +536,7 @@ export default function AiAssistantCentralAgentsConfiguration() {
             <Typography variant="body2">Loading…</Typography>
           ) : catalog.agents.length === 0 ? (
             <Alert severity="warning">
-              No catalog file or empty <code>agents</code> array. Chat agents fall back to <code>ui.xml</code> until
-              you add at least one <strong>chat</strong> row here. Use &quot;Replace with example catalog&quot; for a
-              starter file, then Save.
+              No agents yet. Add one, or use Replace with example catalog, then save.
             </Alert>
           ) : (
             <List dense disablePadding sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
@@ -541,6 +624,16 @@ export default function AiAssistantCentralAgentsConfiguration() {
             (() => {
               const sp = parseLlmVendorAndScript(draft.llm);
               const imgK = parseImageGenKind(draft.imageGenerator);
+              const llmScriptRows = scriptsIndexRows.llm;
+              const imgScriptRows = scriptsIndexRows.imageGen;
+              const curLlmScriptId = sp.scriptId;
+              const llmScriptSelectVal = llmScriptRows.some((r) => r.id === curLlmScriptId)
+                ? curLlmScriptId
+                : CQ_SCRIPT_LLM_SELECT_CUSTOM;
+              const curImgScriptId = imageGenScriptId(draft.imageGenerator);
+              const imgScriptSelectVal = imgScriptRows.some((r) => r.id === curImgScriptId)
+                ? curImgScriptId
+                : CQ_SCRIPT_IMAGE_SELECT_CUSTOM;
               const presets = llmModelPresetRows(sp.vendor);
               const modelSelectValue =
                 sp.vendor === 'script' || sp.vendor === 'crafterQ'
@@ -560,9 +653,10 @@ export default function AiAssistantCentralAgentsConfiguration() {
                         const v = String(ev.target.value);
                         setDraft((d) => {
                           if (!d) return d;
-                          // Do not stuff the script folder id into `llmModel` — that field is the provider model id
-                          // (e.g. Cursor `composer-2`) for `script:*` LLMs. Default when switching to script.
-                          if (v === 'script') return { ...d, llm: 'script', llmModel: 'composer-2' };
+                          if (v === 'script') {
+                            const first = scriptsRowsRef.current.llm[0]?.id?.trim();
+                            return { ...d, llm: first ? `script:${first}` : 'script', llmModel: 'composer-2' };
+                          }
                           if (v === 'crafterQ') return { ...d, llm: 'crafterQ', llmModel: '' };
                           return { ...d, llm: v, llmModel: d.llmModel?.trim() ? d.llmModel : 'gpt-4o-mini' };
                         });
@@ -577,24 +671,62 @@ export default function AiAssistantCentralAgentsConfiguration() {
                   </FormControl>
                   {sp.vendor === 'script' ? (
                     <>
-                      <TextField
-                        label="Script id (saved as llm script:yourId)"
-                        value={sp.scriptId}
-                        onChange={(ev) => {
-                          const id = ev.target.value.trim();
-                          setDraft((d) => (d ? { ...d, llm: id ? `script:${id}` : 'script' } : d));
-                        }}
-                        fullWidth
-                        size="small"
-                        helperText="Lowercase letters, numbers, dash, underscore (1–64 chars). Must match folder under scripts/aiassistant/llm/."
-                      />
+                      <Stack direction="row" spacing={1} alignItems="flex-start">
+                        <FormControl fullWidth size="small" sx={{ flex: 1 }}>
+                          <InputLabel id="cq-central-script-llm-pick">Script LLM</InputLabel>
+                          <Select
+                            labelId="cq-central-script-llm-pick"
+                            label="Script LLM"
+                            value={llmScriptSelectVal}
+                            onChange={(ev) => {
+                              const v = String(ev.target.value);
+                              setDraft((d) => {
+                                if (!d) return d;
+                                if (v === CQ_SCRIPT_LLM_SELECT_CUSTOM) return { ...d, llm: 'script' };
+                                return { ...d, llm: `script:${v}` };
+                              });
+                            }}
+                          >
+                            {llmScriptRows.map((row) => (
+                              <MenuItem key={row.id} value={row.id}>
+                                {row.id}
+                                {!row.hasSource ? ' — add runtime.groovy' : ''}
+                              </MenuItem>
+                            ))}
+                            <MenuItem value={CQ_SCRIPT_LLM_SELECT_CUSTOM}>Custom id…</MenuItem>
+                          </Select>
+                        </FormControl>
+                        <Tooltip title="Refresh list">
+                          <IconButton
+                            size="small"
+                            sx={{ mt: 0.5 }}
+                            aria-label="Refresh script LLM list"
+                            onClick={() => void loadScriptsSandboxIndex()}
+                          >
+                            <RefreshRounded fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                      {llmScriptSelectVal === CQ_SCRIPT_LLM_SELECT_CUSTOM ? (
+                        <TextField
+                          label="Custom script LLM id"
+                          value={sp.scriptId}
+                          onChange={(ev) => {
+                            const id = ev.target.value.trim();
+                            setDraft((d) => (d ? { ...d, llm: id ? `script:${id}` : 'script' } : d));
+                          }}
+                          fullWidth
+                          size="small"
+                          helperText="1–64 characters: letters, numbers, dash, underscore."
+                        />
+                      ) : null}
                       <TextField
                         label="Provider model id (llmModel)"
                         value={String(draft.llmModel ?? '').trim()}
                         onChange={(ev) => setDraft((d) => (d ? { ...d, llmModel: ev.target.value } : d))}
                         fullWidth
                         size="small"
-                        helperText="For Cursor Cloud Agent example: e.g. composer-2 (see Cursor GET /v1/models). Not the script folder name."
+                        helperText="Backend model id (e.g. composer-2)."
                       />
                     </>
                   ) : sp.vendor === 'crafterQ' ? (
@@ -645,8 +777,13 @@ export default function AiAssistantCentralAgentsConfiguration() {
                           if (!d) return d;
                           if (k === 'none') return { ...d, imageGenerator: 'none' };
                           if (k === 'script') {
+                            const first = scriptsRowsRef.current.imageGen[0]?.id?.trim();
                             const cur = imageGenScriptId(d.imageGenerator);
-                            return { ...d, imageGenerator: `script:${cur || 'myimage'}` };
+                            const pick =
+                              cur && scriptsRowsRef.current.imageGen.some((x) => x.id === cur)
+                                ? cur
+                                : first || 'myimage';
+                            return { ...d, imageGenerator: `script:${pick}` };
                           }
                           return { ...d, imageGenerator: '' };
                         });
@@ -658,15 +795,58 @@ export default function AiAssistantCentralAgentsConfiguration() {
                     </Select>
                   </FormControl>
                   {imgK === 'script' ? (
-                    <TextField
-                      label="Image generator script id"
-                      value={imageGenScriptId(draft.imageGenerator)}
-                      onChange={(ev) =>
-                        setDraft((d) => (d ? { ...d, imageGenerator: `script:${ev.target.value.trim()}` } : d))
-                      }
-                      fullWidth
-                      size="small"
-                    />
+                    <>
+                      <Stack direction="row" spacing={1} alignItems="flex-start">
+                        <FormControl fullWidth size="small" sx={{ flex: 1 }}>
+                          <InputLabel id="cq-central-script-img-pick">Image script</InputLabel>
+                          <Select
+                            labelId="cq-central-script-img-pick"
+                            label="Image script"
+                            value={imgScriptSelectVal}
+                            onChange={(ev) => {
+                              const v = String(ev.target.value);
+                              setDraft((d) => {
+                                if (!d) return d;
+                                if (v === CQ_SCRIPT_IMAGE_SELECT_CUSTOM) return { ...d, imageGenerator: 'script' };
+                                return { ...d, imageGenerator: `script:${v}` };
+                              });
+                            }}
+                          >
+                            {imgScriptRows.map((row) => (
+                              <MenuItem key={row.id} value={row.id}>
+                                {row.id}
+                                {!row.hasSource ? ' — add generate.groovy' : ''}
+                              </MenuItem>
+                            ))}
+                            <MenuItem value={CQ_SCRIPT_IMAGE_SELECT_CUSTOM}>Custom id…</MenuItem>
+                          </Select>
+                        </FormControl>
+                        <Tooltip title="Refresh list">
+                          <IconButton
+                            size="small"
+                            sx={{ mt: 0.5 }}
+                            aria-label="Refresh image script list"
+                            onClick={() => void loadScriptsSandboxIndex()}
+                          >
+                            <RefreshRounded fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                      {imgScriptSelectVal === CQ_SCRIPT_IMAGE_SELECT_CUSTOM ? (
+                        <TextField
+                          label="Custom image generator script id"
+                          value={imageGenScriptId(draft.imageGenerator)}
+                          onChange={(ev) =>
+                            setDraft((d) =>
+                              d ? { ...d, imageGenerator: `script:${ev.target.value.trim()}` } : d
+                            )
+                          }
+                          fullWidth
+                          size="small"
+                          helperText="1–64 characters: letters, numbers, dash, underscore."
+                        />
+                      ) : null}
+                    </>
                   ) : null}
                   <TextField
                     label="Image model (OpenAI Images default)"
@@ -787,8 +967,7 @@ export default function AiAssistantCentralAgentsConfiguration() {
                       <Box>
                         <FormLabel component="legend">Quick prompts (chat chips)</FormLabel>
                         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, mb: 1 }}>
-                          Each row: short chip label (<code>userText</code>) plus optional instructions (
-                          <code>additionalContext</code>) merged when the author clicks the chip. Up to 10 prompts.
+                          Optional shortcuts above the composer (max 10).
                         </Typography>
                         <Stack spacing={1.5}>
                           {chatPromptRows.map((row, idx) => (
@@ -895,7 +1074,7 @@ export default function AiAssistantCentralAgentsConfiguration() {
                         onChange={(ev) => setDraft((d) => (d ? { ...d, schedule: ev.target.value } : d))}
                         fullWidth
                         size="small"
-                        helperText="e.g. 0 * * * * ? — every minute at second 0"
+                        helperText="Quartz cron, e.g. every minute: 0 * * * * ?"
                       />
                       <TextField
                         label="System prompt"
@@ -905,7 +1084,7 @@ export default function AiAssistantCentralAgentsConfiguration() {
                         multiline
                         minRows={4}
                         size="small"
-                        helperText="Autonomous agents use this single mission prompt only (no clickable prompt chips)."
+                        helperText="Instructions for each scheduled run."
                         placeholder={
                           'e.g. On each run: scan /site/website/news/ for draft items older than 7 days, ' +
                           'list their internal names, and suggest one-line social posts for each.'
@@ -972,10 +1151,12 @@ export default function AiAssistantCentralAgentsConfiguration() {
         <DialogActions sx={{ flexShrink: 0 }}>
           <Button onClick={closeDialog}>Cancel</Button>
           <Button variant="contained" onClick={applyDraft}>
-            OK
+            Apply to catalog
           </Button>
         </DialogActions>
       </Dialog>
     </Box>
   );
-}
+});
+
+export default AiAssistantCentralAgentsConfiguration;

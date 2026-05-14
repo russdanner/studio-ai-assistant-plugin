@@ -1,18 +1,43 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState, type SyntheticEvent } from 'react';
 import FullscreenExitRounded from '@mui/icons-material/FullscreenExitRounded';
 import FullscreenRounded from '@mui/icons-material/FullscreenRounded';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Tooltip from '@mui/material/Tooltip';
-import AiAssistantCentralAgentsConfiguration from './AiAssistantCentralAgentsConfiguration';
+import Typography from '@mui/material/Typography';
+import AiAssistantCentralAgentsConfiguration, {
+  type AiAssistantCentralAgentsCatalogHandle
+} from './AiAssistantCentralAgentsConfiguration';
 import AiAssistantScriptsSandboxConfiguration from './AiAssistantScriptsSandboxConfiguration';
 import AiAssistantStudioUiSettings from './AiAssistantStudioUiSettings';
 import { useDomFullscreen } from './aiAssistantDomFullscreen';
 
 export type AiAssistantProjectToolsTab = 'ui' | 'agents' | 'prompts' | 'tools' | 'scripts';
+
+function projectToolsTabLabel(t: AiAssistantProjectToolsTab): string {
+  switch (t) {
+    case 'ui':
+      return 'UI';
+    case 'agents':
+      return 'Agents';
+    case 'prompts':
+      return 'Prompts';
+    case 'tools':
+      return 'Tools and MCP';
+    case 'scripts':
+      return 'Scripts';
+    default:
+      return t;
+  }
+}
 
 export interface AiAssistantProjectToolsConfigurationProps {
   /** Initial tab; used for legacy Project Tools widget ids that map to this shell. */
@@ -27,8 +52,51 @@ export interface AiAssistantProjectToolsConfigurationProps {
 export default function AiAssistantProjectToolsConfiguration(props: AiAssistantProjectToolsConfigurationProps) {
   const { defaultTab = 'ui' } = props;
   const [tab, setTab] = useState<AiAssistantProjectToolsTab>(defaultTab);
+  const [agentsCatalogDirty, setAgentsCatalogDirty] = useState(false);
+  const [pendingTabSwitch, setPendingTabSwitch] = useState<AiAssistantProjectToolsTab | null>(null);
+  const [tabLeaveSaveBusy, setTabLeaveSaveBusy] = useState(false);
+  const agentsCatalogRef = useRef<AiAssistantCentralAgentsCatalogHandle>(null);
   const { ref: rootRef, isFullscreen: toolFullscreen, toggleFullscreen: toggleToolFullscreen } =
     useDomFullscreen<HTMLDivElement>();
+
+  const handleTabsChange = useCallback(
+    (_: SyntheticEvent, value: AiAssistantProjectToolsTab) => {
+      if (tab === 'agents' && agentsCatalogDirty && value !== 'agents') {
+        setPendingTabSwitch(value);
+        return;
+      }
+      setTab(value);
+    },
+    [tab, agentsCatalogDirty]
+  );
+
+  const cancelPendingTabSwitch = useCallback(() => {
+    setPendingTabSwitch(null);
+    setTabLeaveSaveBusy(false);
+  }, []);
+
+  const discardPendingTabSwitch = useCallback(() => {
+    if (pendingTabSwitch == null) return;
+    const next = pendingTabSwitch;
+    setAgentsCatalogDirty(false);
+    setPendingTabSwitch(null);
+    setTab(next);
+  }, [pendingTabSwitch]);
+
+  const saveAndPendingTabSwitch = useCallback(async () => {
+    if (pendingTabSwitch == null) return;
+    const next = pendingTabSwitch;
+    setTabLeaveSaveBusy(true);
+    try {
+      const ok = (await agentsCatalogRef.current?.save()) === true;
+      if (ok) {
+        setPendingTabSwitch(null);
+        setTab(next);
+      }
+    } finally {
+      setTabLeaveSaveBusy(false);
+    }
+  }, [pendingTabSwitch]);
 
   return (
     <Box
@@ -49,7 +117,7 @@ export default function AiAssistantProjectToolsConfiguration(props: AiAssistantP
       >
         <Tabs
           value={tab}
-          onChange={(_, v) => setTab(v as AiAssistantProjectToolsTab)}
+          onChange={handleTabsChange}
           variant="scrollable"
           scrollButtons="auto"
           allowScrollButtonsMobile
@@ -75,11 +143,37 @@ export default function AiAssistantProjectToolsConfiguration(props: AiAssistantP
       </Stack>
       <Box sx={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}>
         {tab === 'ui' ? <AiAssistantStudioUiSettings /> : null}
-        {tab === 'agents' ? <AiAssistantCentralAgentsConfiguration /> : null}
+        {tab === 'agents' ? (
+          <AiAssistantCentralAgentsConfiguration
+            ref={agentsCatalogRef}
+            onDirtyChange={setAgentsCatalogDirty}
+          />
+        ) : null}
         {tab === 'prompts' ? <AiAssistantScriptsSandboxConfiguration panel="prompts" /> : null}
         {tab === 'tools' ? <AiAssistantScriptsSandboxConfiguration panel="tools" /> : null}
         {tab === 'scripts' ? <AiAssistantScriptsSandboxConfiguration panel="scripts" /> : null}
       </Box>
+
+      <Dialog open={pendingTabSwitch != null} onClose={cancelPendingTabSwitch} maxWidth="sm" fullWidth>
+        <DialogTitle>Unsaved changes</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" paragraph>
+            Save, discard, or stay on Agents before opening{' '}
+            <strong>{pendingTabSwitch ? projectToolsTabLabel(pendingTabSwitch) : ''}</strong>.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelPendingTabSwitch} disabled={tabLeaveSaveBusy}>
+            Stay on Agents
+          </Button>
+          <Button color="warning" onClick={discardPendingTabSwitch} disabled={tabLeaveSaveBusy}>
+            Discard changes
+          </Button>
+          <Button variant="contained" onClick={() => void saveAndPendingTabSwitch()} disabled={tabLeaveSaveBusy}>
+            {tabLeaveSaveBusy ? 'Saving…' : 'Save and continue'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

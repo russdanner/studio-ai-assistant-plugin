@@ -27,11 +27,11 @@ The **`plugin` id must be the full descriptor id** `org.craftercms.aiassistant.s
 | **Install** | From `sources/`: `yarn package`, then `./scripts/install-plugin.sh` (or Marketplace) so **`…/studio/aiassistant/components/index.js`** exists in the site sandbox |
 | **Cache** | Hard refresh Studio after deploy |
 
-Deeper wiring: [spec.md](../internals/spec.md), paths: [studio-plugins-guide.md](studio-plugins-guide.md). For a merged **Experience Builder preview toolbar + Tools Panel + Autonomous** fragment, see [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).
+Deeper wiring: [spec.md](../internals/spec.md), paths: [studio-plugins-guide.md](studio-plugins-guide.md). For **optional** Tools Panel + **Autonomous** + preview-toolbar fragments, see [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).
 
 ## Hiding the preview toolbar icon without editing `ui.xml`
 
-When the Helper stays merged under **`PreviewToolbar`** with **`configuration ui="IconButton"`**, operators can set **`showAiAssistantsInTopNavigation`** to **`false`** in **`config/studio/scripts/aiassistant/config/studio-ui.json`** (see [configuration guide §1e](configuration-guide.md#cg-1e) and [spec.md — Studio UI flags](../internals/spec.md#studio-ui-flags-studio-uijson)). That hides **only** the toolbar **icon**; a **Tools Panel** Helper row is unchanged. Reload Studio if the icon still appears until configuration cache refreshes.
+When the Helper stays merged under **`PreviewToolbar`** with **`configuration ui="IconButton"`**, operators can set **`showAiAssistantsInTopNavigation`** to **`false`** in **`config/studio/scripts/aiassistant/config/studio-ui.json`** (see [configuration guide §1e](configuration-guide.md#cg-1e) and [spec.md — Studio UI flags](../internals/spec.md#studio-ui-flags-studio-uijson)). That hides **only** the toolbar **icon**; a **Tools Panel** Helper row added manually in **`ui.xml`** is unchanged. Reload Studio if the icon still appears until configuration cache refreshes.
 
 ## Preview toolbar icon missing (next to the URL bar)
 

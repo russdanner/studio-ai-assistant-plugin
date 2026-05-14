@@ -7,11 +7,12 @@
 import type { AgentConfig, AgentLlm, PromptConfig } from './agentConfig';
 import { normalizeEnabledBuiltInToolsRaw } from './agentConfig';
 import type { AutonomousAgentDefinition } from './autonomousAssistantsConfig';
+import { fetchConfigurationXML } from '@craftercms/studio-ui/services/configuration';
 import { fetchContentXML, fetchItemsByPath } from '@craftercms/studio-ui/services/content';
 import { firstValueFrom, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
-/** Sandbox repo path (used with content APIs — avoids `get_configuration` 7000 + server ERROR when file is absent). */
+/** Sandbox repo path — preferred read via content APIs (see {@link fetchCentralAgentsFile}). */
 export const CENTRAL_AGENTS_SANDBOX_PATH = '/config/studio/ai-assistant/agents.json';
 
 /** Relative to `config/studio/` for {@code writeConfiguration} (Studio module {@code studio}). */
@@ -264,25 +265,51 @@ function parseCentralAgentsFromContentPayload(raw: unknown): CentralAgentsFile |
   return { version: typeof data.version === 'number' ? data.version : 1, agents: data.agents as CentralAgentFileEntry[] };
 }
 
+function unwrapConfigurationEnvelope(raw: unknown): unknown {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const r = raw as Record<string, unknown>;
+    if (typeof r.content === 'string') return r.content;
+    if (typeof r.configuration === 'string') return r.configuration;
+  }
+  return raw;
+}
+
 /**
- * Loads the central catalog when the sandbox file exists. Uses content APIs only so missing
- * `config/studio/ai-assistant/agents.json` does not call `get_configuration` (which logs Studio ERROR 7000).
+ * Loads the central catalog so reads match {@code write_configuration} writes.
+ *
+ * **Important:** {@code fetchConfigurationJSON} runs XML `deserialize` on the response body — that is wrong for
+ * `.json` files and yields garbage / empty objects, so reloads looked like saves “did nothing”. We read the sandbox
+ * file via content APIs first (same pattern as {@code fetchStudioUiConfigAsync}), then fall back to raw
+ * {@code get_configuration} + {@code JSON.parse}.
  */
 export async function fetchCentralAgentsFile(siteId: string): Promise<CentralAgentsFile | null> {
   if (!siteId) return null;
   try {
     const listings = (await firstValueFrom(
       fetchItemsByPath(siteId, [CENTRAL_AGENTS_SANDBOX_PATH], { preferContent: true })
-    )) as unknown as { 0?: unknown; missingItems?: string[] };
-    if (Array.isArray(listings.missingItems) && listings.missingItems.includes(CENTRAL_AGENTS_SANDBOX_PATH)) {
-      return null;
-    }
-    if (!listings[0]) return null;
+    )) as unknown as { missingItems?: string[] };
 
-    const raw = await firstValueFrom(
-      fetchContentXML(siteId, CENTRAL_AGENTS_SANDBOX_PATH, { lock: false }).pipe(catchError(() => of(null)))
-    );
-    return parseCentralAgentsFromContentPayload(raw);
+    const missing = Array.isArray(listings.missingItems) && listings.missingItems.includes(CENTRAL_AGENTS_SANDBOX_PATH);
+    if (!missing) {
+      const fromSandbox = await firstValueFrom(
+        fetchContentXML(siteId, CENTRAL_AGENTS_SANDBOX_PATH, { lock: false }).pipe(catchError(() => of(null)))
+      );
+      let blob: unknown = fromSandbox;
+      blob = unwrapConfigurationEnvelope(blob);
+      const parsed = parseCentralAgentsFromContentPayload(blob);
+      if (parsed) return parsed;
+    }
+
+    const confStr = await firstValueFrom(fetchConfigurationXML(siteId, CENTRAL_AGENTS_STUDIO_PATH, 'studio'));
+    if (typeof confStr === 'string' && confStr.trim()) {
+      const trimmed = confStr.trim();
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        let raw: unknown = JSON.parse(trimmed);
+        raw = unwrapConfigurationEnvelope(raw);
+        return parseCentralAgentsFromContentPayload(raw);
+      }
+    }
+    return null;
   } catch {
     return null;
   }

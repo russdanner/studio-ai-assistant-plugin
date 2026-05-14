@@ -2,7 +2,7 @@ const { Fragment, jsx, jsxs } = craftercms.libs?.reactJsxRuntime;
 const require$$2 = craftercms.libs?.reactJsxRuntime && Object.prototype.hasOwnProperty.call(craftercms.libs?.reactJsxRuntime, 'default') ? craftercms.libs?.reactJsxRuntime['default'] : craftercms.libs?.reactJsxRuntime;
 const { useTheme, Box, CircularProgress, Typography, TableContainer, Paper, Table, TableHead, TableBody, TableRow, TableCell, Stack, Tooltip, IconButton, Tabs, Tab, Button, Divider, TextField, Chip, FormControlLabel, Switch, Popover, paperClasses, GlobalStyles, Menu, MenuItem, ListItemIcon, ListItemText, Dialog, DialogContent, Alert, FormControl, InputLabel, Select, List, ListItem, Checkbox, ListItemButton, Badge, DialogTitle, DialogActions, Avatar, useMediaQuery, ListItemSecondaryAction, FormLabel, FormGroup, Autocomplete, RadioGroup, Radio } = craftercms.libs.MaterialUI;
 const React = craftercms.libs.React;
-const { useRef, useState, useEffect, useCallback, useMemo, useLayoutEffect, useSyncExternalStore, createElement } = craftercms.libs.React;
+const { useRef, useState, useEffect, useCallback, useMemo, useLayoutEffect, useSyncExternalStore, forwardRef, useImperativeHandle, createElement } = craftercms.libs.React;
 const MinimizedBar = craftercms.components.MinimizedBar && Object.prototype.hasOwnProperty.call(craftercms.components.MinimizedBar, 'default') ? craftercms.components.MinimizedBar['default'] : craftercms.components.MinimizedBar;
 const DialogHeader = craftercms.components.DialogHeader && Object.prototype.hasOwnProperty.call(craftercms.components.DialogHeader, 'default') ? craftercms.components.DialogHeader['default'] : craftercms.components.DialogHeader;
 const AlertDialog = craftercms.components.AlertDialog && Object.prototype.hasOwnProperty.call(craftercms.components.AlertDialog, 'default') ? craftercms.components.AlertDialog['default'] : craftercms.components.AlertDialog;
@@ -51,11 +51,17 @@ const ChevronLeftRounded = craftercms.utils.constants.components.get('@mui/icons
 const ExpandMoreRounded = craftercms.utils.constants.components.get('@mui/icons-material/ExpandMoreRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/ExpandMoreRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/ExpandMoreRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/ExpandMoreRounded');
 const FullscreenExitRounded = craftercms.utils.constants.components.get('@mui/icons-material/FullscreenExitRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/FullscreenExitRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/FullscreenExitRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/FullscreenExitRounded');
 const FullscreenRounded = craftercms.utils.constants.components.get('@mui/icons-material/FullscreenRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/FullscreenRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/FullscreenRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/FullscreenRounded');
+const Button$1 = craftercms.libs.MaterialUI.Button && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.Button, 'default') ? craftercms.libs.MaterialUI.Button['default'] : craftercms.libs.MaterialUI.Button;
+const Dialog$1 = craftercms.libs.MaterialUI.Dialog && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.Dialog, 'default') ? craftercms.libs.MaterialUI.Dialog['default'] : craftercms.libs.MaterialUI.Dialog;
+const DialogActions$1 = craftercms.libs.MaterialUI.DialogActions && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.DialogActions, 'default') ? craftercms.libs.MaterialUI.DialogActions['default'] : craftercms.libs.MaterialUI.DialogActions;
+const DialogContent$1 = craftercms.libs.MaterialUI.DialogContent && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.DialogContent, 'default') ? craftercms.libs.MaterialUI.DialogContent['default'] : craftercms.libs.MaterialUI.DialogContent;
+const DialogTitle$1 = craftercms.libs.MaterialUI.DialogTitle && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.DialogTitle, 'default') ? craftercms.libs.MaterialUI.DialogTitle['default'] : craftercms.libs.MaterialUI.DialogTitle;
 const IconButton$1 = craftercms.libs.MaterialUI.IconButton && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.IconButton, 'default') ? craftercms.libs.MaterialUI.IconButton['default'] : craftercms.libs.MaterialUI.IconButton;
 const Stack$1 = craftercms.libs.MaterialUI.Stack && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.Stack, 'default') ? craftercms.libs.MaterialUI.Stack['default'] : craftercms.libs.MaterialUI.Stack;
 const Tab$1 = craftercms.libs.MaterialUI.Tab && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.Tab, 'default') ? craftercms.libs.MaterialUI.Tab['default'] : craftercms.libs.MaterialUI.Tab;
 const Tabs$1 = craftercms.libs.MaterialUI.Tabs && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.Tabs, 'default') ? craftercms.libs.MaterialUI.Tabs['default'] : craftercms.libs.MaterialUI.Tabs;
 const Tooltip$1 = craftercms.libs.MaterialUI.Tooltip && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.Tooltip, 'default') ? craftercms.libs.MaterialUI.Tooltip['default'] : craftercms.libs.MaterialUI.Tooltip;
+const Typography$1 = craftercms.libs.MaterialUI.Typography && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.Typography, 'default') ? craftercms.libs.MaterialUI.Typography['default'] : craftercms.libs.MaterialUI.Typography;
 const AddRounded = craftercms.utils.constants.components.get('@mui/icons-material/AddRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/AddRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/AddRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/AddRounded');
 const DeleteOutlineRounded = craftercms.utils.constants.components.get('@mui/icons-material/DeleteOutlineRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/DeleteOutlineRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/DeleteOutlineRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/DeleteOutlineRounded');
 const RefreshRounded = craftercms.utils.constants.components.get('@mui/icons-material/RefreshRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/RefreshRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/RefreshRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/RefreshRounded');
@@ -31654,7 +31660,7 @@ function normalizePrompts(prompts) {
     return finalize(coerceList(prompts));
 }
 
-/** Sandbox repo path (used with content APIs — avoids `get_configuration` 7000 + server ERROR when file is absent). */
+/** Sandbox repo path — preferred read via content APIs (see {@link fetchCentralAgentsFile}). */
 const CENTRAL_AGENTS_SANDBOX_PATH = '/config/studio/ai-assistant/agents.json';
 /** Relative to `config/studio/` for {@code writeConfiguration} (Studio module {@code studio}). */
 const CENTRAL_AGENTS_STUDIO_PATH = 'ai-assistant/agents.json';
@@ -31916,22 +31922,48 @@ function parseCentralAgentsFromContentPayload(raw) {
         return null;
     return { version: typeof data.version === 'number' ? data.version : 1, agents: data.agents };
 }
+function unwrapConfigurationEnvelope(raw) {
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+        const r = raw;
+        if (typeof r.content === 'string')
+            return r.content;
+        if (typeof r.configuration === 'string')
+            return r.configuration;
+    }
+    return raw;
+}
 /**
- * Loads the central catalog when the sandbox file exists. Uses content APIs only so missing
- * `config/studio/ai-assistant/agents.json` does not call `get_configuration` (which logs Studio ERROR 7000).
+ * Loads the central catalog so reads match {@code write_configuration} writes.
+ *
+ * **Important:** {@code fetchConfigurationJSON} runs XML `deserialize` on the response body — that is wrong for
+ * `.json` files and yields garbage / empty objects, so reloads looked like saves “did nothing”. We read the sandbox
+ * file via content APIs first (same pattern as {@code fetchStudioUiConfigAsync}), then fall back to raw
+ * {@code get_configuration} + {@code JSON.parse}.
  */
 async function fetchCentralAgentsFile(siteId) {
     if (!siteId)
         return null;
     try {
         const listings = (await firstValueFrom(fetchItemsByPath(siteId, [CENTRAL_AGENTS_SANDBOX_PATH], { preferContent: true })));
-        if (Array.isArray(listings.missingItems) && listings.missingItems.includes(CENTRAL_AGENTS_SANDBOX_PATH)) {
-            return null;
+        const missing = Array.isArray(listings.missingItems) && listings.missingItems.includes(CENTRAL_AGENTS_SANDBOX_PATH);
+        if (!missing) {
+            const fromSandbox = await firstValueFrom(fetchContentXML(siteId, CENTRAL_AGENTS_SANDBOX_PATH, { lock: false }).pipe(catchError(() => of(null))));
+            let blob = fromSandbox;
+            blob = unwrapConfigurationEnvelope(blob);
+            const parsed = parseCentralAgentsFromContentPayload(blob);
+            if (parsed)
+                return parsed;
         }
-        if (!listings[0])
-            return null;
-        const raw = await firstValueFrom(fetchContentXML(siteId, CENTRAL_AGENTS_SANDBOX_PATH, { lock: false }).pipe(catchError(() => of(null))));
-        return parseCentralAgentsFromContentPayload(raw);
+        const confStr = await firstValueFrom(fetchConfigurationXML(siteId, CENTRAL_AGENTS_STUDIO_PATH, 'studio'));
+        if (typeof confStr === 'string' && confStr.trim()) {
+            const trimmed = confStr.trim();
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                let raw = JSON.parse(trimmed);
+                raw = unwrapConfigurationEnvelope(raw);
+                return parseCentralAgentsFromContentPayload(raw);
+            }
+        }
+        return null;
     }
     catch {
         return null;
@@ -34456,6 +34488,69 @@ function AiAssistantFormControl(props) {
 
 const fetchSiteUiConfig = /*#__PURE__*/ createAction('FETCH_SITE_UI_CONFIG');
 
+const BASE$1 = '/studio/api/2/plugin/script/plugins/org/craftercms/aiassistant/studio/aiassistant/scripts';
+function withSite$1(url, siteId) {
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}siteId=${encodeURIComponent(siteId)}`;
+}
+function unwrapPluginScriptBody$1(body) {
+    if (!body || typeof body !== 'object')
+        return body;
+    const o = body;
+    const inner = o.result;
+    if (inner && typeof inner === 'object' && !Array.isArray(inner))
+        return inner;
+    return body;
+}
+async function fetchAiAssistantPromptDetail(siteId, key) {
+    const res = await fetch(`${withSite$1(`${BASE$1}/prompt`, siteId)}&key=${encodeURIComponent(key)}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { ...buildStudioAuthHeaders() }
+    });
+    const raw = await res.json().catch(() => ({}));
+    const data = unwrapPluginScriptBody$1(raw);
+    if (!res.ok) {
+        return { ok: false, message: data.message ?? raw.message ?? res.statusText };
+    }
+    return data;
+}
+async function fetchAiAssistantScriptsIndex(siteId) {
+    const res = await fetch(withSite$1(`${BASE$1}/index`, siteId), {
+        method: 'GET',
+        credentials: 'include',
+        headers: { ...buildStudioAuthHeaders() }
+    });
+    const raw = await res.json().catch(() => ({}));
+    const data = unwrapPluginScriptBody$1(raw);
+    if (!res.ok) {
+        return { ok: false, message: data.message ?? raw.message ?? res.statusText };
+    }
+    return data;
+}
+async function postAiAssistantScriptsMutate(siteId, payload) {
+    const res = await fetch(withSite$1(`${BASE$1}/mutate`, siteId), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json',
+            ...buildStudioAuthHeaders()
+        },
+        body: JSON.stringify({ siteId, ...payload })
+    });
+    const raw = await res.json().catch(() => ({}));
+    const data = unwrapPluginScriptBody$1(raw);
+    if (!res.ok) {
+        return { ok: false, message: data.message ?? raw.message ?? res.statusText };
+    }
+    return data;
+}
+/** Studio configuration path for {@code writeConfiguration} / {@code fetchConfigurationJSON} (no leading slash). */
+function studioConfigRelativePath(studioModulePath) {
+    const p = (studioModulePath ?? '').trim();
+    return p.startsWith('/') ? p.slice(1) : p;
+}
+
 /**
  * Built-in Studio AI orchestration tool names (Spring AI wire). Keep aligned with
  * `AiOrchestrationTools.groovy` {@code FunctionToolCallback.builder('…')}.
@@ -34521,6 +34616,10 @@ const STUDIO_AI_CLAUDE_CHAT_MODELS = [
 ];
 const STUDIO_AI_DEFAULT_IMAGE_MODEL = 'gpt-image-1';
 
+/** Select value when the agent uses a script LLM id not found under {@code scripts/aiassistant/llm/} (manual id). */
+const CQ_SCRIPT_LLM_SELECT_CUSTOM = '__cqScriptLlmCustom__';
+/** Select value when image {@code script:} id is not under {@code scripts/aiassistant/imagegen/}. */
+const CQ_SCRIPT_IMAGE_SELECT_CUSTOM = '__cqScriptImageCustom__';
 function cloneCatalog(f) {
     return { version: f.version ?? 1, agents: f.agents.map((a) => ({ ...a })) };
 }
@@ -34554,7 +34653,7 @@ function parseImageGenKind(gen) {
     const g = String(gen ?? '').trim().toLowerCase();
     if (g === 'none' || g === 'off' || g === 'disabled')
         return 'none';
-    if (g.startsWith('script:'))
+    if (g === 'script' || g.startsWith('script:'))
         return 'script';
     return 'openai';
 }
@@ -34679,7 +34778,8 @@ function summarizeEntry(e) {
     }
     return `${String(e.label ?? e.name ?? 'Unnamed')} (${String(e.llm ?? 'openAI')})`;
 }
-function AiAssistantCentralAgentsConfiguration() {
+const AiAssistantCentralAgentsConfiguration = forwardRef(function AiAssistantCentralAgentsConfiguration(props, ref) {
+    const { onDirtyChange } = props;
     const siteId = useActiveSiteId() ?? '';
     const dispatch = useDispatch();
     const [catalog, setCatalog] = useState({ version: 1, agents: [] });
@@ -34694,9 +34794,35 @@ function AiAssistantCentralAgentsConfiguration() {
     /** Chat quick-prompt rows while the edit dialog is open (trimmed on save). */
     const [chatPromptRows, setChatPromptRows] = useState([]);
     const [agentDialogFullscreen, setAgentDialogFullscreen] = useState(false);
+    const [scriptsIndexRows, setScriptsIndexRows] = useState({ llm: [], imageGen: [] });
+    const scriptsRowsRef = React.useRef(scriptsIndexRows);
+    scriptsRowsRef.current = scriptsIndexRows;
+    const loadScriptsSandboxIndex = useCallback(async () => {
+        if (!siteId) {
+            setScriptsIndexRows({ llm: [], imageGen: [] });
+            return;
+        }
+        try {
+            const data = await fetchAiAssistantScriptsIndex(siteId);
+            setScriptsIndexRows({
+                llm: Array.isArray(data.llmScripts) ? data.llmScripts : [],
+                imageGen: Array.isArray(data.imageGenerators) ? data.imageGenerators : []
+            });
+        }
+        catch {
+            setScriptsIndexRows({ llm: [], imageGen: [] });
+        }
+    }, [siteId]);
+    const dirtyRef = React.useRef(dirty);
+    dirtyRef.current = dirty;
     const reload = useCallback(async () => {
         if (!siteId)
             return;
+        if (dirtyRef.current) {
+            if (!window.confirm('You have unsaved agent catalog changes. Reload from disk and discard them?')) {
+                return;
+            }
+        }
         setLoadError(null);
         setLoaded(false);
         try {
@@ -34716,7 +34842,21 @@ function AiAssistantCentralAgentsConfiguration() {
         finally {
             setLoaded(true);
         }
-    }, [siteId]);
+        void loadScriptsSandboxIndex();
+    }, [siteId, loadScriptsSandboxIndex]);
+    useEffect(() => {
+        onDirtyChange?.(dirty);
+    }, [dirty, onDirtyChange]);
+    useEffect(() => {
+        if (!dirty)
+            return;
+        const onBeforeUnload = (e) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, [dirty]);
     useEffect(() => {
         void reload();
     }, [reload]);
@@ -34786,9 +34926,9 @@ function AiAssistantCentralAgentsConfiguration() {
         setCatalog(next);
         setDirty(true);
     };
-    const save = async () => {
+    const persistCatalog = useCallback(async () => {
         if (!siteId)
-            return;
+            return false;
         setSaveError(null);
         setSaving(true);
         try {
@@ -34798,19 +34938,30 @@ function AiAssistantCentralAgentsConfiguration() {
             setCatalog(toWrite);
             setDirty(false);
             dispatch(fetchSiteUiConfig({ site: siteId }));
+            return true;
         }
         catch (e) {
             setSaveError(e instanceof Error ? e.message : String(e));
+            return false;
         }
         finally {
             setSaving(false);
         }
-    };
+    }, [siteId, catalog, dispatch]);
+    useImperativeHandle(ref, () => ({
+        save: () => persistCatalog()
+    }), [persistCatalog]);
+    const save = () => void persistCatalog();
     const mode = draft && String(draft.mode ?? 'chat').toLowerCase() === 'autonomous' ? 'autonomous' : 'chat';
-    return (jsxs(Box, { sx: { p: 2, maxWidth: 960, mx: 'auto' }, children: [jsx(Typography, { variant: "h5", component: "h1", gutterBottom: true, children: "AI Assistant Agents" }), jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["This site's chat and Autonomous agents are defined in", ' ', jsxs(Typography, { component: "span", variant: "body2", sx: { fontFamily: 'monospace' }, children: ["config/studio/", CENTRAL_AGENTS_STUDIO_PATH] }), ". When that file lists at least one agent, chat assistants use only ", jsx("strong", { children: "chat" }), " rows here (not", jsx("code", { children: "ui.xml" }), " agent widgets). ", jsx("strong", { children: "Autonomous" }), " rows use schedule / prompt / scope / LLM fields (missing values get the same defaults the server uses on sync). Saving normalizes empty fields so you do not need to pre-fill everything before the first write. ", jsx("strong", { children: "Reload" }), " reads that JSON from the sandbox \u2014 if the file is missing or not yet written, you see template defaults until you click ", jsx("strong", { children: "Save" }), "."] }), !siteId ? (jsx(Alert, { severity: "info", children: "Select a site to edit the catalog." })) : (jsxs(Fragment, { children: [loadError && (jsx(Alert, { severity: "error", sx: { mb: 2 }, children: loadError })), saveError && (jsx(Alert, { severity: "error", sx: { mb: 2 }, onClose: () => setSaveError(null), children: saveError })), jsxs(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", sx: { mb: 2 }, alignItems: "center", children: [jsx(Button, { startIcon: jsx(RefreshRounded, {}), onClick: () => void reload(), disabled: !loaded || saving, variant: "outlined", size: "small", children: "Reload" }), jsx(Button, { startIcon: jsx(AddRounded, {}), onClick: openAdd, disabled: !loaded || saving, variant: "outlined", size: "small", children: "Add agent" }), jsx(Button, { size: "small", variant: "outlined", disabled: !loaded || saving, onClick: () => {
+    return (jsxs(Box, { sx: { p: 2, maxWidth: 960, mx: 'auto' }, children: [jsx(Typography, { variant: "h5", component: "h1", gutterBottom: true, children: "AI Assistant Agents" }), dirty ? (jsx(Alert, { severity: "warning", sx: { mb: 2 }, children: "Unsaved changes \u2014 save before you leave this tab." })) : null, !siteId ? (jsx(Alert, { severity: "info", children: "Select a site." })) : (jsxs(Fragment, { children: [loadError && (jsx(Alert, { severity: "error", sx: { mb: 2 }, children: loadError })), saveError && (jsx(Alert, { severity: "error", sx: { mb: 2 }, onClose: () => setSaveError(null), children: saveError })), jsxs(Stack, { direction: "row", spacing: 1, flexWrap: "wrap", sx: { mb: 2 }, alignItems: "center", children: [jsx(Button, { startIcon: jsx(RefreshRounded, {}), onClick: () => void reload(), disabled: !loaded || saving, variant: "outlined", size: "small", children: "Reload" }), jsx(Button, { startIcon: jsx(AddRounded, {}), onClick: openAdd, disabled: !loaded || saving, variant: "outlined", size: "small", children: "Add agent" }), jsx(Button, { size: "small", variant: "outlined", disabled: !loaded || saving, onClick: () => {
+                                    if (dirtyRef.current) {
+                                        if (!window.confirm('Replace the in-memory catalog with the built-in example? Unsaved edits will be lost.')) {
+                                            return;
+                                        }
+                                    }
                                     setCatalog(defaultCentralAgentsFile());
                                     setDirty(true);
-                                }, children: "Replace with example catalog" }), jsx(Button, { startIcon: jsx(SaveRounded, {}), variant: "contained", disabled: !loaded || saving || !dirty, onClick: () => void save(), children: saving ? 'Saving…' : 'Save' }), jsxs(Typography, { variant: "caption", color: "text.secondary", children: [chatCount, " chat \u00B7 ", autonomousCount, " Autonomous"] })] }), !loaded ? (jsx(Typography, { variant: "body2", children: "Loading\u2026" })) : catalog.agents.length === 0 ? (jsxs(Alert, { severity: "warning", children: ["No catalog file or empty ", jsx("code", { children: "agents" }), " array. Chat agents fall back to ", jsx("code", { children: "ui.xml" }), " until you add at least one ", jsx("strong", { children: "chat" }), " row here. Use \"Replace with example catalog\" for a starter file, then Save."] })) : (jsx(List, { dense: true, disablePadding: true, sx: { border: 1, borderColor: 'divider', borderRadius: 1 }, children: catalog.agents.map((e, i) => (jsxs(React.Fragment, { children: [i > 0 ? jsx(Divider, { component: "li" }) : null, jsxs(ListItem, { children: [jsx(ListItemText, { primary: summarizeEntry(e), secondary: String(e.mode ?? 'chat').toLowerCase() === 'autonomous' ? 'Autonomous' : 'Chat' }), jsxs(ListItemSecondaryAction, { children: [jsx(Button, { size: "small", startIcon: jsx(EditRounded, {}), onClick: () => openEdit(i), children: "Edit" }), jsx(Button, { size: "small", color: "error", startIcon: jsx(DeleteOutlineRounded, {}), onClick: () => removeAt(i), children: "Remove" })] })] })] }, i))) }))] })), jsxs(Dialog, { open: draft != null && editIndex !== null, onClose: closeDialog, fullScreen: agentDialogFullscreen, maxWidth: "md", fullWidth: true, scroll: "paper", PaperProps: agentDialogFullscreen
+                                }, children: "Replace with example catalog" }), jsx(Button, { startIcon: jsx(SaveRounded, {}), variant: "contained", color: dirty ? 'warning' : 'primary', disabled: !loaded || saving || !dirty, onClick: save, children: saving ? 'Saving…' : 'Save to site' }), jsxs(Typography, { variant: "caption", color: "text.secondary", children: [chatCount, " chat \u00B7 ", autonomousCount, " Autonomous"] })] }), !loaded ? (jsx(Typography, { variant: "body2", children: "Loading\u2026" })) : catalog.agents.length === 0 ? (jsx(Alert, { severity: "warning", children: "No agents yet. Add one, or use Replace with example catalog, then save." })) : (jsx(List, { dense: true, disablePadding: true, sx: { border: 1, borderColor: 'divider', borderRadius: 1 }, children: catalog.agents.map((e, i) => (jsxs(React.Fragment, { children: [i > 0 ? jsx(Divider, { component: "li" }) : null, jsxs(ListItem, { children: [jsx(ListItemText, { primary: summarizeEntry(e), secondary: String(e.mode ?? 'chat').toLowerCase() === 'autonomous' ? 'Autonomous' : 'Chat' }), jsxs(ListItemSecondaryAction, { children: [jsx(Button, { size: "small", startIcon: jsx(EditRounded, {}), onClick: () => openEdit(i), children: "Edit" }), jsx(Button, { size: "small", color: "error", startIcon: jsx(DeleteOutlineRounded, {}), onClick: () => removeAt(i), children: "Remove" })] })] })] }, i))) }))] })), jsxs(Dialog, { open: draft != null && editIndex !== null, onClose: closeDialog, fullScreen: agentDialogFullscreen, maxWidth: "md", fullWidth: true, scroll: "paper", PaperProps: agentDialogFullscreen
                     ? {
                         sx: {
                             m: 0,
@@ -34839,6 +34990,16 @@ function AiAssistantCentralAgentsConfiguration() {
                             (() => {
                                 const sp = parseLlmVendorAndScript(draft.llm);
                                 const imgK = parseImageGenKind(draft.imageGenerator);
+                                const llmScriptRows = scriptsIndexRows.llm;
+                                const imgScriptRows = scriptsIndexRows.imageGen;
+                                const curLlmScriptId = sp.scriptId;
+                                const llmScriptSelectVal = llmScriptRows.some((r) => r.id === curLlmScriptId)
+                                    ? curLlmScriptId
+                                    : CQ_SCRIPT_LLM_SELECT_CUSTOM;
+                                const curImgScriptId = imageGenScriptId(draft.imageGenerator);
+                                const imgScriptSelectVal = imgScriptRows.some((r) => r.id === curImgScriptId)
+                                    ? curImgScriptId
+                                    : CQ_SCRIPT_IMAGE_SELECT_CUSTOM;
                                 const presets = llmModelPresetRows(sp.vendor);
                                 const modelSelectValue = sp.vendor === 'script' || sp.vendor === 'crafterQ'
                                     ? '__na__'
@@ -34850,18 +35011,27 @@ function AiAssistantCentralAgentsConfiguration() {
                                                         setDraft((d) => {
                                                             if (!d)
                                                                 return d;
-                                                            // Do not stuff the script folder id into `llmModel` — that field is the provider model id
-                                                            // (e.g. Cursor `composer-2`) for `script:*` LLMs. Default when switching to script.
-                                                            if (v === 'script')
-                                                                return { ...d, llm: 'script', llmModel: 'composer-2' };
+                                                            if (v === 'script') {
+                                                                const first = scriptsRowsRef.current.llm[0]?.id?.trim();
+                                                                return { ...d, llm: first ? `script:${first}` : 'script', llmModel: 'composer-2' };
+                                                            }
                                                             if (v === 'crafterQ')
                                                                 return { ...d, llm: 'crafterQ', llmModel: '' };
                                                             return { ...d, llm: v, llmModel: d.llmModel?.trim() ? d.llmModel : 'gpt-4o-mini' };
                                                         });
-                                                    }, children: STUDIO_AI_LLM_VENDOR_IDS.map((id) => (jsx(MenuItem, { value: id, children: id }, id))) })] }), sp.vendor === 'script' ? (jsxs(Fragment, { children: [jsx(TextField, { label: "Script id (saved as llm script:yourId)", value: sp.scriptId, onChange: (ev) => {
+                                                    }, children: STUDIO_AI_LLM_VENDOR_IDS.map((id) => (jsx(MenuItem, { value: id, children: id }, id))) })] }), sp.vendor === 'script' ? (jsxs(Fragment, { children: [jsxs(Stack, { direction: "row", spacing: 1, alignItems: "flex-start", children: [jsxs(FormControl, { fullWidth: true, size: "small", sx: { flex: 1 }, children: [jsx(InputLabel, { id: "cq-central-script-llm-pick", children: "Script LLM" }), jsxs(Select, { labelId: "cq-central-script-llm-pick", label: "Script LLM", value: llmScriptSelectVal, onChange: (ev) => {
+                                                                        const v = String(ev.target.value);
+                                                                        setDraft((d) => {
+                                                                            if (!d)
+                                                                                return d;
+                                                                            if (v === CQ_SCRIPT_LLM_SELECT_CUSTOM)
+                                                                                return { ...d, llm: 'script' };
+                                                                            return { ...d, llm: `script:${v}` };
+                                                                        });
+                                                                    }, children: [llmScriptRows.map((row) => (jsxs(MenuItem, { value: row.id, children: [row.id, !row.hasSource ? ' — add runtime.groovy' : ''] }, row.id))), jsx(MenuItem, { value: CQ_SCRIPT_LLM_SELECT_CUSTOM, children: "Custom id\u2026" })] })] }), jsx(Tooltip, { title: "Refresh list", children: jsx(IconButton, { size: "small", sx: { mt: 0.5 }, "aria-label": "Refresh script LLM list", onClick: () => void loadScriptsSandboxIndex(), children: jsx(RefreshRounded, { fontSize: "small" }) }) })] }), llmScriptSelectVal === CQ_SCRIPT_LLM_SELECT_CUSTOM ? (jsx(TextField, { label: "Custom script LLM id", value: sp.scriptId, onChange: (ev) => {
                                                         const id = ev.target.value.trim();
                                                         setDraft((d) => (d ? { ...d, llm: id ? `script:${id}` : 'script' } : d));
-                                                    }, fullWidth: true, size: "small", helperText: "Lowercase letters, numbers, dash, underscore (1\u201364 chars). Must match folder under scripts/aiassistant/llm/." }), jsx(TextField, { label: "Provider model id (llmModel)", value: String(draft.llmModel ?? '').trim(), onChange: (ev) => setDraft((d) => (d ? { ...d, llmModel: ev.target.value } : d)), fullWidth: true, size: "small", helperText: "For Cursor Cloud Agent example: e.g. composer-2 (see Cursor GET /v1/models). Not the script folder name." })] })) : sp.vendor === 'crafterQ' ? (jsx(Typography, { variant: "caption", color: "text.secondary", children: "Hosted CrafterQ \u2014 routing uses the CrafterQ agent id; no local chat model field." })) : (jsxs(Fragment, { children: [jsxs(FormControl, { fullWidth: true, size: "small", children: [jsx(InputLabel, { id: "cq-central-llm-m", children: "LLM model" }), jsxs(Select, { labelId: "cq-central-llm-m", label: "LLM model", value: modelSelectValue, onChange: (ev) => {
+                                                    }, fullWidth: true, size: "small", helperText: "1\u201364 characters: letters, numbers, dash, underscore." })) : null, jsx(TextField, { label: "Provider model id (llmModel)", value: String(draft.llmModel ?? '').trim(), onChange: (ev) => setDraft((d) => (d ? { ...d, llmModel: ev.target.value } : d)), fullWidth: true, size: "small", helperText: "Backend model id (e.g. composer-2)." })] })) : sp.vendor === 'crafterQ' ? (jsx(Typography, { variant: "caption", color: "text.secondary", children: "Hosted CrafterQ \u2014 routing uses the CrafterQ agent id; no local chat model field." })) : (jsxs(Fragment, { children: [jsxs(FormControl, { fullWidth: true, size: "small", children: [jsx(InputLabel, { id: "cq-central-llm-m", children: "LLM model" }), jsxs(Select, { labelId: "cq-central-llm-m", label: "LLM model", value: modelSelectValue, onChange: (ev) => {
                                                                 const v = String(ev.target.value);
                                                                 setDraft((d) => (d ? { ...d, llmModel: v === '__custom__' ? d.llmModel : v } : d));
                                                             }, children: [presets.map((m) => (jsx(MenuItem, { value: m, children: m }, m))), jsx(MenuItem, { value: "__custom__", children: "Custom model id\u2026" })] })] }), modelSelectValue === '__custom__' ? (jsx(TextField, { label: "Custom LLM model id", value: String(draft.llmModel ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, llmModel: ev.target.value } : d)), fullWidth: true, size: "small" })) : null] })), jsxs(FormControl, { fullWidth: true, size: "small", children: [jsx(InputLabel, { id: "cq-central-img-gen", children: "Image generator" }), jsxs(Select, { labelId: "cq-central-img-gen", label: "Image generator", value: imgK, onChange: (ev) => {
@@ -34872,12 +35042,25 @@ function AiAssistantCentralAgentsConfiguration() {
                                                             if (k === 'none')
                                                                 return { ...d, imageGenerator: 'none' };
                                                             if (k === 'script') {
+                                                                const first = scriptsRowsRef.current.imageGen[0]?.id?.trim();
                                                                 const cur = imageGenScriptId(d.imageGenerator);
-                                                                return { ...d, imageGenerator: `script:${cur || 'myimage'}` };
+                                                                const pick = cur && scriptsRowsRef.current.imageGen.some((x) => x.id === cur)
+                                                                    ? cur
+                                                                    : first || 'myimage';
+                                                                return { ...d, imageGenerator: `script:${pick}` };
                                                             }
                                                             return { ...d, imageGenerator: '' };
                                                         });
-                                                    }, children: [jsx(MenuItem, { value: "openai", children: "OpenAI-compatible (default)" }), jsx(MenuItem, { value: "none", children: "None / disabled" }), jsx(MenuItem, { value: "script", children: "Site script" })] })] }), imgK === 'script' ? (jsx(TextField, { label: "Image generator script id", value: imageGenScriptId(draft.imageGenerator), onChange: (ev) => setDraft((d) => (d ? { ...d, imageGenerator: `script:${ev.target.value.trim()}` } : d)), fullWidth: true, size: "small" })) : null, jsx(TextField, { label: "Image model (OpenAI Images default)", value: String(draft.imageModel ?? STUDIO_AI_DEFAULT_IMAGE_MODEL), onChange: (ev) => setDraft((d) => (d ? { ...d, imageModel: ev.target.value } : d)), fullWidth: true, size: "small" })] }));
+                                                    }, children: [jsx(MenuItem, { value: "openai", children: "OpenAI-compatible (default)" }), jsx(MenuItem, { value: "none", children: "None / disabled" }), jsx(MenuItem, { value: "script", children: "Site script" })] })] }), imgK === 'script' ? (jsxs(Fragment, { children: [jsxs(Stack, { direction: "row", spacing: 1, alignItems: "flex-start", children: [jsxs(FormControl, { fullWidth: true, size: "small", sx: { flex: 1 }, children: [jsx(InputLabel, { id: "cq-central-script-img-pick", children: "Image script" }), jsxs(Select, { labelId: "cq-central-script-img-pick", label: "Image script", value: imgScriptSelectVal, onChange: (ev) => {
+                                                                        const v = String(ev.target.value);
+                                                                        setDraft((d) => {
+                                                                            if (!d)
+                                                                                return d;
+                                                                            if (v === CQ_SCRIPT_IMAGE_SELECT_CUSTOM)
+                                                                                return { ...d, imageGenerator: 'script' };
+                                                                            return { ...d, imageGenerator: `script:${v}` };
+                                                                        });
+                                                                    }, children: [imgScriptRows.map((row) => (jsxs(MenuItem, { value: row.id, children: [row.id, !row.hasSource ? ' — add generate.groovy' : ''] }, row.id))), jsx(MenuItem, { value: CQ_SCRIPT_IMAGE_SELECT_CUSTOM, children: "Custom id\u2026" })] })] }), jsx(Tooltip, { title: "Refresh list", children: jsx(IconButton, { size: "small", sx: { mt: 0.5 }, "aria-label": "Refresh image script list", onClick: () => void loadScriptsSandboxIndex(), children: jsx(RefreshRounded, { fontSize: "small" }) }) })] }), imgScriptSelectVal === CQ_SCRIPT_IMAGE_SELECT_CUSTOM ? (jsx(TextField, { label: "Custom image generator script id", value: imageGenScriptId(draft.imageGenerator), onChange: (ev) => setDraft((d) => d ? { ...d, imageGenerator: `script:${ev.target.value.trim()}` } : d), fullWidth: true, size: "small", helperText: "1\u201364 characters: letters, numbers, dash, underscore." })) : null] })) : null, jsx(TextField, { label: "Image model (OpenAI Images default)", value: String(draft.imageModel ?? STUDIO_AI_DEFAULT_IMAGE_MODEL), onChange: (ev) => setDraft((d) => (d ? { ...d, imageModel: ev.target.value } : d)), fullWidth: true, size: "small" })] }));
                                 return (jsxs(Stack, { spacing: 2, sx: { mt: 1 }, children: [formError ? (jsx(Alert, { severity: "error", onClose: () => setFormError(null), children: formError })) : null, jsx(FormControlLabel, { control: jsx(Switch, { checked: mode === 'autonomous', onChange: (ev) => {
                                                     const autonomous = ev.target.checked;
                                                     setChatPromptRows(autonomous ? [] : []);
@@ -34914,7 +35097,7 @@ function AiAssistantCentralAgentsConfiguration() {
                                                                 return next;
                                                             }
                                                             return { ...d, openAsPopup: true };
-                                                        }) }), label: "Open chat in a floating dialog (default: Experience Builder tools panel)" }), draft.enableTools !== false ? (jsx(CmsToolCheckboxes, { draft: draft, onToggle: (toolId, checked) => setDraft((d) => (d ? setToolCheckedOnEntry(d, toolId, checked) : d)) })) : null, jsxs(Box, { children: [jsx(FormLabel, { component: "legend", children: "Quick prompts (chat chips)" }), jsxs(Typography, { variant: "caption", color: "text.secondary", display: "block", sx: { mt: 0.5, mb: 1 }, children: ["Each row: short chip label (", jsx("code", { children: "userText" }), ") plus optional instructions (", jsx("code", { children: "additionalContext" }), ") merged when the author clicks the chip. Up to 10 prompts."] }), jsx(Stack, { spacing: 1.5, children: chatPromptRows.map((row, idx) => (jsxs(Box, { sx: {
+                                                        }) }), label: "Open chat in a floating dialog (default: Experience Builder tools panel)" }), draft.enableTools !== false ? (jsx(CmsToolCheckboxes, { draft: draft, onToggle: (toolId, checked) => setDraft((d) => (d ? setToolCheckedOnEntry(d, toolId, checked) : d)) })) : null, jsxs(Box, { children: [jsx(FormLabel, { component: "legend", children: "Quick prompts (chat chips)" }), jsx(Typography, { variant: "caption", color: "text.secondary", display: "block", sx: { mt: 0.5, mb: 1 }, children: "Optional shortcuts above the composer (max 10)." }), jsx(Stack, { spacing: 1.5, children: chatPromptRows.map((row, idx) => (jsxs(Box, { sx: {
                                                                     border: 1,
                                                                     borderColor: 'divider',
                                                                     borderRadius: 1,
@@ -34939,11 +35122,11 @@ function AiAssistantCentralAgentsConfiguration() {
                                                                                                 delete next.omitTools;
                                                                                             return next;
                                                                                         }));
-                                                                                    } }), label: jsx(Typography, { variant: "body2", children: "Omit CMS tools when this chip is used (omitTools)" }) })] })] }, idx))) }), jsx(Button, { sx: { mt: 1 }, size: "small", startIcon: jsx(AddRounded, {}), disabled: chatPromptRows.length >= 10, onClick: () => setChatPromptRows([...chatPromptRows, { userText: '', additionalContext: '' }]), children: "Add prompt" })] })] })) : (jsxs(Fragment, { children: [jsx(TextField, { label: "Agent name", value: String(draft.name ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, name: ev.target.value } : d)), fullWidth: true, size: "small" }), jsx(TextField, { label: "Schedule (Quartz cron)", value: String(draft.schedule ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, schedule: ev.target.value } : d)), fullWidth: true, size: "small", helperText: "e.g. 0 * * * * ? \u2014 every minute at second 0" }), jsx(TextField, { label: "System prompt", value: String(draft.prompt ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, prompt: ev.target.value } : d)), fullWidth: true, multiline: true, minRows: 4, size: "small", helperText: "Autonomous agents use this single mission prompt only (no clickable prompt chips).", placeholder: 'e.g. On each run: scan /site/website/news/ for draft items older than 7 days, ' +
+                                                                                    } }), label: jsx(Typography, { variant: "body2", children: "Omit CMS tools when this chip is used (omitTools)" }) })] })] }, idx))) }), jsx(Button, { sx: { mt: 1 }, size: "small", startIcon: jsx(AddRounded, {}), disabled: chatPromptRows.length >= 10, onClick: () => setChatPromptRows([...chatPromptRows, { userText: '', additionalContext: '' }]), children: "Add prompt" })] })] })) : (jsxs(Fragment, { children: [jsx(TextField, { label: "Agent name", value: String(draft.name ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, name: ev.target.value } : d)), fullWidth: true, size: "small" }), jsx(TextField, { label: "Schedule (Quartz cron)", value: String(draft.schedule ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, schedule: ev.target.value } : d)), fullWidth: true, size: "small", helperText: "Quartz cron, e.g. every minute: 0 * * * * ?" }), jsx(TextField, { label: "System prompt", value: String(draft.prompt ?? ''), onChange: (ev) => setDraft((d) => (d ? { ...d, prompt: ev.target.value } : d)), fullWidth: true, multiline: true, minRows: 4, size: "small", helperText: "Instructions for each scheduled run.", placeholder: 'e.g. On each run: scan /site/website/news/ for draft items older than 7 days, ' +
                                                         'list their internal names, and suggest one-line social posts for each.' }), jsxs(FormControl, { fullWidth: true, size: "small", children: [jsx(InputLabel, { id: "cq-central-scope", children: "Scope" }), jsxs(Select, { labelId: "cq-central-scope", label: "Scope", value: String(draft.scope ?? 'project'), onChange: (ev) => setDraft((d) => (d ? { ...d, scope: ev.target.value } : d)), children: [jsx(MenuItem, { value: "project", children: "project" }), jsx(MenuItem, { value: "user", children: "user" }), jsx(MenuItem, { value: "role", children: "role" })] })] }), llmVendorImageRows, jsx(CmsToolCheckboxes, { draft: draft, onToggle: (toolId, checked) => setDraft((d) => (d ? setToolCheckedOnEntry(d, toolId, checked) : d)) }), jsx(FormControlLabel, { control: jsx(Switch, { checked: draft.manageOtherAgentsHumanTasks === true ||
                                                             String(draft.manageOtherAgentsHumanTasks).toLowerCase() === 'true', onChange: (ev) => setDraft((d) => (d ? { ...d, manageOtherAgentsHumanTasks: ev.target.checked } : d)) }), label: "Manage other agents\u2019 human tasks" }), jsx(FormControlLabel, { control: jsx(Switch, { checked: draft.startAutomatically !== false, onChange: (ev) => setDraft((d) => (d ? { ...d, startAutomatically: ev.target.checked } : d)) }), label: "Start automatically (with supervisor)" }), jsx(FormControlLabel, { control: jsx(Switch, { checked: draft.stopOnFailure !== false, onChange: (ev) => setDraft((d) => (d ? { ...d, stopOnFailure: ev.target.checked } : d)) }), label: "Stop on failure" })] }))] }));
-                            })() }), jsxs(DialogActions, { sx: { flexShrink: 0 }, children: [jsx(Button, { onClick: closeDialog, children: "Cancel" }), jsx(Button, { variant: "contained", onClick: applyDraft, children: "OK" })] })] })] }));
-}
+                            })() }), jsxs(DialogActions, { sx: { flexShrink: 0 }, children: [jsx(Button, { onClick: closeDialog, children: "Cancel" }), jsx(Button, { variant: "contained", onClick: applyDraft, children: "Apply to catalog" })] })] })] }));
+});
 
 /** Default Groovy when creating a site user tool (see {@code StudioAiUserSiteTools#invokeRegisteredTool}). */
 const AI_ASSISTANT_USER_TOOL_GROOVY_STUB = `// InvokeSiteUserTool — bindings: studio, args, toolId, siteId, log
@@ -35204,69 +35387,6 @@ function AiAssistantToolsMcpForm(props) {
                                                                         ...row,
                                                                         headerPairs: [...row.headerPairs, { key: '', value: '' }]
                                                                     }), children: "Add header" })] })] }), jsx(TableCell, { sx: { verticalAlign: 'top' }, children: jsx(TextField, { size: "small", fullWidth: true, value: row.readTimeoutMs, onChange: (e) => updateServer(si, { ...row, readTimeoutMs: e.target.value }), placeholder: "120000" }) }), jsx(TableCell, { align: "right", sx: { verticalAlign: 'top' }, children: jsx(Button, { size: "small", color: "error", startIcon: jsx(DeleteOutlineRounded, {}), onClick: () => removeServer(si), children: "Remove" }) })] }, si))) })] })), jsx(Autocomplete, { multiple: true, freeSolo: true, options: [], value: value.disabledMcpTools, onChange: (_, v) => onChange({ ...value, disabledMcpTools: v.map(String) }), renderTags: (tagValue, getTagProps) => tagValue.map((option, index) => (createElement(Chip, { variant: "outlined", label: option, size: "small", ...getTagProps({ index }), key: `${option}-${index}` }))), renderInput: (params) => (jsx(TextField, { ...params, label: "Hide MCP wire tools", placeholder: "e.g. mcp_docs_search", size: "small" })) })] })) : null] })] }));
-}
-
-const BASE$1 = '/studio/api/2/plugin/script/plugins/org/craftercms/aiassistant/studio/aiassistant/scripts';
-function withSite$1(url, siteId) {
-    const sep = url.includes('?') ? '&' : '?';
-    return `${url}${sep}siteId=${encodeURIComponent(siteId)}`;
-}
-function unwrapPluginScriptBody$1(body) {
-    if (!body || typeof body !== 'object')
-        return body;
-    const o = body;
-    const inner = o.result;
-    if (inner && typeof inner === 'object' && !Array.isArray(inner))
-        return inner;
-    return body;
-}
-async function fetchAiAssistantPromptDetail(siteId, key) {
-    const res = await fetch(`${withSite$1(`${BASE$1}/prompt`, siteId)}&key=${encodeURIComponent(key)}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: { ...buildStudioAuthHeaders() }
-    });
-    const raw = await res.json().catch(() => ({}));
-    const data = unwrapPluginScriptBody$1(raw);
-    if (!res.ok) {
-        return { ok: false, message: data.message ?? raw.message ?? res.statusText };
-    }
-    return data;
-}
-async function fetchAiAssistantScriptsIndex(siteId) {
-    const res = await fetch(withSite$1(`${BASE$1}/index`, siteId), {
-        method: 'GET',
-        credentials: 'include',
-        headers: { ...buildStudioAuthHeaders() }
-    });
-    const raw = await res.json().catch(() => ({}));
-    const data = unwrapPluginScriptBody$1(raw);
-    if (!res.ok) {
-        return { ok: false, message: data.message ?? raw.message ?? res.statusText };
-    }
-    return data;
-}
-async function postAiAssistantScriptsMutate(siteId, payload) {
-    const res = await fetch(withSite$1(`${BASE$1}/mutate`, siteId), {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json',
-            ...buildStudioAuthHeaders()
-        },
-        body: JSON.stringify({ siteId, ...payload })
-    });
-    const raw = await res.json().catch(() => ({}));
-    const data = unwrapPluginScriptBody$1(raw);
-    if (!res.ok) {
-        return { ok: false, message: data.message ?? raw.message ?? res.statusText };
-    }
-    return data;
-}
-/** Studio configuration path for {@code writeConfiguration} / {@code fetchConfigurationJSON} (no leading slash). */
-function studioConfigRelativePath(studioModulePath) {
-    const p = (studioModulePath ?? '').trim();
-    return p.startsWith('/') ? p.slice(1) : p;
 }
 
 const REGISTRY_REL = 'scripts/aiassistant/user-tools/registry.json';
@@ -36106,6 +36226,22 @@ function useDomFullscreen() {
     return { ref, isFullscreen, toggleFullscreen };
 }
 
+function projectToolsTabLabel(t) {
+    switch (t) {
+        case 'ui':
+            return 'UI';
+        case 'agents':
+            return 'Agents';
+        case 'prompts':
+            return 'Prompts';
+        case 'tools':
+            return 'Tools and MCP';
+        case 'scripts':
+            return 'Scripts';
+        default:
+            return t;
+    }
+}
 /**
  * Single Project Tools surface: **UI** (`studio-ui.json` + bulk), **Agents** (`agents.json`),
  * **Prompts** (tool markdown overrides), **Tools and MCP** (`tools.json` + registry + user Groovy), **Scripts** (imagegen + script LLMs).
@@ -36114,7 +36250,46 @@ function useDomFullscreen() {
 function AiAssistantProjectToolsConfiguration(props) {
     const { defaultTab = 'ui' } = props;
     const [tab, setTab] = useState(defaultTab);
+    const [agentsCatalogDirty, setAgentsCatalogDirty] = useState(false);
+    const [pendingTabSwitch, setPendingTabSwitch] = useState(null);
+    const [tabLeaveSaveBusy, setTabLeaveSaveBusy] = useState(false);
+    const agentsCatalogRef = useRef(null);
     const { ref: rootRef, isFullscreen: toolFullscreen, toggleFullscreen: toggleToolFullscreen } = useDomFullscreen();
+    const handleTabsChange = useCallback((_, value) => {
+        if (tab === 'agents' && agentsCatalogDirty && value !== 'agents') {
+            setPendingTabSwitch(value);
+            return;
+        }
+        setTab(value);
+    }, [tab, agentsCatalogDirty]);
+    const cancelPendingTabSwitch = useCallback(() => {
+        setPendingTabSwitch(null);
+        setTabLeaveSaveBusy(false);
+    }, []);
+    const discardPendingTabSwitch = useCallback(() => {
+        if (pendingTabSwitch == null)
+            return;
+        const next = pendingTabSwitch;
+        setAgentsCatalogDirty(false);
+        setPendingTabSwitch(null);
+        setTab(next);
+    }, [pendingTabSwitch]);
+    const saveAndPendingTabSwitch = useCallback(async () => {
+        if (pendingTabSwitch == null)
+            return;
+        const next = pendingTabSwitch;
+        setTabLeaveSaveBusy(true);
+        try {
+            const ok = (await agentsCatalogRef.current?.save()) === true;
+            if (ok) {
+                setPendingTabSwitch(null);
+                setTab(next);
+            }
+        }
+        finally {
+            setTabLeaveSaveBusy(false);
+        }
+    }, [pendingTabSwitch]);
     return (jsxs(Box$1, { ref: rootRef, sx: {
             display: 'flex',
             flexDirection: 'column',
@@ -36122,7 +36297,7 @@ function AiAssistantProjectToolsConfiguration(props) {
             minHeight: 0,
             alignSelf: 'stretch',
             ...(toolFullscreen ? { bgcolor: 'background.default' } : {})
-        }, children: [jsxs(Stack$1, { direction: "row", alignItems: "stretch", sx: { flexShrink: 0, borderBottom: 1, borderColor: 'divider' }, children: [jsxs(Tabs$1, { value: tab, onChange: (_, v) => setTab(v), variant: "scrollable", scrollButtons: "auto", allowScrollButtonsMobile: true, sx: { flex: '1 1 auto', minWidth: 0 }, children: [jsx(Tab$1, { label: "UI", value: "ui" }), jsx(Tab$1, { label: "Agents", value: "agents" }), jsx(Tab$1, { label: "Prompts", value: "prompts" }), jsx(Tab$1, { label: "Tools and MCP", value: "tools" }), jsx(Tab$1, { label: "Scripts", value: "scripts" })] }), jsx(Box$1, { sx: { display: 'flex', alignItems: 'center', flexShrink: 0, borderLeft: 1, borderColor: 'divider', px: 0.5 }, children: jsx(Tooltip$1, { title: toolFullscreen ? 'Exit fullscreen' : 'Fullscreen', children: jsx(IconButton$1, { size: "small", "aria-label": toolFullscreen ? 'Exit fullscreen' : 'Enter fullscreen', onClick: () => toggleToolFullscreen(), children: toolFullscreen ? jsx(FullscreenExitRounded, {}) : jsx(FullscreenRounded, {}) }) }) })] }), jsxs(Box$1, { sx: { flex: '1 1 auto', minHeight: 0, overflow: 'auto' }, children: [tab === 'ui' ? jsx(AiAssistantStudioUiSettings, {}) : null, tab === 'agents' ? jsx(AiAssistantCentralAgentsConfiguration, {}) : null, tab === 'prompts' ? jsx(AiAssistantScriptsSandboxConfiguration, { panel: "prompts" }) : null, tab === 'tools' ? jsx(AiAssistantScriptsSandboxConfiguration, { panel: "tools" }) : null, tab === 'scripts' ? jsx(AiAssistantScriptsSandboxConfiguration, { panel: "scripts" }) : null] })] }));
+        }, children: [jsxs(Stack$1, { direction: "row", alignItems: "stretch", sx: { flexShrink: 0, borderBottom: 1, borderColor: 'divider' }, children: [jsxs(Tabs$1, { value: tab, onChange: handleTabsChange, variant: "scrollable", scrollButtons: "auto", allowScrollButtonsMobile: true, sx: { flex: '1 1 auto', minWidth: 0 }, children: [jsx(Tab$1, { label: "UI", value: "ui" }), jsx(Tab$1, { label: "Agents", value: "agents" }), jsx(Tab$1, { label: "Prompts", value: "prompts" }), jsx(Tab$1, { label: "Tools and MCP", value: "tools" }), jsx(Tab$1, { label: "Scripts", value: "scripts" })] }), jsx(Box$1, { sx: { display: 'flex', alignItems: 'center', flexShrink: 0, borderLeft: 1, borderColor: 'divider', px: 0.5 }, children: jsx(Tooltip$1, { title: toolFullscreen ? 'Exit fullscreen' : 'Fullscreen', children: jsx(IconButton$1, { size: "small", "aria-label": toolFullscreen ? 'Exit fullscreen' : 'Enter fullscreen', onClick: () => toggleToolFullscreen(), children: toolFullscreen ? jsx(FullscreenExitRounded, {}) : jsx(FullscreenRounded, {}) }) }) })] }), jsxs(Box$1, { sx: { flex: '1 1 auto', minHeight: 0, overflow: 'auto' }, children: [tab === 'ui' ? jsx(AiAssistantStudioUiSettings, {}) : null, tab === 'agents' ? (jsx(AiAssistantCentralAgentsConfiguration, { ref: agentsCatalogRef, onDirtyChange: setAgentsCatalogDirty })) : null, tab === 'prompts' ? jsx(AiAssistantScriptsSandboxConfiguration, { panel: "prompts" }) : null, tab === 'tools' ? jsx(AiAssistantScriptsSandboxConfiguration, { panel: "tools" }) : null, tab === 'scripts' ? jsx(AiAssistantScriptsSandboxConfiguration, { panel: "scripts" }) : null] }), jsxs(Dialog$1, { open: pendingTabSwitch != null, onClose: cancelPendingTabSwitch, maxWidth: "sm", fullWidth: true, children: [jsx(DialogTitle$1, { children: "Unsaved changes" }), jsx(DialogContent$1, { children: jsxs(Typography$1, { variant: "body2", paragraph: true, children: ["Save, discard, or stay on Agents before opening", ' ', jsx("strong", { children: pendingTabSwitch ? projectToolsTabLabel(pendingTabSwitch) : '' }), "."] }) }), jsxs(DialogActions$1, { children: [jsx(Button$1, { onClick: cancelPendingTabSwitch, disabled: tabLeaveSaveBusy, children: "Stay on Agents" }), jsx(Button$1, { color: "warning", onClick: discardPendingTabSwitch, disabled: tabLeaveSaveBusy, children: "Discard changes" }), jsx(Button$1, { variant: "contained", onClick: () => void saveAndPendingTabSwitch(), disabled: tabLeaveSaveBusy, children: tabLeaveSaveBusy ? 'Saving…' : 'Save and continue' })] })] })] }));
 }
 /** Legacy widget id `craftercms.components.aiassistant.CentralAgentsConfiguration` — opens Agents tab. */
 function AiAssistantProjectToolsConfigurationAgentsTab() {
