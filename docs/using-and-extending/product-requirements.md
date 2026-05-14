@@ -1,10 +1,8 @@
-# Product Requirements (Plain English)
+# Product Requirements
 
-This document states **what the AI Assistant Studio plugin is required to deliver**—obligations and acceptance criteria in everyday language.
+This document states **what the AI Assistant Studio plugin is required to deliver**—obligations and acceptance criteria.
 
-It is **not** a feature brochure (“what it does” as marketing). It is **not** the technical specification: no wire formats, REST field lists, `ui.xml` grammar, file paths, or build steps. For that material, see **[`spec.md`](../internals/spec.md)** and the linked guides. Implementation **must** satisfy this document **and** the technical spec together.
-
-**How to use it:** Product owners and reviewers judge releases against these statements. Engineers trace each requirement to **`spec.md`** and code.
+Wire formats, REST field lists, `ui.xml` grammar, file paths, and build steps are documented in **[`spec.md`](../internals/spec.md)** and the linked guides. Implementation **must** satisfy this document and those technical specifications.
 
 ---
 

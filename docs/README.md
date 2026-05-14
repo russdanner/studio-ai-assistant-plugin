@@ -6,7 +6,7 @@
 
 | Audience | Start Here |
 |----------|------------|
-| **Product / review** — mandatory outcomes in plain English (not setup steps) | [Product requirements](using-and-extending/product-requirements.md) |
+| **Product / review** — mandatory outcomes for authors, admins, and integrators | [Product requirements](using-and-extending/product-requirements.md) |
 | **Operators** — install, `ui.xml`, agents, keys, surfaces, optional **`studio-ui.json`** toggles | [Configuration guide](using-and-extending/configuration-guide.md) |
 | **Integrators** — install paths, CLI/API, Helper, autonomous widget shell, **`user-tools/`**, **`imagegen/`** script contracts, optional TinyMCE | [Installation](using-and-extending/installation.md) · [Helper](using-and-extending/helper-widget.md) · [Autonomous widget](using-and-extending/autonomous-assistants-widget.md) · [Scripted tools & imagegen](using-and-extending/scripted-tools-and-imagegen.md) · [TinyMCE](using-and-extending/tinymce-integration.md) |
 | **LLM & image backends** — wire ids, secrets, **`script:`** LLM, **pluggable `GenerateImage`** | [LLM configuration](using-and-extending/llm-configuration.md) · [Script LLM — BYO backend](using-and-extending/script-llm-bring-your-own-backend.md) · Groq script sample: `docs/examples/aiassistant-llm/groq/runtime.groovy` · [Image generation](using-and-extending/image-generation.md) · JVM tuning: [studio-aiassistant-jvm-parameters.md](using-and-extending/studio-aiassistant-jvm-parameters.md) |
@@ -18,7 +18,7 @@
 
 | Topic | Document |
 |-------|----------|
-| Product requirements in plain English (not technical) | [product-requirements.md](using-and-extending/product-requirements.md) |
+| Product requirements | [product-requirements.md](using-and-extending/product-requirements.md) |
 | Agents, keys, `ui.xml`, surfaces, **`studio-ui.json`** (toolbar/sidebar, XB augmentation, bulk form field) | [configuration-guide.md](using-and-extending/configuration-guide.md) · [Screenshots](using-and-extending/configuration-guide.md#cg-screenshots) |
 | Product requirements, surfaces, `ui.xml` / stream / form contracts | [internals/spec.md](internals/spec.md) |
 | Install / copy-plugin / `install-plugin.sh` | [installation.md](using-and-extending/installation.md) |

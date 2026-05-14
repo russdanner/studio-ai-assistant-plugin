@@ -1,6 +1,6 @@
 # Crafter Studio Plugin Build & Install — Developer's Guide
 
-**What this is:** This guide is part of the **official build specification** for this plugin, alongside **[`docs/internals/spec.md`](../internals/spec.md)** (product requirements & mechanics). Invariants here (paths, `yarn package`, descriptor/plugin id rules, what must not be hand-edited under `authoring/`) are **required**; when the build or packaging story changes, update **this file** and, if author-visible or install semantics change, **`spec.md`** as well.
+Part of the **official build specification** for this plugin, alongside **[`docs/internals/spec.md`](../internals/spec.md)** (product requirements and mechanics). Invariants here (paths, `yarn package`, descriptor/plugin id rules, what must not be hand-edited under `authoring/`) are **required**; when the build or packaging story changes, update **this file** and, if author-visible or install semantics change, **`spec.md`** as well.
 
 **Scope:** Build, install, and site-level extensions such as **`user-tools/`** and script LLMs. For behavior contracts and autonomous REST, see [spec.md](../internals/spec.md). Doc index: [README.md](../README.md).
 

@@ -26,7 +26,7 @@ Use this skill when editing **this repo**: `plugin-studio-crafterq` — Studio p
 - **`docs/internals/spec.md`** — **Official** product requirements & mechanics; update when behavior or contracts change. **Studio UI flags:** anchor **`#studio-ui-flags-studio-uijson`** (`studio-ui.json`, Project Tools).
 - **`docs/README.md`** — Index: **using & extending** vs **internals**.
 - **`docs/using-and-extending/configuration-guide.md`** — Operators: `ui.xml` surfaces, plugin id, agents, keys checklist; **`§1e`** `studio-ui.json` + Project Tools UI.
-- **`docs/using-and-extending/product-requirements.md`** — Plain-language **product requirements** (mandatory “must” outcomes); not wire/build contracts.
+- **`docs/using-and-extending/product-requirements.md`** — Product obligations (authors, admins, integrators); wire and build contracts live in **`spec.md`** and linked guides.
 - **`docs/using-and-extending/`** — **`llm-configuration.md`**, **`studio-plugins-guide.md`**, **`README.md`** (install, `user-tools/`, script LLM paths).
 - **`docs/internals/`** — Maintainers: **`docs/internals/README.md`**, **`docs/internals/spec.md`**, **`docs/internals/stream-endpoint-design.md`**, MCP client notes in **`chat-and-tools-runtime.md`**.
 

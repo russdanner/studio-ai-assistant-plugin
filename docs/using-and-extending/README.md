@@ -1,12 +1,12 @@
 # Using the AI Assistant & Developing Extensions
 
-Configuration and extension of the plugin for a site do not require changes under **`sources/`** unless you are developing the plugin. **Product requirements (non-technical):** **[`product-requirements.md`](product-requirements.md)**. **Implementation contracts:** **[`../internals/spec.md`](../internals/spec.md)** and **[`studio-plugins-guide.md`](studio-plugins-guide.md)** (build and packaging invariants).
+Configuration and extension of the plugin for a site do not require changes under **`sources/`** unless you are developing the plugin. **Product requirements:** **[`product-requirements.md`](product-requirements.md)**. **Implementation contracts:** **[`../internals/spec.md`](../internals/spec.md)** and **[`studio-plugins-guide.md`](studio-plugins-guide.md)** (build and packaging invariants).
 
 ## Guides (Table)
 
 | Document | What It Covers |
 |----------|----------------|
-| [product-requirements.md](product-requirements.md) | **Product / review** — what the plugin **must** deliver for authors, admins, and integrators in everyday language (points to **`spec.md`** for engineering detail) |
+| [product-requirements.md](product-requirements.md) | **Product / review** — obligations the plugin **must** satisfy for authors, admins, and integrators. Engineering contracts: **[`spec.md`](../internals/spec.md)**. |
 | [configuration-guide.md](configuration-guide.md) | **Operators — start here** — **Basic:** `ui.xml`, plugin id, agents, keys, form pipeline, autonomous checklist; **TinyMCE last** (**§8**) within **§1–§8**. **`§1e`:** **`studio-ui.json`** (toolbar/sidebar toggles, XB image augmentation scope, bulk form field). **Advanced:** [site scripts](configuration-guide.md#cg-adv) — prompts, `tools.json`, MCP, user tools, script LLM. **Visual:** [Screenshots](configuration-guide.md#cg-screenshots). |
 | [installation.md](installation.md) | Install from Studio UI (with screenshots), CLI, Marketplace API, **`install-plugin.sh`**, build-before-install |
 | [helper-widget.md](helper-widget.md) | Helper **`ui.xml`** snippet and “component not found” checklist |

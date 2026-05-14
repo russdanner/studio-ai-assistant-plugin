@@ -6,7 +6,7 @@
 
 ---
 
-## 1. at a Glance
+## 1. At a Glance
 
 | Capability | Studio path (site Git sandbox) | How the model calls it |
 |------------|--------------------------------|-------------------------|

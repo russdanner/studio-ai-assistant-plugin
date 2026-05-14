@@ -1,6 +1,6 @@
 # Supported LLMs (`<llm>`) — IDs, Configuration, and Behavior
 
-**What this is:** Official specification for **`<llm>`** identifiers, env/XML keys, merge rules, and the provider capability matrix. Parent product requirements: **[`spec.md`](../internals/spec.md)** — keep **this file** and **`spec.md`** aligned when those contracts change together.
+Defines **`<llm>`** identifiers, env/XML keys, merge rules, and the provider capability matrix. Keep this file and **[`spec.md`](../internals/spec.md)** aligned when those contracts change.
 
 **For site operators:** [configuration-guide.md](configuration-guide.md)  
 **For CMS tools, SSE, optional hosted SaaS API identity, and troubleshooting:** [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md)  

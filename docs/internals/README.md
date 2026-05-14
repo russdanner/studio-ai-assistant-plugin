@@ -6,7 +6,7 @@ Documentation here is aimed at **maintainers**, **integrators**, and anyone debu
 
 | Document | What It Covers |
 |----------|----------------|
-| [**spec.md**](spec.md) | **Official requirements & mechanics specification** — product surfaces, `ui.xml` / agent contracts, form engine, macros, autonomous widget, REST contracts, **`studio-ui.json`** runtime flags (**[#studio-ui-flags-studio-uijson](spec.md#studio-ui-flags-studio-uijson)**); must stay aligned with code. Plain-language product requirements: [**product-requirements.md**](../using-and-extending/product-requirements.md) |
+| [**spec.md**](spec.md) | **Official requirements & mechanics specification** — product surfaces, `ui.xml` / agent contracts, form engine, macros, autonomous widget, REST contracts, **`studio-ui.json`** runtime flags (**[#studio-ui-flags-studio-uijson](spec.md#studio-ui-flags-studio-uijson)**); must stay aligned with code. **Product requirements:** [**product-requirements.md**](../using-and-extending/product-requirements.md) |
 | [**stream-endpoint-design.md**](stream-endpoint-design.md) | SSE stream (and related) contract, CrafterQ vs tool-capable LLMs on the wire, classpath notes |
 | [**chat-and-tools-runtime.md**](chat-and-tools-runtime.md) | CMS tool wiring, CrafterQ bearer/auth, API tools, expert skills, SSE/stream behavior, REST body fields, troubleshooting, **MCP Streamable HTTP client** |
 | [**studio-aiassistant-jvm-parameters.md**](../using-and-extending/studio-aiassistant-jvm-parameters.md) | JVM **`-D`** / `System.getProperty` tuning (timeouts, HTTP/MCP caps, optional key/model defaults) |
