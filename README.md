@@ -50,3 +50,4 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 | **Full doc index** | [docs/README.md](docs/README.md) |
 
 Questions: [CrafterCMS Community Slack](https://craftercms.com/slack).
+
