@@ -21,7 +21,7 @@ final class StudioAiImageGeneratorFactory {
   /**
    * @param imageGeneratorSpec agent / request {@code imageGenerator}: blank (default), {@code openAiWire},
    *        {@code none}|{@code off}|{@code disabled}, or {@code script:id}
-   * @param openAiImagesApiKey key used for OpenAI-compatible Images API (historically {@link AiOrchestration#resolveOpenAiApiKey})
+   * @param openAiImagesApiKey key used for the built-in Images API wire (historically {@link AiOrchestration#resolveOpenAiApiKey})
    * @param defaultImageModel agent/request image model id when applicable
    */
   static StudioAiImageGenerator resolve(
@@ -40,9 +40,9 @@ final class StudioAiImageGeneratorFactory {
       String id = sl.substring('script:'.length()).trim().toLowerCase(Locale.US)
       return new ScriptImageGenerator(ops, id)
     }
-    if (spec && !('openaiwire' == sl || 'open_ai_wire' == sl || 'openai' == sl)) {
+    if (spec && !('openaiwire' == sl || 'open_ai_wire' == sl || 'openai' == sl || 'toolsloopwire' == sl || 'tools_loop_wire' == sl)) {
       LOG.warn(
-        'StudioAiImageGeneratorFactory: unrecognized imageGenerator="{}" — falling back to openAiWire when an OpenAI Images key and imageModel are configured.',
+        'StudioAiImageGeneratorFactory: unrecognized imageGenerator="{}" — falling back to built-in images wire when an images API key and imageModel are configured.',
         spec
       )
     }

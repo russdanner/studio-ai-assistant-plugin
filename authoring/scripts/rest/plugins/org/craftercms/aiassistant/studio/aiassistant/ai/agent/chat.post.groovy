@@ -12,7 +12,7 @@ import plugins.org.craftercms.aiassistant.rag.ExpertSkillVectorRegistry
  * Minimal proxy for assistant chat (non-streaming).
  *
  * Routes through {@link AiOrchestration}: remote hosted chat when {@code llm} resolves to {@link StudioAiLlmKind#CRAFTERRQ_REMOTE_API},
- * or Spring AI (OpenAI-wire, Claude, site script LLM, etc.) when configured.
+ * or Spring AI (tools-loop chat, Claude, site script LLM, etc.) when configured.
  *
  * Body:
  * {
@@ -33,9 +33,9 @@ import plugins.org.craftercms.aiassistant.rag.ExpertSkillVectorRegistry
  *   "expertSkills": "optional array of { name, url, description } — per-agent markdown RAG for QueryExpertGuidance",
  *   "crafterQBearerTokenEnv": "optional — Studio host env var name for CrafterQ JWT (Authorization: Bearer on api.crafterq.ai)",
  *   "crafterQBearerToken": "optional — literal CrafterQ JWT (discouraged in Git; prefer crafterQBearerTokenEnv)",
- *   "llmModel": "optional — OpenAI model id",
- *   "imageModel": "optional — default image model for GenerateImage on the OpenAI-compatible wire",
- *   "imageGenerator": "optional — GenerateImage backend (blank / openAiWire / none / script:{id}); see llm-configuration.md"
+ *   "llmModel": "optional — model id for the selected LLM",
+ *   "imageModel": "optional — default image model for GenerateImage on the built-in images wire",
+ *   "imageGenerator": "optional — GenerateImage backend (blank = default when key+imageModel exist; none; script:{id}); see llm-configuration.md"
  * }
  */
 

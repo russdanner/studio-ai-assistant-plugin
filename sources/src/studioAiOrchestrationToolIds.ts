@@ -51,8 +51,8 @@ export const STUDIO_AI_LLM_VENDOR_IDS: readonly string[] = [
 
 export type StudioAiLlmVendorId = (typeof STUDIO_AI_LLM_VENDOR_IDS)[number];
 
-/** OpenAI / OpenAI-wire default chat models (UI hints; server may accept others). */
-export const STUDIO_AI_OPENAI_WIRE_CHAT_MODELS: readonly string[] = [
+/** Default chat models for **tools-loop** vendors (UI hints; includes common OpenAI **vendor** defaults; server may accept others). */
+export const STUDIO_AI_TOOLS_LOOP_CHAT_MODELS: readonly string[] = [
   'gpt-4o-mini',
   'gpt-4o',
   'gpt-4.1',
@@ -61,6 +61,9 @@ export const STUDIO_AI_OPENAI_WIRE_CHAT_MODELS: readonly string[] = [
   'o1',
   'o1-mini'
 ] as const;
+
+/** @deprecated Use {@link STUDIO_AI_TOOLS_LOOP_CHAT_MODELS}. */
+export const STUDIO_AI_OPENAI_WIRE_CHAT_MODELS = STUDIO_AI_TOOLS_LOOP_CHAT_MODELS;
 
 export const STUDIO_AI_CLAUDE_CHAT_MODELS: readonly string[] = [
   'claude-3-5-sonnet-20241022',

@@ -47,7 +47,7 @@ export interface AgentConfig {
   /** OpenAI Images API model when llm is openAI (e.g. gpt-image-1). ui.xml **`<imageModel>`** / JSON **`imageModel`** — no JVM fallback. */
   imageModel?: string;
   /**
-   * GenerateImage backend: ui.xml **`<imageGenerator>`** / JSON **`imageGenerator`**. Blank = OpenAI-compatible wire when configured; values **none**, **off**, or **disabled** turn the tool off; **script:{id}** runs `/scripts/aiassistant/imagegen/{id}/generate.groovy`.
+   * GenerateImage backend: ui.xml **`<imageGenerator>`** / JSON **`imageGenerator`**. Blank = built-in GenerateImage HTTP wire when configured; values **none**, **off**, or **disabled** turn the tool off; **script:{id}** runs `/scripts/aiassistant/imagegen/{id}/generate.groovy`.
    */
   imageGenerator?: string;
   /**

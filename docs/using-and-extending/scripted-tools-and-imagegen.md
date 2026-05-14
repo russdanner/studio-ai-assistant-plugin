@@ -123,7 +123,7 @@ Anyone who can commit under **`user-tools/`** can run **arbitrary Groovy** as th
 
 ### 3.1 When to use it
 
-Use a script backend when **`GenerateImage`** must call a **non–OpenAI Images** pipeline (internal HTTP service, on-prem model, deterministic placeholder, save to blob storage + return URL, etc.). When **`imageGenerator`** is blank and keys + **`imageModel`** are set, the server uses the **OpenAI-compatible Images** HTTP path instead — see [image-generation.md](image-generation.md).
+Use a script backend when **`GenerateImage`** must call a **non-default** pipeline (internal HTTP service, on-prem model, deterministic placeholder, save to blob storage + return URL, etc.). When **`imageGenerator`** is blank and keys + **`imageModel`** are set, the server uses the **built-in GenerateImage HTTP** path instead — see [image-generation.md](image-generation.md).
 
 ### 3.2 Selector & path
 
@@ -189,7 +189,7 @@ Aligned with the built-in JSON schema ( **`prompt`** required):
 
 ### 3.7 Return `Map` shape (tool result)
 
-Match the historical **`GenerateImage`** tool result so the UI and orchestration behave correctly. The OpenAI-compatible implementation sets at minimum:
+Match the historical **`GenerateImage`** tool result so the UI and orchestration behave correctly. The built-in HTTP implementation sets at minimum:
 
 | Field | When |
 |-------|------|
@@ -197,7 +197,7 @@ Match the historical **`GenerateImage`** tool result so the UI and orchestration
 | **`tool`** | e.g. **`GenerateImage`**. |
 | **`model`** | Model id used (or a logical label for your backend). |
 | **`url`** | Public or `data:image/...;base64,...` URL the author UI can render. |
-| **`b64_json`** | Optional; if you only have base64, you may follow the built-in pattern or set **`url`** to a data URL (see `OpenAiCompatibleImageGenerator`). |
+| **`b64_json`** | Optional; if you only have base64, you may follow the built-in pattern or set **`url`** to a data URL (see the built-in wire in **`OpenAiCompatibleImageGenerator`** in plugin sources). |
 | **`revised_prompt`** | Optional provider echo. |
 | **`error`: true** + **`message`** | Failure path. |
 
@@ -234,7 +234,7 @@ Compiled closures are cached **per site + id** with a SHA-256 of the script text
 
 **Chat** backends live under **`config/studio/scripts/aiassistant/llm/{id}/`** (not `user-tools/` or `imagegen/`). They implement **`StudioAiLlmRuntime`** or the documented **Map** bundle contract — see **[llm-configuration.md](llm-configuration.md)** and the plugin **`docs/examples/aiassistant-llm/`** tree.
 
-For a **real-world Groovy `StudioAiLlmRuntime` class** that builds the **full** Spring AI session (your OpenAI-compatible base URL + API key, **no** delegation to built-in vendor runtimes), see **[script-llm-bring-your-own-backend.md](script-llm-bring-your-own-backend.md)** and **`docs/examples/aiassistant-llm/byo-openai-compat/runtime.groovy`**. For **Cursor Cloud Agents** (`api.cursor.com`, SSE), see **`docs/examples/aiassistant-llm/cursor-cloud-agent/runtime.groovy`** in the same doc.
+For a **real-world Groovy `StudioAiLlmRuntime` class** that builds the **full** Spring AI session (your vendor’s base URL + API key for Studio’s **tools-loop** chat, **no** delegation to built-in vendor runtimes), see **[script-llm-bring-your-own-backend.md](script-llm-bring-your-own-backend.md)** and the sample **`docs/examples/aiassistant-llm/byo-openai-compat/runtime.groovy`** (folder name is the example **script id**, not a vendor claim). For **Groq**, see **`docs/examples/aiassistant-llm/groq/runtime.groovy`** in the same doc.
 
 ---
 

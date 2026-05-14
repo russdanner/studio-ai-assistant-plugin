@@ -34641,8 +34641,8 @@ const STUDIO_AI_LLM_VENDOR_IDS = [
     'crafterQ',
     'script'
 ];
-/** OpenAI / OpenAI-wire default chat models (UI hints; server may accept others). */
-const STUDIO_AI_OPENAI_WIRE_CHAT_MODELS = [
+/** Default chat models for **tools-loop** vendors (UI hints; includes common OpenAI **vendor** defaults; server may accept others). */
+const STUDIO_AI_TOOLS_LOOP_CHAT_MODELS = [
     'gpt-4o-mini',
     'gpt-4o',
     'gpt-4.1',
@@ -34675,7 +34675,7 @@ function parseLlmVendorAndScript(llm) {
 }
 /**
  * Older builds set `llmModel` to the script folder id when editing script LLMs — that collides with provider model
- * (`<llmModel>` for Cursor, etc.). Strip that mistake so reload/edit round-trips correctly.
+ * (`<llmModel>` for provider-specific model ids). Strip that mistake so reload/edit round-trips correctly.
  */
 function sanitizeScriptLlmModelField(entry) {
     const llmRaw = String(entry.llm ?? '').trim();
@@ -34733,7 +34733,7 @@ function setToolCheckedOnEntry(d, toolId, checked) {
 function llmModelPresetRows(vendor) {
     if (vendor === 'claude')
         return STUDIO_AI_CLAUDE_CHAT_MODELS;
-    return STUDIO_AI_OPENAI_WIRE_CHAT_MODELS;
+    return STUDIO_AI_TOOLS_LOOP_CHAT_MODELS;
 }
 function CmsToolCheckboxes(props) {
     const { draft, onToggle } = props;
@@ -35093,7 +35093,7 @@ const AiAssistantCentralAgentsConfiguration = forwardRef(function AiAssistantCen
                                                             }
                                                             return { ...d, imageGenerator: '' };
                                                         });
-                                                    }, children: [jsx(MenuItem, { value: "openai", children: "OpenAI-compatible (default)" }), jsx(MenuItem, { value: "none", children: "None / disabled" }), jsx(MenuItem, { value: "script", children: "Site script" })] })] }), imgK === 'script' ? (jsxs(Fragment, { children: [jsxs(Stack, { direction: "row", spacing: 1, alignItems: "flex-start", children: [jsxs(FormControl, { fullWidth: true, size: "small", sx: { flex: 1 }, children: [jsx(InputLabel, { id: "cq-central-script-img-pick", children: "Image script" }), jsxs(Select, { labelId: "cq-central-script-img-pick", label: "Image script", value: imgScriptSelectVal, onChange: (ev) => {
+                                                    }, children: [jsx(MenuItem, { value: "openai", children: "Built-in image API (default)" }), jsx(MenuItem, { value: "none", children: "None / disabled" }), jsx(MenuItem, { value: "script", children: "Site script" })] })] }), imgK === 'script' ? (jsxs(Fragment, { children: [jsxs(Stack, { direction: "row", spacing: 1, alignItems: "flex-start", children: [jsxs(FormControl, { fullWidth: true, size: "small", sx: { flex: 1 }, children: [jsx(InputLabel, { id: "cq-central-script-img-pick", children: "Image script" }), jsxs(Select, { labelId: "cq-central-script-img-pick", label: "Image script", value: imgScriptSelectVal, onChange: (ev) => {
                                                                         const v = String(ev.target.value);
                                                                         setDraft((d) => {
                                                                             if (!d)

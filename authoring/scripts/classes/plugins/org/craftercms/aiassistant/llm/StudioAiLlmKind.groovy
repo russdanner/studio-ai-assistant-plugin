@@ -11,8 +11,10 @@ import java.util.regex.Pattern
  * (HTTP to {@code api.crafterq.ai}); it is not the name of the plugin. Missing, blank, or unrecognized {@code llm}
  * values are rejected by {@link #normalize(String)} with {@link IllegalArgumentException} (HTTP 400 on stream/chat).
  * The <strong>ConsultCrafterQExpert</strong> CMS tool calls that same hosted stack for SME/RAG consults.
- * <strong>OpenAI</strong>-wire and compatible hosts use the {@code /v1/chat/completions} native-tool loop in
- * {@code AiOrchestration}. <strong>Claude</strong> uses Spring AI Anthropic with Spring-managed tool execution.
+ * The built-in <strong>{@link #OPENAI_NATIVE}</strong> row is the <strong>OpenAI vendor</strong>; <strong>xAI</strong>,
+ * <strong>deepSeek</strong>, <strong>llama</strong>, and <strong>gemini</strong> are <strong>other vendors</strong> that share the same
+ * <strong>tools-loop</strong> {@code /v1/chat/completions} <strong>RestClient</strong> path in {@code AiOrchestration}.
+ * <strong>Claude</strong> uses Spring AI Anthropic with Spring-managed tool execution.
  * Site-authored backends use {@link #SCRIPT_LLM_PREFIX} via Groovy under {@code /scripts/aiassistant/llm/{id}/}.
  * </p>
  */
@@ -20,15 +22,24 @@ final class StudioAiLlmKind {
 
   private StudioAiLlmKind() {}
 
+  /** Bundle: API key for the tools-loop chat host (any vendor). Prefer this over legacy {@code openAiApiKeyResolved}. */
+  static final String BUNDLE_TOOLS_LOOP_CHAT_API_KEY = 'toolsLoopChatApiKey'
+
+  /** Bundle: host-only base URL for tools-loop chat (no trailing {@code /v1}). Prefer over legacy {@code openAiWireBaseUrl}. */
+  static final String BUNDLE_TOOLS_LOOP_CHAT_BASE_URL = 'toolsLoopChatBaseUrl'
+
+  /** Bundle: {@code nativeToolTransport} value selecting the tools-loop RestClient path (prefer over {@code openAiWire}). */
+  static final String NATIVE_TRANSPORT_TOOLS_LOOP_WIRE = 'toolsLoopWire'
+
   /** Spring AI OpenAI ChatModel + RestClient native-tool loop (CMS tools on the wire). */
   static final String OPENAI_NATIVE = 'openAI'
 
-  /** OpenAI-compatible API (same wire as OpenAI); see {@link StudioAiProviderCredentials}. */
+  /** OpenAI vendor + other LLMs on the same tools-loop REST surface; see {@link StudioAiProviderCredentials}. */
   static final String XAI_NATIVE = 'xAI'
 
   static final String DEEPSEEK_NATIVE = 'deepSeek'
   static final String LLAMA_NATIVE = 'llama'
-  /** Google Generative Language OpenAI-compatible endpoint; {@code genesis} is an accepted alias in {@link #normalize}. */
+  /** Google Generative Language tools-loop endpoint; {@code genesis} is an accepted alias in {@link #normalize}. */
   static final String GEMINI_NATIVE = 'gemini'
 
   /** Spring AI Anthropic (Claude); tools via Spring {@code ChatClient}, not the OpenAI RestClient loop. */
@@ -66,32 +77,75 @@ final class StudioAiLlmKind {
     return s.substring(SCRIPT_LLM_PREFIX.length()).trim().toLowerCase(Locale.US)
   }
 
-  /** Built-in OpenAI-wire kinds only (no script bundle inspection). */
-  static boolean useOpenAiRestClientToolLoopBuiltIn(String normalizedKind) {
+  /** Built-in kinds that use the tools-loop RestClient path (no script bundle inspection). */
+  static boolean useToolsLoopChatRestClientBuiltInKinds(String normalizedKind) {
     String n = (normalizedKind ?: '').toString()
     return OPENAI_NATIVE == n || XAI_NATIVE == n || DEEPSEEK_NATIVE == n || LLAMA_NATIVE == n || GEMINI_NATIVE == n
   }
 
+  /** @deprecated use {@link #useToolsLoopChatRestClientBuiltInKinds} */
+  @Deprecated
+  static boolean useOpenAiRestClientToolLoopBuiltIn(String normalizedKind) {
+    return useToolsLoopChatRestClientBuiltInKinds(normalizedKind)
+  }
+
+  static String toolsLoopChatApiKeyFromBundle(Map bundle) {
+    if (bundle == null) {
+      return ''
+    }
+    String v = bundle.get(BUNDLE_TOOLS_LOOP_CHAT_API_KEY)?.toString()?.trim()
+    if (v) {
+      return v
+    }
+    return (bundle.get('openAiApiKeyResolved') ?: '').toString().trim()
+  }
+
+  static String toolsLoopChatBaseUrlFromBundle(Map bundle) {
+    if (bundle == null) {
+      return ''
+    }
+    String v = bundle.get(BUNDLE_TOOLS_LOOP_CHAT_BASE_URL)?.toString()?.trim()
+    if (v) {
+      return v
+    }
+    return (bundle.get('openAiWireBaseUrl') ?: '').toString().trim()
+  }
+
+  static boolean nativeToolTransportIsToolsLoopWire(String transportToken) {
+    String t = (transportToken ?: '').toString().trim()
+    if (!t) {
+      return false
+    }
+    return NATIVE_TRANSPORT_TOOLS_LOOP_WIRE.equalsIgnoreCase(t) || 'openAiWire'.equalsIgnoreCase(t)
+  }
+
   /**
-   * OpenAI-wire RestClient native tool loop (not Anthropic). When {@code springAiBundle} is the map from
-   * {@code buildSpringAiChatClient}, script-hosted sessions may set {@code nativeToolTransport} to {@code openAiWire}
-   * or supply {@code openAiWireBaseUrl} + {@code resolvedChatModel} to opt into the same path.
+   * Tools-loop RestClient native tool loop (not Anthropic). When {@code springAiBundle} is the map from
+   * {@code StudioAiLlmRuntime#buildSessionBundle}, script-hosted sessions may set {@code nativeToolTransport} to
+   * {@link #NATIVE_TRANSPORT_TOOLS_LOOP_WIRE} (or legacy {@code openAiWire}) or supply {@link #BUNDLE_TOOLS_LOOP_CHAT_BASE_URL}
+   * (or legacy {@code openAiWireBaseUrl}) + {@code resolvedChatModel} to opt into the same path.
    */
-  static boolean useOpenAiRestClientToolLoop(String normalizedKind, Map springAiBundle = null) {
+  static boolean useToolsLoopChatRestClient(String normalizedKind, Map springAiBundle = null) {
     if (springAiBundle != null) {
       String t = springAiBundle.get('nativeToolTransport')?.toString()?.trim()
-      if (t && 'openAiWire'.equalsIgnoreCase(t)) {
+      if (nativeToolTransportIsToolsLoopWire(t)) {
         return true
       }
       if (isScriptHostedLlm((normalizedKind ?: '').toString())) {
-        String w = springAiBundle.get('openAiWireBaseUrl')?.toString()?.trim()
+        String w = toolsLoopChatBaseUrlFromBundle(springAiBundle)
         String rm = springAiBundle.get('resolvedChatModel')?.toString()?.trim()
         if (w && rm) {
           return true
         }
       }
     }
-    return useOpenAiRestClientToolLoopBuiltIn(normalizedKind)
+    return useToolsLoopChatRestClientBuiltInKinds(normalizedKind)
+  }
+
+  /** @deprecated use {@link #useToolsLoopChatRestClient} */
+  @Deprecated
+  static boolean useOpenAiRestClientToolLoop(String normalizedKind, Map springAiBundle = null) {
+    return useToolsLoopChatRestClient(normalizedKind, springAiBundle)
   }
 
   static boolean isAnthropicClaude(String normalizedKind, Map springAiBundle = null) {
@@ -104,9 +158,9 @@ final class StudioAiLlmKind {
     return CLAUDE_NATIVE == (normalizedKind ?: '').toString()
   }
 
-  /** Autonomous worker: OpenAI built-in wire or site script LLM (script must return an OpenAI-wire bundle for headless tools). */
+  /** Autonomous worker: built-in tools-loop kinds or site script LLM (script must return tools-loop bundle fields for headless tools). */
   static boolean supportsAutonomousNativeTools(String normalizedKind) {
-    return useOpenAiRestClientToolLoopBuiltIn(normalizedKind) || isScriptHostedLlm(normalizedKind)
+    return useToolsLoopChatRestClientBuiltInKinds(normalizedKind) || isScriptHostedLlm(normalizedKind)
   }
 
   /**

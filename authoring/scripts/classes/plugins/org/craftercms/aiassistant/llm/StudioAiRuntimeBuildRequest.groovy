@@ -28,7 +28,7 @@ class StudioAiRuntimeBuildRequest {
   Closure toolProgressListener
   /** OpenAI Images API default model from agent **{@code <imageModel>}** / POST **{@code imageModel}** only (no JVM fallback). */
   String imageModelParam
-  /** Optional image backend: blank = OpenAI-compatible wire when key+model exist; {@code none}; {@code script:id}. */
+  /** Optional image backend: blank = default GenerateImage wire when key+model exist; {@code none}; {@code script:id}. */
   String imageGeneratorParam
   boolean fullSuppressRepoWrites
   String protectedFormItemPath

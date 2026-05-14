@@ -14,7 +14,7 @@ import java.util.Locale
 import java.util.Map
 
 /**
- * OpenAI Images API-compatible generator ({@code POST …/v1/images/generations}). Not tied to the chat LLM vendor:
+ * Built-in {@code POST …/v1/images/generations} HTTP wire for {@link StudioAiImageGenerator}. Not tied to the chat LLM vendor:
  * credentials and base URL come from {@link StudioAiImageGenContext}.
  */
 final class OpenAiCompatibleImageGenerator implements StudioAiImageGenerator {

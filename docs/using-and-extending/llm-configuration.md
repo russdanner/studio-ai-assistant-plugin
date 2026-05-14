@@ -17,12 +17,12 @@ Rows are ordered by **typical priority** for Studio authoring (tool-capable prov
 | `<llm>` wire value | Aliases (normalized) | Required configuration | Optional `ui.xml` / env | What you get |
 |--------------------|----------------------|-------------------------|-------------------------|--------------|
 | **`openAI`** | `openai`, `open-ai` | **API key:** host env **`OPENAI_API_KEY`** (recommended). | **`<llmModel>`** (chat model id). **`<imageModel>`** when the model should call **GenerateImage**. **`<crafterQAgentId>`** only if you want **optional hosted SaaS API tools** on this agent (see runtime doc). **`<openAiApiKey>`** — *testing only* when no env key. | **CMS tools**, **GenerateImage** (when `imageModel` + key allow), **`<expertSkill>`** → **QueryExpertGuidance**, optional **hosted SaaS API tools** when **`crafterQAgentId`** is set. |
-| **`xAI`** | `x-ai`, `grok` | **`XAI_API_KEY`** | **`XAI_OPENAI_BASE_URL`** (OpenAI-compatible base). **`<llmModel>`**. **`<crafterQAgentId>`** only for optional hosted SaaS API tools. Same stack as **`openAI`**. | Same tool surface as **OpenAI** row. |
+| **`xAI`** | `x-ai`, `grok` | **`XAI_API_KEY`** | **`XAI_OPENAI_BASE_URL`** (tools-loop chat base URL). **`<llmModel>`**. **`<crafterQAgentId>`** only for optional hosted SaaS API tools. Same stack as **`openAI`**. | Same tool surface as **OpenAI** row. |
 | **`deepSeek`** | `deep-seek` | **`DEEPSEEK_API_KEY`** | **`DEEPSEEK_OPENAI_BASE_URL`** (optional). **`<llmModel>`**. **`<crafterQAgentId>`** only for optional hosted SaaS API tools. | Same tool surface as **OpenAI** row. |
 | **`llama`** | `ollama`, `meta-llama`, `meta_llama` | Often **`LLAMA_API_KEY`** (Ollama may accept a placeholder). | **`LLAMA_OPENAI_BASE_URL`** or **`OLLAMA_OPENAI_BASE_URL`**. **`<llmModel>`**. **`<crafterQAgentId>`** only for optional hosted SaaS API tools. | Same tool surface as **OpenAI** row. |
 | **`genesis`** / **`gemini`** | `gemini`, `google`, `google-genai`, `google_genai` | **`GEMINI_API_KEY`** or **`GOOGLE_API_KEY`** | **`GEMINI_OPENAI_BASE_URL`** / **`GOOGLE_GENAI_OPENAI_BASE_URL`**. **`<llmModel>`**. **`<crafterQAgentId>`** only for optional hosted SaaS API tools. | Same tool surface as **OpenAI** row. |
 | **`claude`** | `anthropic` | **`ANTHROPIC_API_KEY`** | **`<llmModel>`**. **`<crafterQAgentId>`** only for optional hosted SaaS API tools. **`<openAiApiKey>`** — *testing only* for Anthropic when no **`ANTHROPIC_API_KEY`** (see runtime doc). | **CMS tools** via Spring AI **Anthropic** (not the OpenAI RestClient loop). **GenerateImage** / embeddings that still use OpenAI key material are described in the runtime doc. **Expert skills** + optional hosted SaaS API tools when configured. |
-| **`script:{id}`** | — | Site Groovy under **`config/studio/scripts/aiassistant/llm/{id}/runtime.groovy`** (or `llm.groovy`) implementing **`StudioAiLlmRuntime`** or the documented **Map** bundle contract. | Bundle chooses OpenAI-wire vs Anthropic-style transport. | **Configurable** by the script (CMS tools, custom behavior). |
+| **`script:{id}`** | — | Site Groovy under **`config/studio/scripts/aiassistant/llm/{id}/runtime.groovy`** (or `llm.groovy`) implementing **`StudioAiLlmRuntime`** or the documented **Map** bundle contract. | Bundle chooses **tools-loop** vs Anthropic-style transport. | **Configurable** by the script (CMS tools, custom behavior). |
 | **`crafterQ`** | `crafter-q` | **`<crafterQAgentId>`** (hosted agent UUID). Identity for **`/v1/chats`** (widget session and/or bearer — see runtime doc). | — | **Hosted chat only** — **no** CMS function tools, **GenerateImage**, expert vector tool, or hosted SaaS **API** tools on this adapter. Use a tool-capable **`llm`** above if authors need repo tools or images. |
 
 ---
@@ -31,7 +31,7 @@ Rows are ordered by **typical priority** for Studio authoring (tool-capable prov
 
 Paths are under site configuration (commonly **`/config/studio/ui.xml`**). The widget registers **`craftercms.components.aiassistant.Helper`** with a **`configuration`** → **`agents`** → **`agent`** tree.
 
-**Use a tool-capable `<llm>` (OpenAI-wire, Claude, or `script:`) for authors who need repository tools or image generation.** The **`crafterQ`** example at the end is **hosted chat only** (no CMS tools on that adapter).
+**Use a tool-capable `<llm>` (tools-loop chat, e.g. **`openAI`** / **`xAI`**, **Claude**, or **`script:`**) for authors who need repository tools or image generation.** The **`crafterQ`** example at the end is **hosted chat only** (no CMS tools on that adapter).
 
 ### Recommended: OpenAI with CMS tools (+ optional image + optional hosted SaaS API tools)
 
@@ -80,9 +80,9 @@ Set **`ANTHROPIC_API_KEY`** on the Studio host.
 </agent>
 ```
 
-Set **`XAI_API_KEY`**. Optionally set **`XAI_OPENAI_BASE_URL`** if your deployment uses a non-default OpenAI-compatible base.
+Set **`XAI_API_KEY`**. Optionally set **`XAI_OPENAI_BASE_URL`** if your deployment uses a non-default tools-loop chat base.
 
-### Ollama / local Llama-compatible endpoint
+### Ollama / local llama tools-loop endpoint
 
 ```xml
 <agent>
@@ -106,7 +106,7 @@ Set **`LLAMA_OPENAI_BASE_URL`** or **`OLLAMA_OPENAI_BASE_URL`** (e.g. `http://12
 
 Set **`DEEPSEEK_API_KEY`**. Optional **`DEEPSEEK_OPENAI_BASE_URL`**.
 
-### Gemini / Google GenAI (OpenAI-compatible wire)
+### Gemini / Google GenAI (tools-loop wire)
 
 ```xml
 <agent>
@@ -157,10 +157,10 @@ When **`siteId`** + **`agentId`** are present and the matching **`<agent>`** def
 
 ## Per-provider notes
 
-### OpenAI-wire family (`openAI`, `xAI`, `deepSeek`, `llama`, `gemini` / `genesis`)
+### Tools-loop chat family (`openAI`, `xAI`, `deepSeek`, `llama`, `gemini` / `genesis`)
 
 - **Transport:** Spring AI **`OpenAiChatModel`** + **RestClient** **`/v1/chat/completions`** native tool loop (`AiOrchestrationTools`).
-- **Image generation:** **`<imageModel>`** for the OpenAI-compatible wire (e.g. **`gpt-image-1`**). **`<imageGenerator>`** selects **`script:{id}`**, **`none`**, or default wire.
+- **Image generation:** **`<imageModel>`** for the default **GenerateImage** wire (e.g. **`gpt-image-1`**). **`<imageGenerator>`** selects **`script:{id}`**, **`none`**, or default wire.
 
 ### `claude`
 
@@ -170,7 +170,7 @@ When **`siteId`** + **`agentId`** are present and the matching **`<agent>`** def
 
 - **Wire:** **`<llm>script:mybackend</llm>`** → **`scriptLlm:mybackend`**.
 - **Id pattern:** `{id}` = `a-z`, `0-9`, `_`, `-`, max **64** chars.
-- Full contract: [studio-plugins-guide.md](studio-plugins-guide.md) and **`docs/examples/aiassistant-llm/demo/runtime.groovy`**. **Full vendor replacement (Groovy class, no built-in runtime delegation):** [script-llm-bring-your-own-backend.md](script-llm-bring-your-own-backend.md). **Cursor Cloud Agents example:** **`docs/examples/aiassistant-llm/cursor-cloud-agent/runtime.groovy`**.
+- Full contract: [studio-plugins-guide.md](studio-plugins-guide.md) and **`docs/examples/aiassistant-llm/demo/runtime.groovy`**. **Full vendor replacement (Groovy class, no built-in runtime delegation):** [script-llm-bring-your-own-backend.md](script-llm-bring-your-own-backend.md). **Groq (tools-loop):** **`docs/examples/aiassistant-llm/groq/runtime.groovy`**.
 
 ### `crafterQ` (hosted chat only — secondary)
 
@@ -191,7 +191,7 @@ When **`siteId`** + **`agentId`** are present and the matching **`<agent>`** def
 | **`<crafterQBearerTokenEnv>`** / **`<crafterQBearerToken>`** | Hosted SaaS HTTP | Server **`Authorization: Bearer`** to `api.crafterq.ai` when calling hosted APIs — see [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md). |
 | **`<openAiApiKey>`** | Testing | Per-agent key when no **env** key for the **target** provider; discouraged in production. |
 | **`<enableTools>`** | Tool-capable | When **`false`**, CMS tools are off for that agent (subject to per-request **`omitTools`**). |
-| **`<expertSkill>`** | OpenAI-wire + Claude (tools on) | Markdown URL skills → **QueryExpertGuidance**. |
+| **`<expertSkill>`** | Tools-loop + Claude (tools on) | Markdown URL skills → **QueryExpertGuidance**. |
 
 ---
 
@@ -205,4 +205,4 @@ When **`siteId`** + **`agentId`** are present, the server may **merge** missing 
 
 ## Autonomous widget (`<llm>` there)
 
-**`AutonomousAssistants`** agents use **`openAI`**, **`xAI`**, **`deepSeek`**, **`llama`**, **`genesis`** / **`gemini`** for steps (OpenAI-wire stack). **`claude`** is **not** supported for autonomous runs. Default **`llm`** for new autonomous definitions in code is **`openAI`**. Details: [chat-and-tools-runtime.md § Autonomous](../internals/chat-and-tools-runtime.md#autonomous-assistants) and [spec.md](../internals/spec.md).
+**`AutonomousAssistants`** agents use **`openAI`**, **`xAI`**, **`deepSeek`**, **`llama`**, **`genesis`** / **`gemini`** for steps (**tools-loop** stack). **`claude`** is **not** supported for autonomous runs. Default **`llm`** for new autonomous definitions in code is **`openAI`**. Details: [chat-and-tools-runtime.md § Autonomous](../internals/chat-and-tools-runtime.md#autonomous-assistants) and [spec.md](../internals/spec.md).

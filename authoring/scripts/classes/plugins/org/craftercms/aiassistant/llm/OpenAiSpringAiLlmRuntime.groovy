@@ -11,8 +11,9 @@ import org.springframework.ai.openai.OpenAiChatOptions
 import org.springframework.ai.openai.api.OpenAiApi
 
 /**
- * LLM runtime: <strong>OpenAI</strong> and OpenAI-compatible providers (xAI, DeepSeek, Llama/Ollama, Gemini)
- * via Spring AI {@link OpenAiChatModel} plus this plugin’s OpenAI-wire Spring {@code RestClient} native-tool execution in
+ * LLM runtime for the built-in <strong>{@link StudioAiLlmKind#OPENAI_NATIVE}</strong> row (<strong>OpenAI</strong> vendor)
+ * and the other built-in <strong>tools-loop</strong> rows (<strong>xAI</strong>, <strong>deepSeek</strong>, <strong>llama</strong>, <strong>gemini</strong>)
+ * via Spring AI {@link OpenAiChatModel} plus this plugin’s tools-loop Spring {@code RestClient} native-tool execution in
  * {@link AiOrchestration}.
  */
 class OpenAiSpringAiLlmRuntime implements StudioAiLlmRuntime {
@@ -95,15 +96,17 @@ class OpenAiSpringAiLlmRuntime implements StudioAiLlmRuntime {
       apiKey.length()
     )
     return [
-      chatClient          : chatClient,
-      chatModel           : chatModel,
-      tools               : tools,
-      llm                 : llmNorm,
-      useTools            : req.enableTools,
-      studioOps           : req.studioOps,
-      openAiApiKeyResolved: apiKey,
-      openAiWireBaseUrl   : wireBase,
-      resolvedChatModel   : modelName
+      chatClient              : chatClient,
+      chatModel               : chatModel,
+      tools                   : tools,
+      llm                     : llmNorm,
+      useTools                : req.enableTools,
+      studioOps               : req.studioOps,
+      toolsLoopChatApiKey     : apiKey,
+      toolsLoopChatBaseUrl    : wireBase,
+      openAiApiKeyResolved    : apiKey,
+      openAiWireBaseUrl       : wireBase,
+      resolvedChatModel       : modelName
     ]
   }
 }

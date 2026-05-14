@@ -76,7 +76,7 @@ import reactor.core.publisher.Flux
  * <p><strong>LLM adapters:</strong> Chat sessions are built through {@link StudioAiLlmRuntime} implementations
  * ({@link OpenAiSpringAiLlmRuntime}, {@link ExpertApiLlmRuntime}, {@link StudioAiScriptLlmContainerRuntime} for
  * {@code script:…} site Groovy). The token {@link StudioAiLlmKind#CRAFTERRQ_REMOTE_API} ({@code llm=crafterQ}) selects the
- * <strong>remote hosted chat</strong> adapter; OpenAI-wire, Claude, and script LLMs are separate paths. Additional
+ * <strong>remote hosted chat</strong> adapter; Tools-loop wire, Claude, and script LLMs are separate paths. Additional
  * providers should implement {@link StudioAiLlmRuntime}, register in {@link StudioAiLlmRuntimeFactory}, and extend
  * {@link StudioAiLlmKind}.</p>
  *
@@ -118,7 +118,7 @@ class AiOrchestration {
   private static final String CRAFTERRQ_TOOL_IMAGE_REF_PREFIX = 'crafterq-tool-image://'
 
   /**
-   * Latest worker phase for logs and **SSE heartbeats** (OpenAI+tools worker sets it; servlet thread reads it while
+   * Latest worker phase for logs and **SSE heartbeats** (Tools-loop+tools worker sets it; servlet thread reads it while
    * awaiting {@code Future#get}). Uses {@link AtomicReference} so it is **not** thread-local — otherwise heartbeats
    * never see {@code TransformContentSubgraph_await_inner…} and always fall back to “waiting on POST…”.
    */
@@ -159,7 +159,7 @@ class AiOrchestration {
   }
 
   /**
-   * True when this thread is running the OpenAI+tools pipeline and the author cancelled, or the worker was interrupted.
+   * True when this thread is running the Tools-loop+tools pipeline and the author cancelled, or the worker was interrupted.
    * Repository tools should treat this as "do not read/write the repo for this call".
    */
   static boolean crafterQPipelineCancelEffective() {
@@ -206,7 +206,7 @@ class AiOrchestration {
   }
 
   /**
-   * Short author-facing hint for SSE heartbeats while the OpenAI+tools worker is busy — derived from
+   * Short author-facing hint for SSE heartbeats while the Tools-loop+tools worker is busy — derived from
    * {@link #crafterQToolWorkerDiagPhase} so we do not imply the main chat POST is slow when
    * {@link AiOrchestrationTools} is inside a bundled inner completion (e.g. {@code TransformContentSubgraph}).
    */
@@ -227,19 +227,19 @@ class AiOrchestration {
     if (p.contains('TransformContentSubgraph_await_inner')) {
       return 'Processing linked pages together (larger jobs take longer)…'
     }
-    if (p.contains('TranslateContentItem_simple_completion_awaiting_OpenAI_response_body')) {
+    if (p.contains('TranslateContentItem_simple_completion_awaiting_chat_upstream_response_body')) {
       return 'Finishing an automated content edit…'
     }
     if (p.contains('TranslateContentItem_simple_completion_HttpURLConnection_POST')) {
       return 'Sending an automated content edit…'
     }
-    if (p.contains('TransformContentSubgraph_simple_completion_awaiting_OpenAI_response_body')) {
+    if (p.contains('TransformContentSubgraph_simple_completion_awaiting_chat_upstream_response_body')) {
       return 'Receiving updates for linked pages…'
     }
     if (p.contains('TransformContentSubgraph_simple_completion_HttpURLConnection_POST')) {
       return 'Sending a bundled content update…'
     }
-    if (p.contains('simple_completion_awaiting_OpenAI_response_body')) {
+    if (p.contains('simple_completion_awaiting_chat_upstream_response_body')) {
       return 'Waiting on a background content edit…'
     }
     if (p.contains('simple_completion_HttpURLConnection_POST')) {
@@ -295,7 +295,7 @@ class AiOrchestration {
   }
 
   /**
-   * While the servlet waits on the OpenAI+tools worker, emit periodic SSE lines so authors are not silent for minutes.
+   * While the servlet waits on the Tools-loop+tools worker, emit periodic SSE lines so authors are not silent for minutes.
    * Override JVM {@code crafterq.openai.sseWaitHeartbeatMs} (3000–120000; default 12000).
    */
   private static long resolveOpenAiSseWaitHeartbeatMs() {
@@ -721,19 +721,19 @@ For **content XML** (pages/components): do not invent a new element tree — pre
         envelope.tool_choice = 'auto'
       }
       log.debug(
-        'OpenAI /v1/chat/completions outbound (approx) agentId={} envelope:\n{}',
+        'Tools-loop /v1/chat/completions outbound (approx) agentId={} envelope:\n{}',
         agentId,
         JsonOutput.prettyPrint(JsonOutput.toJson(envelope))
       )
       log.debug(
-        'OpenAI /v1/chat/completions outbound (approx) agentId={} messages:\n{}',
+        'Tools-loop /v1/chat/completions outbound (approx) agentId={} messages:\n{}',
         agentId,
         JsonOutput.prettyPrint(JsonOutput.toJson([messages: messages]))
       )
       int n = toolsList.size()
       for (int i = 0; i < n; i++) {
         log.debug(
-          'OpenAI /v1/chat/completions outbound (approx) agentId={} tools[{}/{}]:\n{}',
+          'Tools-loop /v1/chat/completions outbound (approx) agentId={} tools[{}/{}]:\n{}',
           agentId,
           i + 1,
           n,
@@ -741,7 +741,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
         )
       }
     } catch (Throwable t) {
-      log.warn('OpenAI outbound JSON log failed: {}', t.message)
+      log.warn('Tools-loop outbound JSON log failed: {}', t.message)
     }
   }
 
@@ -811,13 +811,13 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     } catch (Throwable ignored) {
     }
     StringBuilder sb = new StringBuilder()
-    sb.append('The LLM model is not configured properly for OpenAI. ')
-    sb.append('The model id sent to the API was "').append(wireModel ? wireModel : '(unknown)').append('". ')
+    sb.append('The LLM model is not accepted by the configured chat host. ')
+    sb.append('The model id sent on the wire was "').append(wireModel ? wireModel : '(unknown)').append('". ')
     if (apiMsg) {
-      sb.append('OpenAI said: ').append(apiMsg).append(' ')
+      sb.append('Provider message: ').append(apiMsg).append(' ')
     }
     sb.append(
-      'Set the agent chat model to an id your API key supports (for example in ui.xml / control payload), pass openAiModel on the chat request, or set JVM crafter.openai.model.'
+      'Set the agent chat model to an id your host and API key support (for example in ui.xml / control payload), pass llmModel on the chat request, or set JVM crafter.openai.model when using the default OpenAI row.'
     )
     return new IllegalStateException(sb.toString())
   }
@@ -846,13 +846,13 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     String base = (fromRequest ?: '').toString().trim() ?: (System.getProperty('crafter.openai.model') ?: '').toString().trim()
     if (!base) {
       throw new IllegalStateException(
-        'The OpenAI chat model is not configured properly. Set the agent LLM / openAi model in Studio (for example ui.xml), pass openAiModel on the chat request, or set JVM property crafter.openai.model to a valid OpenAI chat model id.'
+        'The chat model is not configured properly. Set the agent LLM / llmModel in Studio (for example ui.xml), pass llmModel on the chat request, or set JVM property crafter.openai.model when using the default OpenAI vendor row.'
       )
     }
     String canon = openAiCanonicalizeApiModelToken(base)
     if (!canon) {
       throw new IllegalStateException(
-        "The OpenAI chat model is not configured properly. The value could not be turned into an API model id: \"${base}\"."
+        "The chat model is not configured properly. The value could not be turned into an API model id: \"${base}\"."
       )
     }
     return canon
@@ -901,7 +901,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     String m = openAiNormalizeModelIdForHeuristics(raw)
     if (!m) {
       throw new IllegalStateException(
-        'The LLM model is not configured properly: the main chat model is missing, so Translate/Transform subgraph cannot choose an inner completion model. Set the agent OpenAI chat model, or pass llmModel (or model) on the tool input.'
+        'The LLM model is not configured properly: the main chat model is missing, so Translate/Transform subgraph cannot choose an inner completion model. Set the agent chat model, or pass llmModel (or model) on the tool input.'
       )
     }
     if (openAiModelIsGpt5Family(raw)) {
@@ -909,7 +909,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
       String c = openAiCanonicalizeApiModelToken(pick)
       if (!c) {
         throw new IllegalStateException(
-          'The LLM model is not configured properly: could not derive an inner OpenAI model id from the main chat model.'
+          'The LLM model is not configured properly: could not derive an inner tools-loop model id from the main chat model.'
         )
       }
       return c
@@ -919,7 +919,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
         String c = openAiCanonicalizeApiModelToken(raw)
         if (!c) {
           throw new IllegalStateException(
-            'The LLM model is not configured properly: could not normalize the main chat model to an inner OpenAI model id.'
+            'The LLM model is not configured properly: could not normalize the main chat model to an inner tools-loop model id.'
           )
         }
         return c
@@ -937,7 +937,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
         String c = openAiCanonicalizeApiModelToken(raw)
         if (!c) {
           throw new IllegalStateException(
-            'The LLM model is not configured properly: could not normalize the main chat model to an inner OpenAI model id.'
+            'The LLM model is not configured properly: could not normalize the main chat model to an inner tools-loop model id.'
           )
         }
         return c
@@ -947,7 +947,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     String c2 = openAiCanonicalizeApiModelToken(raw)
     if (!c2) {
       throw new IllegalStateException(
-        'The LLM model is not configured properly: the main chat model could not be normalized to an OpenAI API model id.'
+        'The LLM model is not configured properly: the main chat model could not be normalized to a chat wire model id.'
       )
     }
     return c2
@@ -965,7 +965,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     String canon = openAiCanonicalizeApiModelToken(base)
     if (!canon) {
       throw new IllegalStateException(
-        "The OpenAI image model is not configured properly. The value could not be turned into an API model id: \"${base}\"."
+        "The GenerateImage model is not configured properly. The value could not be turned into an API model id: \"${base}\"."
       )
     }
     return normalizeOpenAiImagesApiModelId(canon)
@@ -979,13 +979,13 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     String base = (fromRequest ?: '').toString().trim()
     if (!base) {
       throw new IllegalStateException(
-        'The OpenAI image model is not configured properly. Set imageModel on the agent (ui.xml element imageModel) or pass imageModel on the chat request JSON body.'
+        'The GenerateImage model is not configured properly. Set imageModel on the agent (ui.xml element imageModel) or pass imageModel on the chat request JSON body.'
       )
     }
     String canon = openAiCanonicalizeApiModelToken(base)
     if (!canon) {
       throw new IllegalStateException(
-        "The OpenAI image model is not configured properly. The value could not be turned into an API model id: \"${base}\"."
+        "The GenerateImage model is not configured properly. The value could not be turned into an API model id: \"${base}\"."
       )
     }
     return normalizeOpenAiImagesApiModelId(canon)
@@ -1234,7 +1234,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     out
   }
 
-  /** One {@code data:} line from OpenAI chat.completions SSE — assistant text delta. */
+  /** One {@code data:} line from Tools-loop chat SSE — assistant text delta. */
   private static String openAiStreamChunkDeltaText(Object root) {
     if (!(root instanceof Map)) {
       return ''
@@ -1313,7 +1313,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     String model
   ) {
     if (upstream == null) {
-      throw new IllegalStateException('OpenAI chat.completions (stream): empty response body')
+      throw new IllegalStateException('Tools-loop chat (stream): empty response body')
     }
     def slurper = new JsonSlurper()
     boolean completedSent = false
@@ -1337,7 +1337,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
           chunk = slurper.parseText(payload)
         } catch (Throwable pe) {
           log.warn(
-            'OpenAI tools-off SSE: skip unparseable line agentId={} model={} line=\n{}',
+            'Tools-loop tools-off SSE: skip unparseable line agentId={} model={} line=\n{}',
             agentId,
             model,
             AiHttpProxy.elideForLog(payload, 500)
@@ -1346,7 +1346,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
         }
         def errMsg = openAiStreamChunkOpenAiErrorMessage(chunk)
         if (errMsg) {
-          def ev = [text: '', metadata: [error: true, completed: true, message: 'OpenAI: ' + errMsg]]
+          def ev = [text: '', metadata: [error: true, completed: true, message: 'Chat host: ' + errMsg]]
           synchronized (out) {
             out.write(("data: ${JsonOutput.toJson(ev)}\n\n").getBytes(StandardCharsets.UTF_8))
             out.flush()
@@ -1668,7 +1668,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     try {
       def ev = [
         text    : markdownLine.toString(),
-        metadata: [status: 'tool-progress', tool: 'OpenAI', phase: (phase ?: 'start').toString()]
+        metadata: [status: 'tool-progress', tool: 'Tools-loop chat', phase: (phase ?: 'start').toString()]
       ]
       synchronized (o) {
         o.write(("data: ${JsonOutput.toJson(ev)}\n\n").getBytes(StandardCharsets.UTF_8))
@@ -1679,7 +1679,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
   }
 
   /**
-   * Long-wait keepalive for the OpenAI+tools worker: **does not** append a markdown line to the tool log — the Studio
+   * Long-wait keepalive for the Tools-loop+tools worker: **does not** append a markdown line to the tool log — the Studio
    * client shows a single animated row that this frame **updates** in place.
    * <p>{@link Number} parameters accept Groovy {@code /} results (often {@link BigDecimal}) as well as {@code long}.</p>
    */
@@ -1784,7 +1784,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
     }
     body = openAiEscapeTripleBackticksForMarkdownFence(body)
     StringBuilder sb = new StringBuilder(Math.min(65536, body.length() + 2048))
-    sb.append('🛠️🔍 **OpenAI** — **assistant** message (tool loop round ').append(zeroBasedRound + 1).append(')\n\n')
+    sb.append('🛠️🔍 **Tools-loop** — **assistant** message (tool loop round ').append(zeroBasedRound + 1).append(')\n\n')
     sb.append('**Assistant `content` (flattened, as returned):** ')
     if (!body.trim()) {
       sb.append('*(empty)*\n')
@@ -1887,14 +1887,14 @@ For **content XML** (pages/components): do not invent a new element tree — pre
         def bodyStr = new String(bytes, StandardCharsets.UTF_8)
         if (!status.is2xxSuccessful()) {
           def msg =
-            "OpenAI chat.completions HTTP ${status.value()} ${statusText} responseBody=\n${AiHttpProxy.elideForLog(bodyStr, 4000)}"
+            "Tools-loop chat HTTP ${status.value()} ${statusText} responseBody=\n${AiHttpProxy.elideForLog(bodyStr, 4000)}"
           if (logFailuresAsWarn) {
             log.warn(msg)
           } else {
             log.error(msg)
           }
           def rce = new RestClientResponseException(
-            'OpenAI chat.completions',
+            'Tools-loop chat',
             status.value(),
             statusText,
             headers,
@@ -1965,7 +1965,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
         "simple_completion_HttpURLConnection_POST_/v1/chat/completions model=${model} wireJsonChars=${jsonBody.length()} userMsgChars=${(userText ?: '').toString().length()} readTimeoutMs=${readTimeoutMs}"
     )
     log.debug(
-      'OpenAI-wire → POST /v1/chat/completions phase=simple_completion worker={} model={} systemChars={} userChars={} maxOutTokens={} readTimeoutMs={} wireJsonChars={} urlTail={}',
+      'Tools-loop wire → POST /v1/chat/completions phase=simple_completion worker={} model={} systemChars={} userChars={} maxOutTokens={} readTimeoutMs={} wireJsonChars={} urlTail={}',
       (workerPhasePrefix ?: '(none)'),
       model,
       (systemText ?: '').length(),
@@ -1995,7 +1995,7 @@ For **content XML** (pages/components): do not invent a new element tree — pre
       }
       crafterQToolWorkerDiagPhase(
         phasePfx +
-          "simple_completion_awaiting_OpenAI_response_body model=${model} httpURLConnection readTimeoutMs=${Math.max(60_000, readTimeoutMs)}"
+          "simple_completion_awaiting_chat_upstream_response_body model=${model} httpURLConnection readTimeoutMs=${Math.max(60_000, readTimeoutMs)}"
       )
       int code = conn.responseCode
       InputStream rawStream = code >= 200 && code < 300 ? conn.inputStream : conn.errorStream
@@ -2009,35 +2009,35 @@ For **content XML** (pages/components): do not invent a new element tree — pre
       }
       String raw = new String(bytes, StandardCharsets.UTF_8)
       if (code < 200 || code >= 300) {
-        log.error('OpenAI simple completion HTTP {} body=\n{}', code, AiHttpProxy.elideForLog(raw, 4000))
+        log.error('Tools-loop simple completion HTTP {} body=\n{}', code, AiHttpProxy.elideForLog(raw, 4000))
         if (code == 400 && openAiResponseBodyLooksLikeInvalidModelId(raw)) {
           throw openAiNewIllegalStateForInvalidOpenAiModel(jsonBody, raw)
         }
-        throw new IllegalStateException("OpenAI chat.completions HTTP ${code}: ${AiHttpProxy.elideForLog(raw, 800)}")
+        throw new IllegalStateException("Tools-loop chat HTTP ${code}: ${AiHttpProxy.elideForLog(raw, 800)}")
       }
       if (!raw?.trim()) {
-        throw new IllegalStateException('OpenAI simple completion: empty response body')
+        throw new IllegalStateException('Tools-loop simple completion: empty response body')
       }
       def slurper = new JsonSlurper()
       Object parsed = slurper.parseText(raw)
       if (!(parsed instanceof Map)) {
-        throw new IllegalStateException('OpenAI simple completion: expected JSON object')
+        throw new IllegalStateException('Tools-loop simple completion: expected JSON object')
       }
       Map root = (Map) parsed
       def errMsg = openAiStreamChunkOpenAiErrorMessage(root)
       if (errMsg) {
-        throw new IllegalStateException('OpenAI simple completion: ' + errMsg)
+        throw new IllegalStateException('Tools-loop simple completion: ' + errMsg)
       }
       def choices = root.get('choices')
       if (!(choices instanceof List) || choices.isEmpty()) {
-        throw new IllegalStateException('OpenAI simple completion: missing choices')
+        throw new IllegalStateException('Tools-loop simple completion: missing choices')
       }
       def c0 = choices[0] as Map
       def message = c0.get('message')
       if (!(message instanceof Map)) {
-        throw new IllegalStateException('OpenAI simple completion: missing message')
+        throw new IllegalStateException('Tools-loop simple completion: missing message')
       }
-      crafterQToolWorkerDiagPhase(phasePfx + 'simple_completion_OpenAI_response_parsed_ok')
+      crafterQToolWorkerDiagPhase(phasePfx + 'simple_completion_chat_upstream_response_parsed_ok')
       return openAiAssistantTextFromChoiceMessageMap((Map) message)
     } finally {
       try {
@@ -2206,7 +2206,7 @@ ${af}"""
     def jsonBody =
       openAiChatCompletionsWireBodyApplyNeoTemperaturePolicy(JsonOutput.toJson(reqMap))
     log.debug(
-      'OpenAI-wire → POST /v1/chat/completions phase=post_tool_review agentId={} model={} wireJsonChars={} neoWire={}',
+      'Tools-loop wire → POST /v1/chat/completions phase=post_tool_review agentId={} model={} wireJsonChars={} neoWire={}',
       agentId,
       model,
       jsonBody.length(),
@@ -2220,29 +2220,29 @@ ${af}"""
     try {
       String raw = openAiHttpPostChatCompletionsReadBody(apiKey, jsonBody, true)
       if (!raw?.trim()) {
-        throw new IllegalStateException('OpenAI post-tool review: empty response body')
+        throw new IllegalStateException('Tools-loop post-tool review: empty response body')
       }
       if (raw.trim().startsWith('data:')) {
-        throw new IllegalStateException('OpenAI post-tool review: SSE for stream=false')
+        throw new IllegalStateException('Tools-loop post-tool review: SSE for stream=false')
       }
       def slurper = new JsonSlurper()
       Object parsed = slurper.parseText(raw)
       if (!(parsed instanceof Map)) {
-        throw new IllegalStateException('OpenAI post-tool review: expected JSON object')
+        throw new IllegalStateException('Tools-loop post-tool review: expected JSON object')
       }
       Map root = parsed as Map
       def errMsg = openAiStreamChunkOpenAiErrorMessage(root)
       if (errMsg) {
-        throw new IllegalStateException('OpenAI post-tool review: ' + errMsg)
+        throw new IllegalStateException('Tools-loop post-tool review: ' + errMsg)
       }
       def choices = root.get('choices')
       if (!(choices instanceof List) || choices.isEmpty()) {
-        throw new IllegalStateException('OpenAI post-tool review: missing choices')
+        throw new IllegalStateException('Tools-loop post-tool review: missing choices')
       }
       def c0 = choices[0] as Map
       def message = c0.get('message')
       if (!(message instanceof Map)) {
-        throw new IllegalStateException('OpenAI post-tool review: missing message')
+        throw new IllegalStateException('Tools-loop post-tool review: missing message')
       }
       String reviewText = openAiAssistantTextFromChoiceMessageMap((Map) message)
       return openAiParseReviewJsonObject(reviewText)
@@ -2253,7 +2253,7 @@ ${af}"""
       } catch (Throwable ignored) {
       }
       log.warn(
-        'OpenAI post-tool review: HTTP {} — skipping reviewer pass (model may reject temperature or other params). bodyPrefix=\n{}',
+        'Tools-loop post-tool review: HTTP {} — skipping reviewer pass (model may reject temperature or other params). bodyPrefix=\n{}',
         rce.statusCode?.value() ?: rce.statusCode,
         AiHttpProxy.elideForLog(bp, 900)
       )
@@ -2264,7 +2264,7 @@ ${af}"""
       ]
     } catch (Throwable t) {
       // Optional reviewer must never fail the main chat (classloader-specific HTTP wrappers, parse errors, etc.).
-      log.warn('OpenAI post-tool review failed — skipping reviewer pass', t)
+      log.warn('Tools-loop post-tool review failed — skipping reviewer pass', t)
       return [
         accomplished           : true,
         reason                 : 'post-tool review skipped (error)',
@@ -2493,7 +2493,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     if (cmsMisrouteFirst && out.get(0) instanceof Map) {
       out.set(0, openAiSyntheticSameIdToolCall((Map) out.get(0), 'ListCrafterQAgentChats', '{}'))
       log.warn(
-        'OpenAI tools-on: repaired first tool call to ListCrafterQAgentChats for CrafterQ hosted-chat analytics intent agentId={} was={} plannedOrchFirst={}',
+        'Tools-loop tools-on: repaired first tool call to ListCrafterQAgentChats for CrafterQ hosted-chat analytics intent agentId={} was={} plannedOrchFirst={}',
         agentId,
         firstName,
         plannedFirst
@@ -2504,7 +2504,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
       if (CRAFTERRQ_HOSTED_CHAT_BLOCKED_TOOL_NAMES.contains(n)) {
         out.remove(i)
         log.warn(
-          'OpenAI tools-on: removed same-round {} after CrafterQ hosted-chat repair agentId={}',
+          'Tools-loop tools-on: removed same-round {} after CrafterQ hosted-chat repair agentId={}',
           n,
           agentId
         )
@@ -2564,7 +2564,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
         ') Do not use a data: URL.'
     )
     log.info(
-      'OpenAI native tools: GenerateImage compact tool wire toolCallId={} elidedDataUrlChars={}',
+      'Tools-loop native tools: GenerateImage compact tool wire toolCallId={} elidedDataUrlChars={}',
       tid,
       url.length()
     )
@@ -2580,7 +2580,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     if (generateImageDataUrlByToolCallId == null || generateImageDataUrlByToolCallId.isEmpty()) {
       if (out.contains(CRAFTERRQ_TOOL_IMAGE_REF_PREFIX)) {
         log.warn(
-          'OpenAI native tools: assistant text still contains {} but inline image map is empty (GenerateImage wire may not have been compacted).',
+          'Tools-loop native tools: assistant text still contains {} but inline image map is empty (GenerateImage wire may not have been compacted).',
           CRAFTERRQ_TOOL_IMAGE_REF_PREFIX
         )
       }
@@ -2639,7 +2639,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     }
     if (appended > 0) {
       log.info(
-        'OpenAI native tools: appended {} fallback markdown image line(s) for GenerateImage (assistant omitted crafterq-tool-image refs).',
+        'Tools-loop native tools: appended {} fallback markdown image line(s) for GenerateImage (assistant omitted crafterq-tool-image refs).',
         appended
       )
       return text + tail.toString()
@@ -2703,7 +2703,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
       int cap = OPENAI_NATIVE_TOOL_WIRE_MAX_CHARS
       String head = s.substring(0, cap)
       return head +
-        '\n\n[crafterq: output truncated for OpenAI context limit; tool=GenerateImage originalChars=' + s.length() + ']' +
+        '\n\n[crafterq: output truncated for chat context limit; tool=GenerateImage originalChars=' + s.length() + ']' +
         '\nHint: payload too large for wire; use a smaller image or save to /static-assets/.]'
     }
     if (s.length() <= OPENAI_NATIVE_TOOL_WIRE_MAX_CHARS) {
@@ -2713,7 +2713,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     String head = s.substring(0, cap)
     String fn = (fnName ?: '').toString()
     return head +
-      '\n\n[crafterq: output truncated for OpenAI context limit; tool=' + fn + ' originalChars=' + s.length() + ']' +
+      '\n\n[crafterq: output truncated for chat context limit; tool=' + fn + ' originalChars=' + s.length() + ']' +
       '\nHint: use a smaller size, a path prefix filter, or GetContent on specific paths.]'
   }
 
@@ -2752,7 +2752,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
       def jsonBody = openAiChatCompletionsWireBodyApplyNeoTemperaturePolicy(JsonOutput.toJson(reqMap))
       if (logFirstPostChars && round == 0) {
         log.debug(
-          'OpenAI tools-on RestClient: first POST chars={} agentId={} model={} restReadTimeoutMs={}',
+          'Tools-loop tools-on RestClient: first POST chars={} agentId={} model={} restReadTimeoutMs={}',
           jsonBody.length(),
           agentId,
           model,
@@ -2770,20 +2770,20 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
         throw new InterruptedException(CRAFTQ_PIPELINE_CANCELLED)
       }
       if (!raw?.trim()) {
-        throw new IllegalStateException('OpenAI chat.completions: empty response body')
+        throw new IllegalStateException('Tools-loop chat: empty response body')
       }
       if (raw.trim().startsWith('data:')) {
-        throw new IllegalStateException('OpenAI returned SSE for stream=false (native tool loop)')
+        throw new IllegalStateException('Chat host returned SSE for stream=false (native tool loop)')
       }
       Object parsed
       try {
         parsed = slurper.parseText(raw)
       } catch (Throwable je) {
-        log.error('OpenAI tools-on: JSON parse failed bodyPrefix=\n{}', AiHttpProxy.elideForLog(raw, 2500))
+        log.error('Tools-loop tools-on: JSON parse failed bodyPrefix=\n{}', AiHttpProxy.elideForLog(raw, 2500))
         try {
           openAiEmitSseToolProgressLine(
             ssePreToolAssistantText,
-            '🛠️❌ **OpenAI** — **`chat.completions` body was not valid JSON** (fragment for debugging):\n```text\n' +
+            '🛠️❌ **Chat host** — **`chat.completions` body was not valid JSON** (fragment for debugging):\n```text\n' +
               openAiEscapeTripleBackticksForMarkdownFence(AiHttpProxy.elideForLog(raw, 8000)) +
               '\n```\n',
             'error'
@@ -2793,7 +2793,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
         throw je
       }
       if (!(parsed instanceof Map)) {
-        throw new IllegalStateException('OpenAI chat.completions: expected JSON object')
+        throw new IllegalStateException('Tools-loop chat: expected JSON object')
       }
       Map root = parsed as Map
       def errMsg = openAiStreamChunkOpenAiErrorMessage(root)
@@ -2801,23 +2801,23 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
         try {
           openAiEmitSseToolProgressLine(
             ssePreToolAssistantText,
-            '🛠️❌ **OpenAI** returned an error in **`chat.completions` JSON** (no assistant message to apply):\n```text\n' +
+            '🛠️❌ **Chat host** returned an error in **`chat.completions` JSON** (no assistant message to apply):\n```text\n' +
               openAiEscapeTripleBackticksForMarkdownFence(errMsg.toString()) +
               '\n```\n',
             'error'
           )
         } catch (Throwable ignoredErrPreview) {
         }
-        throw new IllegalStateException('OpenAI: ' + errMsg)
+        throw new IllegalStateException('Chat host: ' + errMsg)
       }
       def choices = root.get('choices')
       if (!(choices instanceof List) || choices.isEmpty()) {
-        throw new IllegalStateException('OpenAI chat.completions: missing choices')
+        throw new IllegalStateException('Tools-loop chat: missing choices')
       }
       def c0 = choices[0] as Map
       def message = c0.get('message')
       if (!(message instanceof Map)) {
-        throw new IllegalStateException('OpenAI chat.completions: missing message')
+        throw new IllegalStateException('Tools-loop chat: missing message')
       }
       Map msgCopy = new LinkedHashMap((Map) message)
       String assistantApiFlatForDebug = openAiAssistantTextFromChoiceMessageMap(msgCopy)
@@ -2837,7 +2837,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
           msgCopy.put('tool_calls', runListPrep)
           if (ordered != null) {
             log.info(
-              'OpenAI tools-on: plan orchestrator reordered {} tool_calls to match CRAFTERRQ_ORCH block agentId={}',
+              'Tools-loop tools-on: plan orchestrator reordered {} tool_calls to match CRAFTERRQ_ORCH block agentId={}',
               ordered.size(),
               agentId
             )
@@ -2861,7 +2861,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
               }
             } else {
               log.info(
-                'OpenAI tools-on: no assistant text to stream before tool_calls (common for some models); CMS tools still run. agentId={} round={}',
+                'Tools-loop tools-on: no assistant text to stream before tool_calls (common for some models); CMS tools still run. agentId={} round={}',
                 agentId,
                 round
               )
@@ -2869,9 +2869,9 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
           }
         } catch (Throwable te) {
           if (isSseClientDisconnected(te)) {
-            log.debug('OpenAI tools-on: pre-tool SSE skip (response unusable / client gone): {}', te.message)
+            log.debug('Tools-loop tools-on: pre-tool SSE skip (response unusable / client gone): {}', te.message)
           } else {
-            log.warn('OpenAI tools-on: failed to stream assistant text before tool calls: {}', te.message)
+            log.warn('Tools-loop tools-on: failed to stream assistant text before tool calls: {}', te.message)
           }
         }
         openAiEmitSseAssistantTurnDebugPreview(ssePreToolAssistantText, assistantApiFlatForDebug, msgCopy, hasTc, round, agentId)
@@ -2900,7 +2900,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
           boolean blockedCqMisroute = cqHostChatGuard && CRAFTERRQ_HOSTED_CHAT_BLOCKED_TOOL_NAMES.contains(fnName)
           if (blockedCqMisroute) {
             log.warn(
-              'OpenAI tools-on: blocked {} for CrafterQ hosted-chat analytics user intent (use ListCrafterQAgentChats / GetCrafterQAgentChat) agentId={}',
+              'Tools-loop tools-on: blocked {} for CrafterQ hosted-chat analytics user intent (use ListCrafterQAgentChats / GetCrafterQAgentChat) agentId={}',
               fnName,
               agentId
             )
@@ -2927,12 +2927,12 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
             ])
           } else if (tcb == null) {
             toolOut = JsonOutput.toJson([ok: false, error: 'unknown_tool', tool: fnName])
-            log.warn('OpenAI tools-on: unknown tool {} agentId={}', fnName, agentId)
+            log.warn('Tools-loop tools-on: unknown tool {} agentId={}', fnName, agentId)
           } else {
             try {
               toolOut = tcb.call(argsStr)
             } catch (Throwable tex) {
-              log.warn('OpenAI tools-on: tool {} failed: {}', fnName, tex.message)
+              log.warn('Tools-loop tools-on: tool {} failed: {}', fnName, tex.message)
               toolOut = JsonOutput.toJson([ok: false, error: tex.message?.toString()])
             }
           }
@@ -2950,7 +2950,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
           String toolWire = openAiTruncateNativeToolWireContent(fnName, toolOut, id, generateImageDataUrlByToolCallId)
           if (toolWire.length() < toolOut.length() && !'GenerateImage'.equals(fnName)) {
             log.warn(
-              'OpenAI native tools: truncated tool wire output tool={} agentId={} beforeChars={} afterChars={}',
+              'Tools-loop native tools: truncated tool wire output tool={} agentId={} beforeChars={} afterChars={}',
               fnName,
               agentId,
               toolOut.length(),
@@ -2968,13 +2968,13 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
       break
     }
     if (!finished) {
-      throw new IllegalStateException("OpenAI tools-on: exceeded ${maxRounds} tool rounds without a final assistant message")
+      throw new IllegalStateException("Tools-loop tools-on: exceeded ${maxRounds} tool rounds without a final assistant message")
     }
     return assistantAccum ?: ''
   }
 
   /**
-   * OpenAI native tools without {@link OpenAiChatModel}: sync {@code stream:false} rounds + {@link JsonSlurper}
+   * Tools-loop native tools without {@link OpenAiChatModel}: sync {@code stream:false} rounds + {@link JsonSlurper}
    * + {@link FunctionToolCallback#call(String)} until the assistant stops calling tools.
    * <p>One chat session with tools enabled: the model should stream a **## Plan** (see system STUDIO POLICY) in the
    * <strong>first assistant message</strong> whenever it also issues tool calls; that assistant {@code content} is
@@ -3001,12 +3001,12 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     crafterQPipelineCancelBindingSet(cancelRequested)
     try {
     if (!apiKey) {
-      throw new IllegalStateException('OpenAI API key missing')
+      throw new IllegalStateException('Tools-loop chat API key missing')
     }
     crafterQToolWorkerDiagPhase("native_tools_session_prepare agentId=${agentId ?: ''} model=${model ?: ''}")
     def wireTools = openAiBuildWireToolsFromCallbacks(tools)
     if (!wireTools) {
-      throw new IllegalStateException('OpenAI tools: empty tool list')
+      throw new IllegalStateException('CMS tools: empty tool list')
     }
     Map<String, FunctionToolCallback> byName = openAiToolCallbacksByName(tools)
     List<Map> baseWire = []
@@ -3015,7 +3015,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     }
     Map lastUserTemplate = openAiLastUserWireMessage(baseWire)
     if (lastUserTemplate == null || !lastUserTemplate.get('content')?.toString()?.trim()) {
-      throw new IllegalStateException('OpenAI tools-on: prompt has no user message')
+      throw new IllegalStateException('Tools-loop tools-on: prompt has no user message')
     }
     List<Map> wireMessages = openAiDeepCloneWireMessages(baseWire)
     Map wmUser = openAiLastUserWireMessage(wireMessages)
@@ -3039,7 +3039,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
       try {
         openAiEmitSseToolProgressLine(
           sseOut,
-          '🛠️🔄 **Post-tool review** … comparing your request to the assistant reply (OpenAI only; no repository writes).\n',
+          '🛠️🔄 **Post-tool review** … comparing your request to the assistant reply (tools-loop path only; no repository writes).\n',
           'start'
         )
         Map rev = openAiPostToolReview(apiKey, model, origUser, assistantAccum, agentId, sseOut)
@@ -3075,7 +3075,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
           }
         }
       } catch (Throwable tre) {
-        log.warn('OpenAI post-tool review/correction skipped', tre)
+        log.warn('Tools-loop post-tool review/correction skipped', tre)
         def em = (tre?.message ?: tre?.toString() ?: 'error').toString()
         if (em.length() > 200) {
           em = em.substring(0, 197) + '…'
@@ -3125,7 +3125,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
           apiKey, model, openAiPrompt, tools, agentId, out, toolTimingCtx, cancelRequested, wireBaseUrl)
       } catch (InterruptedException ie) {
         log.warn(
-          'AI Assistant chat stream: OpenAI tools worker stopped after cancel (client abort / Stop). agentId={} reason={}',
+          'AI Assistant chat stream: Tools-loop tools worker stopped after cancel (client abort / Stop). agentId={} reason={}',
           agentId,
           ie.message
         )
@@ -3174,10 +3174,10 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     String wireBaseUrl = null
   ) {
     if (!apiKey) {
-      throw new IllegalStateException('OpenAI-compatible tools-off chat: API key missing')
+      throw new IllegalStateException('Tools-loop tools-off chat: API key missing')
     }
     if (!model?.toString()?.trim()) {
-      throw new IllegalStateException('OpenAI-compatible tools-off chat: model missing')
+      throw new IllegalStateException('Tools-loop tools-off chat: model missing')
     }
     def msgs = openAiChatCompletionMessagesForApi(openAiPrompt)
     // Groovy cannot resolve `new ChatCompletionRequest(msgs, model, null, true)` reliably: `null` matches
@@ -3192,12 +3192,12 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     def jsonBody = openAiChatCompletionsWireBodyApplyNeoTemperaturePolicy(ModelOptionsUtils.toJsonString(req))
     try {
       log.debug(
-        'OpenAI tools-off request wire (truncated): {}',
+        'Tools-loop tools-off request wire (truncated): {}',
         AiHttpProxy.elideForLog(jsonBody, 1200)
       )
     } catch (Throwable ignored) {}
     log.debug(
-      'OpenAI tools-off: RestClient exchange POST /v1/chat/completions (stream=true; forward upstream SSE) agentId={} model={} messageCount={}',
+      'Tools-loop tools-off: RestClient exchange POST /v1/chat/completions (stream=true; forward upstream SSE) agentId={} model={} messageCount={}',
       agentId,
       model,
       msgs.size()
@@ -3225,9 +3225,9 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
               } catch (Throwable ignored) {}
             }
             def bodyStr = new String(bytes, StandardCharsets.UTF_8)
-            log.error('OpenAI tools-off: HTTP {} body=\n{}', status, AiHttpProxy.elideForLog(bodyStr, 4000))
+            log.error('Tools-loop tools-off: HTTP {} body=\n{}', status, AiHttpProxy.elideForLog(bodyStr, 4000))
             throw new RestClientResponseException(
-              'OpenAI chat.completions',
+              'Tools-loop chat',
               status.value(),
               statusText,
               headers,
@@ -3250,7 +3250,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
       try {
         rb = e.getResponseBodyAsString(StandardCharsets.UTF_8)
       } catch (Throwable ignored) {}
-      log.error('OpenAI tools-off: HTTP {} body=\n{}', e.statusCode, AiHttpProxy.elideForLog(rb ?: '', 4000))
+      log.error('Tools-loop tools-off: HTTP {} body=\n{}', e.statusCode, AiHttpProxy.elideForLog(rb ?: '', 4000))
       Throwable toThrow = openAiPreferIllegalStateForInvalidModel(e, jsonBody?.toString())
       if (toThrow instanceof IllegalStateException) {
         throw (IllegalStateException) toThrow
@@ -3326,7 +3326,7 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
     def openAiBody = extractOpenAiHttpErrorBody(t)
     if (openAiBody?.trim() && (msg.contains('api.openai.com') || root instanceof WebClientResponseException || root instanceof RestClientResponseException)) {
       def elided = openAiBody.length() > 2000 ? openAiBody.substring(0, 2000) + '…' : openAiBody
-      return 'OpenAI request failed. HTTP detail: ' + elided
+      return 'Chat request failed. HTTP detail: ' + elided
     }
     if (msg.contains('HTTP 5') && msg.contains('api.crafterq.ai')) {
       return '''The remote chat service (api.crafterq.ai) returned a server error (HTTP 5xx). The Studio plugin is working; the failure is upstream.
@@ -3370,9 +3370,9 @@ Technical detail: ''' + msg
         }
       }
       def springAi = buildSpringAiChatClient(agentId, chatId, llm, openAiModel, openAiApiKey, null, imageModel, fullSuppress, protNorm, enableTools, imageGenerator)
-      if (formEngineClientForward && !StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi)) {
+      if (formEngineClientForward && !StudioAiLlmKind.useToolsLoopChatRestClient(springAi.llm, springAi)) {
         log.warn(
-          'Form-engine client-apply: llm is {} (not OpenAI-wire native tools). Use openAI / xAI / deepSeek / llama / genesis (gemini) on this agent for native RestClient tools + best compliance with crafterqFormFieldUpdates.',
+          'Form-engine client-apply: llm is {} (not a tools-loop RestClient row). Use openAI / xAI / deepSeek / llama / genesis (gemini) on this agent for native RestClient tools + best compliance with crafterqFormFieldUpdates.',
           springAi.llm
         )
       }
@@ -3380,14 +3380,14 @@ Technical detail: ''' + msg
       def userText = springAi.useTools ? addToolRequiredGuard(bodyPrompt, fullSuppress, protNorm) : bodyPrompt
       Prompt openAiPrompt = null
       def callSpec
-      if (StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi)) {
+      if (StudioAiLlmKind.useToolsLoopChatRestClient(springAi.llm, springAi)) {
         openAiPrompt = openAiAuthoringPrompt(
           userText,
           fullSuppress,
           protNorm,
           springAi.useTools,
           springAi.studioOps,
-          springAi.openAiApiKeyResolved
+          StudioAiLlmKind.toolsLoopChatApiKeyFromBundle(springAi)
         )
         logOpenAiChatCompletionsPayloadApprox(
           agentId,
@@ -3407,9 +3407,9 @@ Technical detail: ''' + msg
           : springAi.chatClient.prompt().user(userText)
       }
       String content
-      if (StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi) && springAi.useTools) {
+      if (StudioAiLlmKind.useToolsLoopChatRestClient(springAi.llm, springAi) && springAi.useTools) {
         content = openAiExecuteNativeToolsViaRestClientReturnText(
-          springAi.openAiApiKeyResolved,
+          StudioAiLlmKind.toolsLoopChatApiKeyFromBundle(springAi),
           (springAi.resolvedChatModel ?: resolveOpenAiModel(openAiModel)),
           openAiPrompt,
           springAi.tools,
@@ -3417,7 +3417,7 @@ Technical detail: ''' + msg
           null,
           null,
           null,
-          springAi.openAiWireBaseUrl
+          StudioAiLlmKind.toolsLoopChatBaseUrlFromBundle(springAi)
         )
       } else {
         def callResult = callSpec.call()
@@ -3429,7 +3429,7 @@ Technical detail: ''' + msg
       throw ise
     } catch (Exception e) {
       def body = extractOpenAiHttpErrorBody(e)
-      def suffix = body?.trim() ? " OpenAI body: ${body.length() > 1500 ? body.substring(0, 1500) + '…' : body}" : ''
+      def suffix = body?.trim() ? " Upstream body: ${body.length() > 1500 ? body.substring(0, 1500) + '…' : body}" : ''
       return [ok: false, message: "Spring AI chat failed: ${e.message}${suffix}"]
     }
   }
@@ -3459,7 +3459,7 @@ Technical detail: ''' + msg
       case 'ListCrafterQAgentChats':
       case 'GetCrafterQAgentChat':
         return '🔍'
-      case 'OpenAI':
+      case 'Tools-loop chat':
         // Waiting on chat.completions between tool rounds — not a repo read; distinct from 🔍 tools.
         return '🔄'
       case 'WriteContent':
@@ -3514,7 +3514,7 @@ Technical detail: ''' + msg
     boolean previousRoundHadRepoMutation = false
   ) {
     log.debug(
-      'OpenAI-wire → POST /v1/chat/completions phase=native_tool_loop round={} agentId={} model={} wireJsonChars={}',
+      'Tools-loop wire → POST /v1/chat/completions phase=native_tool_loop round={} agentId={} model={} wireJsonChars={}',
       zeroBasedRound + 1,
       agentId,
       model,
@@ -3524,7 +3524,7 @@ Technical detail: ''' + msg
       return
     }
     try {
-      String toolName = 'OpenAI'
+      String toolName = 'Tools-loop chat'
       String pfx = toolProgressLinePrefix(toolName)
       String line
       if (zeroBasedRound <= 0) {
@@ -3747,7 +3747,7 @@ Technical detail: ''' + msg
     return ''
   }
 
-  /** Terminal finish reasons from OpenAI chat.completions streaming (and some reasoning variants). */
+  /** Terminal finish reasons from Tools-loop chat streaming (and some reasoning variants). */
   private static boolean openAiFinishReasonImpliesStreamDone(String finishReason) {
     if (!finishReason) return false
     def fr = finishReason.trim().toLowerCase()
@@ -3805,7 +3805,7 @@ Technical detail: ''' + msg
 
   /**
    * When the author closes the chat stream (Stop / navigates away), Tomcat/Jetty usually breaks the outbound SSE write.
-   * The OpenAI+tools path runs work on a worker thread while the servlet thread waits on {@link Future#get}; probing
+   * The Tools-loop+tools path runs work on a worker thread while the servlet thread waits on {@link Future#get}; probing
    * {@code flush()} between short timeouts detects disconnect so we can cancel tools and stop burning tokens.
    */
   private boolean probeSseClientDisconnected(OutputStream out) {
@@ -3828,7 +3828,7 @@ Technical detail: ''' + msg
 
   /**
    * Author-facing text for terminal SSE errors. {@link RestClientResponseException#getMessage()} is often only
-   * {@code OpenAI chat.completions} (first ctor arg) — authors need HTTP status and OpenAI's JSON {@code error} body.
+   * {@code RestClientResponseException#getMessage()} is often only the short ctor label (first ctor arg) — authors need HTTP status and the upstream JSON {@code error} body.
    */
   private static String formatSseStreamErrorMessage(Throwable t) {
     if (t == null) {
@@ -3851,7 +3851,7 @@ Technical detail: ''' + msg
         int code = r.getStatusCode().value()
         def st = (r.getStatusText() ?: '').toString()
         def elided = AiHttpProxy.elideForLog(body, 1500)
-        return "OpenAI chat.completions HTTP ${code} ${st}: ${elided ?: '(empty body)'}".trim()
+        return "Tools-loop chat HTTP ${code} ${st}: ${elided ?: '(empty body)'}".trim()
       }
       if (cur instanceof WebClientResponseException) {
         WebClientResponseException w = (WebClientResponseException) cur
@@ -3863,7 +3863,7 @@ Technical detail: ''' + msg
         int code = w.getStatusCode().value()
         def st = (w.getStatusText() ?: '').toString()
         def elided = AiHttpProxy.elideForLog(body, 1500)
-        return "OpenAI HTTP ${code} ${st}: ${elided ?: '(empty body)'}".trim()
+        return "Tools-loop chat HTTP ${code} ${st}: ${elided ?: '(empty body)'}".trim()
       }
       cur = cur.cause
     }
@@ -3980,9 +3980,9 @@ Technical detail: ''' + msg
         }
       }
       def springAi = buildSpringAiChatClient(agentId, chatId, llm, openAiModel, openAiApiKey, toolProgressListener, imageModel, fullSuppress, protNorm, enableTools, imageGenerator)
-      if (formEngineClientForward && !StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi)) {
+      if (formEngineClientForward && !StudioAiLlmKind.useToolsLoopChatRestClient(springAi.llm, springAi)) {
         log.warn(
-          'Form-engine client-apply: llm is {} (not OpenAI-wire native tools). Use openAI / xAI / deepSeek / llama / genesis (gemini) on this agent for native RestClient tools + best compliance with crafterqFormFieldUpdates.',
+          'Form-engine client-apply: llm is {} (not a tools-loop RestClient row). Use openAI / xAI / deepSeek / llama / genesis (gemini) on this agent for native RestClient tools + best compliance with crafterqFormFieldUpdates.',
           springAi.llm
         )
       }
@@ -3997,14 +3997,14 @@ Technical detail: ''' + msg
       // use RestClient + stream:false + JsonSlurper tool loop on a worker thread with the same await budget.
       Prompt openAiPrompt = null
       def promptSpec
-      if (StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi)) {
+      if (StudioAiLlmKind.useToolsLoopChatRestClient(springAi.llm, springAi)) {
         openAiPrompt = openAiAuthoringPrompt(
           userText,
           fullSuppress,
           protNorm,
           springAi.useTools,
           springAi.studioOps,
-          springAi.openAiApiKeyResolved
+          StudioAiLlmKind.toolsLoopChatApiKeyFromBundle(springAi)
         )
         logOpenAiChatCompletionsPayloadApprox(
           agentId,
@@ -4015,11 +4015,11 @@ Technical detail: ''' + msg
         if (!springAi.useTools) {
           writeOpenAiToolsOffViaChatCompletionEntity(
             out,
-            springAi.openAiApiKeyResolved,
+            StudioAiLlmKind.toolsLoopChatApiKeyFromBundle(springAi),
             (springAi.resolvedChatModel ?: resolveOpenAiModel(openAiModel)),
             openAiPrompt,
             agentId,
-            springAi.openAiWireBaseUrl
+            StudioAiLlmKind.toolsLoopChatBaseUrlFromBundle(springAi)
           )
           return null
         }
@@ -4029,7 +4029,7 @@ Technical detail: ''' + msg
           ? springAi.chatClient.prompt().user(userText).tools(*springAi.tools)
           : springAi.chatClient.prompt().user(userText)
       }
-      def openAiToolsBlockingForStudioStream = (StudioAiLlmKind.useOpenAiRestClientToolLoop(springAi.llm, springAi) && springAi.useTools)
+      def openAiToolsBlockingForStudioStream = (StudioAiLlmKind.useToolsLoopChatRestClient(springAi.llm, springAi) && springAi.useTools)
 
       // OpenAI + native tools: RestClient loop streams **## Plan** (or fallback) before repo tool rows. Sending the
       // workflow hint first makes the client treat 🛠️ as the first chunk and clears main text — authors see tools
@@ -4054,7 +4054,7 @@ Technical detail: ''' + msg
 
       def flux = null
       try {
-        // Tool workflows: chatResponse() flux — skipped for OpenAI+tools (hung upstream SSE on some Studio JVMs).
+        // Tool workflows: chatResponse() flux — skipped for Tools-loop+tools (hung upstream SSE on some Studio JVMs).
         if (springAi.useTools && !openAiToolsBlockingForStudioStream) {
           def streamSpec = promptSpec.stream()
           if (streamSpec?.metaClass?.respondsTo(streamSpec, 'chatResponse')) {
@@ -4068,8 +4068,9 @@ Technical detail: ''' + msg
       if (flux != null && springAi.useTools && !openAiToolsBlockingForStudioStream) {
         markPipelineWallStart(toolTimingCtx)
         log.debug(
-          'chatStreamWithSpringAi stream path: using chatResponse flux (await max {} ms). OpenAI default base URL for Spring AI client: https://api.openai.com/v1 — model={}',
+          'chatStreamWithSpringAi stream path: using chatResponse flux (await max {} ms). llm={} model={}',
           CHAT_FLUX_AWAIT_MS,
+          springAi.llm,
           modelForLog
         )
         def latch = new CountDownLatch(1)
@@ -4123,7 +4124,7 @@ Technical detail: ''' + msg
                 )
               } else if (loggedEmptyAssistantTextDelta.compareAndSet(false, true)) {
                 log.debug(
-                  'chatStreamWithSpringAi: stream delta with empty assistant text (agentId={}, model={}); some adapters only emit chunks when there is assistant text or completed=true. Newer OpenAI models may stream tool/reasoning segments without text first — the browser stays blank until the first text chunk (this is not proof the HTTP request body was invalid).',
+                  'chatStreamWithSpringAi: stream delta with empty assistant text (agentId={}, model={}); some adapters only emit chunks when there is assistant text or completed=true. Some chat models may stream tool/reasoning segments without text first — the browser stays blank until the first text chunk (this is not proof the HTTP request body was invalid).',
                   agentId,
                   modelForLog
                 )
@@ -4156,7 +4157,7 @@ Technical detail: ''' + msg
             try {
               def body = extractOpenAiHttpErrorBody(err)
               if (body?.trim()) {
-                log.error('OpenAI chat.completions error response body: {}', AiHttpProxy.elideForLog(body, 4000))
+                log.error('Tools-loop chat error response body: {}', AiHttpProxy.elideForLog(body, 4000))
               }
             } catch (Throwable ignored) {}
             errorRef.set(err)
@@ -4214,7 +4215,7 @@ Technical detail: ''' + msg
             modelForLog
           )
           log.debug(
-            'AI Assistant: cancelling Reactor subscription to OpenAI POST /v1/chat/completions (agentId={}, model={}); this closes the outbound HTTP connection so OpenAI receives a client disconnect for this request.',
+            'AI Assistant: cancelling Reactor subscription to tools-loop POST /v1/chat/completions (agentId={}, model={}); this closes the outbound HTTP connection so the chat host sees a client disconnect for this request.',
             agentId,
             modelForLog
           )
@@ -4226,8 +4227,9 @@ Technical detail: ''' + msg
             log.error('chatStreamWithSpringAi: flux error after cancel', errAfterCancel)
             writeSseErrorFrame(out, errAfterCancel)
           } else {
-            def msg = """OpenAI chat stream did not finish within ${(CHAT_FLUX_AWAIT_MS / 1000) as int} seconds (server-side limit); the Studio plugin cancelled the upstream HTTP request to api.openai.com. \
-If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, OpenAI account status, and the model id (${modelForLog}). \
+            def msg = """Chat stream did not finish within ${(CHAT_FLUX_AWAIT_MS / 1000) as int} seconds (server-side limit); the Studio plugin cancelled the upstream HTTP request to your configured chat host.
+
+If this is unexpected: verify outbound HTTPS from Studio to that host, API key and account status, and the model id (${modelForLog}).
 Check Studio logs for Spring AI / WebClient / reactor.netty lines emitted for this request."""
             writeSseErrorFrame(out, new TimeoutException(msg))
           }
@@ -4249,13 +4251,13 @@ Check Studio logs for Spring AI / WebClient / reactor.netty lines emitted for th
         )
         if (openAiToolsBlockingForStudioStream) {
           log.debug(
-            'chatStreamWithSpringAi: OpenAI+tools RestClient loop with {} ms cap (agentId={}, model={})',
+            'chatStreamWithSpringAi: Tools-loop+tools RestClient loop with {} ms cap (agentId={}, model={})',
             CHAT_FLUX_AWAIT_MS,
             agentId,
             modelForLog
           )
           if (openAiPrompt == null) {
-            throw new IllegalStateException('OpenAI tools stream: prompt missing')
+            throw new IllegalStateException('Tools-loop tools stream: prompt missing')
           }
           ExecutorService pool = Executors.newSingleThreadExecutor()
           AtomicBoolean cancelRequested = new AtomicBoolean(false)
@@ -4264,7 +4266,7 @@ Check Studio logs for Spring AI / WebClient / reactor.netty lines emitted for th
             def fut = pool.submit({
               writeOpenAiToolsOnViaRestClientToolLoop(
                 out,
-                springAi.openAiApiKeyResolved,
+                StudioAiLlmKind.toolsLoopChatApiKeyFromBundle(springAi),
                 (springAi.resolvedChatModel ?: resolveOpenAiModel(openAiModel)),
                 openAiPrompt,
                 springAi.tools,
@@ -4272,7 +4274,7 @@ Check Studio logs for Spring AI / WebClient / reactor.netty lines emitted for th
                 toolTimingCtx,
                 cancelRequested,
                 openAiToolsTerminalEmitted,
-                springAi.openAiWireBaseUrl
+                StudioAiLlmKind.toolsLoopChatBaseUrlFromBundle(springAi)
               )
               null
             } as Callable)
@@ -4290,14 +4292,14 @@ Check Studio logs for Spring AI / WebClient / reactor.netty lines emitted for th
                   } catch (Throwable ignored) {
                   }
                   log.warn(
-                    'AI Assistant chat stream: server-side timeout — cancelling OpenAI tool worker ({}s cap). agentId={} model={}',
+                    'AI Assistant chat stream: server-side timeout — cancelling Tools-loop tool worker ({}s cap). agentId={} model={}',
                     (CHAT_FLUX_AWAIT_MS / 1000) as int,
                     agentId,
                     modelForLog
                   )
-                  def msg = """OpenAI tool chat did not finish within ${(CHAT_FLUX_AWAIT_MS / 1000) as int} seconds (server-side limit); the request was cancelled.
+                  def msg = """Tools-loop chat did not finish within ${(CHAT_FLUX_AWAIT_MS / 1000) as int} seconds (server-side limit); the request was cancelled.
 
-If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, OpenAI account status, and the model id (${modelForLog})."""
+If this is unexpected: verify outbound HTTPS from Studio to your configured chat host, API key and account status, and the model id (${modelForLog})."""
                   writeSseErrorFrame(out, new TimeoutException(msg))
                   markOpenAiToolsTerminalEmitted(openAiToolsTerminalEmitted)
                   pool.shutdownNow()
@@ -4314,7 +4316,7 @@ If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, Open
                     }
                     stoppedByClient = true
                     log.warn(
-                      'AI Assistant chat stream: CLIENT_ABORT — author stopped chat or browser closed SSE; cancelling OpenAI tool worker (interrupt + executor shutdown). agentId={} model={}',
+                      'AI Assistant chat stream: CLIENT_ABORT — author stopped chat or browser closed SSE; cancelling Tools-loop tool worker (interrupt + executor shutdown). agentId={} model={}',
                       agentId,
                       modelForLog
                     )
@@ -4326,7 +4328,7 @@ If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, Open
                     long elapsedSec = (nowHb - pipelineWaitStartMs) / 1000L
                     def workerPhase = crafterQToolWorkerDiagPhaseGet()
                     log.debug(
-                      'Studio AI Assistant SSE heartbeat: waiting on OpenAI+tools worker elapsedSec={} agentId={} model={} workerPhase={}',
+                      'Studio AI Assistant SSE heartbeat: waiting on Tools-loop+tools worker elapsedSec={} agentId={} model={} workerPhase={}',
                       elapsedSec,
                       agentId,
                       modelForLog,
@@ -4358,17 +4360,17 @@ If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, Open
                 fut.get()
               } catch (CancellationException ce) {
                 log.warn(
-                  'AI Assistant chat stream: OpenAI tool Future cancelled (timeout or client abort). agentId={} detail={}',
+                  'AI Assistant chat stream: Tools-loop tool Future cancelled (timeout or client abort). agentId={} detail={}',
                   agentId,
                   ce.message
                 )
-                ensureSseTerminalCompletedIfNeeded(out, toolTimingCtx, openAiToolsTerminalEmitted, 'OpenAI tool Future cancelled')
+                ensureSseTerminalCompletedIfNeeded(out, toolTimingCtx, openAiToolsTerminalEmitted, 'Tools-loop tool Future cancelled')
                 return null
               } catch (ExecutionException ee) {
                 Throwable c = ee.getCause() != null ? ee.getCause() : ee
                 if (c instanceof InterruptedException && CRAFTQ_PIPELINE_CANCELLED == (c.message ?: '').toString()) {
                   log.warn(
-                    'AI Assistant chat stream: OpenAI tool pipeline exited cooperatively after CLIENT_ABORT cancel flag. agentId={}',
+                    'AI Assistant chat stream: Tools-loop tool pipeline exited cooperatively after CLIENT_ABORT cancel flag. agentId={}',
                     agentId
                   )
                   ensureSseTerminalCompletedIfNeeded(out, toolTimingCtx, openAiToolsTerminalEmitted, 'pipeline cancelled cooperatively')
@@ -4383,9 +4385,9 @@ If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, Open
                   return null
                 }
                 if (c instanceof IllegalStateException) {
-                  log.error('chatStreamWithSpringAi: OpenAI tool worker failed', c)
+                  log.error('chatStreamWithSpringAi: Tools-loop tool worker failed', c)
                   writeSseErrorFrame(out, c)
-                  ensureSseTerminalCompletedIfNeeded(out, toolTimingCtx, openAiToolsTerminalEmitted, 'OpenAI tool worker failed')
+                  ensureSseTerminalCompletedIfNeeded(out, toolTimingCtx, openAiToolsTerminalEmitted, 'Tools-loop tool worker failed')
                   return null
                 }
                 throw ee
@@ -4404,7 +4406,7 @@ If this is unexpected: verify outbound HTTPS from Studio to api.openai.com, Open
               } catch (Throwable ignored) {
               }
               log.warn(
-                'AI Assistant chat stream: servlet thread interrupted while waiting for OpenAI tool worker — cancelling. agentId={}',
+                'AI Assistant chat stream: servlet thread interrupted while waiting for Tools-loop tool worker — cancelling. agentId={}',
                 agentId
               )
               ensureSseTerminalCompletedIfNeeded(out, toolTimingCtx, openAiToolsTerminalEmitted, 'servlet thread interrupted')

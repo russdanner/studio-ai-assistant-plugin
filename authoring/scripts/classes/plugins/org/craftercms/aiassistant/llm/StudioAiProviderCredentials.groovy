@@ -5,7 +5,7 @@ import org.springframework.ai.openai.api.common.OpenAiApiConstants
 import java.util.Locale
 
 /**
- * API keys, default models, and OpenAI-compatible {@link org.springframework.ai.openai.api.OpenAiApi} base URLs
+ * API keys, default models, and tools-loop {@link org.springframework.ai.openai.api.OpenAiApi} base URLs
  * for non-OpenAI {@link StudioAiLlmKind} values. RestClient + {@code OpenAiApi} append {@code /v1/chat/completions}
  * to the base URL — bases here must <strong>not</strong> include a trailing {@code /v1}.
  */
@@ -110,7 +110,7 @@ final class StudioAiProviderCredentials {
       )
     }
     if (StudioAiLlmKind.LLAMA_NATIVE == n) {
-      // Ollama often accepts any non-empty placeholder; still allow env for hosted OpenAI-compatible Llama endpoints.
+      // Ollama often accepts any non-empty placeholder; still allow env for hosted tools-loop Llama endpoints.
       String k = resolveOpenAiStyleKey(
         'LLAMA_API_KEY',
         'crafter.llama.apiKey',
@@ -205,10 +205,10 @@ final class StudioAiProviderCredentials {
       return 'LLM is DeepSeek but no API key was found. Set DEEPSEEK_API_KEY or JVM crafter.deepseek.apiKey on Studio. For local testing only, optional agent <openAiApiKey> in ui.xml.'
     }
     if (StudioAiLlmKind.LLAMA_NATIVE == n) {
-      return 'LLM is llama (OpenAI-compatible) but no key was resolved. Set LLAMA_API_KEY / crafter.llama.apiKey for hosted endpoints, or rely on the Ollama default placeholder when the server does not require a secret.'
+      return 'LLM is llama (tools-loop host) but no key was resolved. Set LLAMA_API_KEY / crafter.llama.apiKey for hosted endpoints, or rely on the Ollama default placeholder when the server does not require a secret.'
     }
     if (StudioAiLlmKind.GEMINI_NATIVE == n) {
-      return 'LLM is gemini (Google OpenAI-compatible) but no API key was found. Set GEMINI_API_KEY or GOOGLE_API_KEY (or JVM crafter.gemini.apiKey / crafter.google.apiKey).'
+      return 'LLM is gemini (Google tools-loop endpoint) but no API key was found. Set GEMINI_API_KEY or GOOGLE_API_KEY (or JVM crafter.gemini.apiKey / crafter.google.apiKey).'
     }
     return 'No API key was found for this LLM provider.'
   }

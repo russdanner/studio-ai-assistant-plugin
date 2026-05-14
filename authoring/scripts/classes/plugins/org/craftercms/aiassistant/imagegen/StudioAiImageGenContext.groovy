@@ -11,9 +11,9 @@ final class StudioAiImageGenContext {
   final String siteId
   final String llmNormalized
   final String defaultImageModel
-  /** API key for OpenAI-compatible Images wire when applicable; may be blank for pure script backends. */
+  /** API key for the built-in Images wire when applicable; may be blank for pure script backends. */
   final String imagesApiKey
-  /** Absolute POST URL for OpenAI-compatible {@code /v1/images/generations} when applicable. */
+  /** Absolute POST URL for {@code /v1/images/generations} on the built-in wire when applicable. */
   final String imagesGenerationsHttpUrl
   /** Raw agent/request {@code imageGenerator} spec (e.g. blank, {@code openAiWire}, {@code script:mygen}). */
   final String generatorSpec

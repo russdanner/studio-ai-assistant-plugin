@@ -48,7 +48,7 @@ import {
   STUDIO_AI_CLAUDE_CHAT_MODELS,
   STUDIO_AI_DEFAULT_IMAGE_MODEL,
   STUDIO_AI_LLM_VENDOR_IDS,
-  STUDIO_AI_OPENAI_WIRE_CHAT_MODELS
+  STUDIO_AI_TOOLS_LOOP_CHAT_MODELS
 } from './studioAiOrchestrationToolIds';
 import {
   CENTRAL_AGENTS_STUDIO_PATH,
@@ -84,7 +84,7 @@ function parseLlmVendorAndScript(llm: unknown): { vendor: string; scriptId: stri
 
 /**
  * Older builds set `llmModel` to the script folder id when editing script LLMs — that collides with provider model
- * (`<llmModel>` for Cursor, etc.). Strip that mistake so reload/edit round-trips correctly.
+ * (`<llmModel>` for provider-specific model ids). Strip that mistake so reload/edit round-trips correctly.
  */
 function sanitizeScriptLlmModelField(entry: CentralAgentFileEntry): CentralAgentFileEntry {
   const llmRaw = String(entry.llm ?? '').trim();
@@ -139,7 +139,7 @@ function setToolCheckedOnEntry(d: CentralAgentFileEntry, toolId: string, checked
 
 function llmModelPresetRows(vendor: string): readonly string[] {
   if (vendor === 'claude') return STUDIO_AI_CLAUDE_CHAT_MODELS;
-  return STUDIO_AI_OPENAI_WIRE_CHAT_MODELS;
+  return STUDIO_AI_TOOLS_LOOP_CHAT_MODELS;
 }
 
 function CmsToolCheckboxes(props: {
@@ -789,7 +789,7 @@ const AiAssistantCentralAgentsConfiguration = forwardRef<
                         });
                       }}
                     >
-                      <MenuItem value="openai">OpenAI-compatible (default)</MenuItem>
+                      <MenuItem value="openai">Built-in image API (default)</MenuItem>
                       <MenuItem value="none">None / disabled</MenuItem>
                       <MenuItem value="script">Site script</MenuItem>
                     </Select>

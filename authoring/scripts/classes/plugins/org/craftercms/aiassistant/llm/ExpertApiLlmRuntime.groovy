@@ -51,15 +51,17 @@ class ExpertApiLlmRuntime implements StudioAiLlmRuntime {
     def chatClient = new DefaultChatClientBuilder(chatModel).build()
     log.debug('Spring AI chat client: provider=CrafterQ remote API agentId={}', req.agentId)
     return [
-      chatClient          : chatClient,
-      chatModel           : chatModel,
-      tools               : tools,
-      llm                 : StudioAiLlmKind.CRAFTERRQ_REMOTE_API,
-      useTools            : false,
-      studioOps           : req.studioOps,
-      openAiApiKeyResolved: null,
-      openAiWireBaseUrl   : null,
-      resolvedChatModel   : null
+      chatClient              : chatClient,
+      chatModel               : chatModel,
+      tools                   : tools,
+      llm                     : StudioAiLlmKind.CRAFTERRQ_REMOTE_API,
+      useTools                : false,
+      studioOps               : req.studioOps,
+      toolsLoopChatApiKey     : null,
+      toolsLoopChatBaseUrl    : null,
+      openAiApiKeyResolved    : null,
+      openAiWireBaseUrl       : null,
+      resolvedChatModel       : null
     ]
   }
 }

@@ -82,15 +82,17 @@ class AnthropicSpringAiLlmRuntime implements StudioAiLlmRuntime {
       apiKey.length()
     )
     return [
-      chatClient          : chatClient,
-      chatModel           : chatModel,
-      tools               : tools,
-      llm                 : StudioAiLlmKind.CLAUDE_NATIVE,
-      useTools            : req.enableTools,
-      studioOps           : req.studioOps,
-      openAiApiKeyResolved: apiKey,
-      openAiWireBaseUrl   : null,
-      resolvedChatModel   : modelName
+      chatClient              : chatClient,
+      chatModel               : chatModel,
+      tools                   : tools,
+      llm                     : StudioAiLlmKind.CLAUDE_NATIVE,
+      useTools                : req.enableTools,
+      studioOps               : req.studioOps,
+      toolsLoopChatApiKey     : apiKey,
+      toolsLoopChatBaseUrl    : null,
+      openAiApiKeyResolved    : apiKey,
+      openAiWireBaseUrl       : null,
+      resolvedChatModel       : modelName
     ]
   }
 }

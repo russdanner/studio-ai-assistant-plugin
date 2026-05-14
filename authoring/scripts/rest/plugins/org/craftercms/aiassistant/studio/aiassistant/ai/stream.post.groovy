@@ -28,8 +28,8 @@ import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
  *   "omitTools": optional boolean — when true, CMS function tools are omitted for this request only (copy/image-style LLM steps); overrides enableTools. Same for XB/ICE preview chat, dialog, and form-engine (`authoringSurface`). Absent/false keeps normal tool registration from enableTools/agent defaults.
  *   "enabledBuiltInTools": optional JSON array of tool name strings — after site {@code tools.json} policy, only these built-in tools (exact wire names) remain registered; include {@code "mcp:*"} to keep all dynamic {@code mcp_*} tools. Absent or empty = no per-request subset (full catalog subject to site policy).
  *   "llmModel": optional string — OpenAI chat model id (e.g. gpt-4o-mini).
- *   "imageModel": optional string — Default image model for OpenAI-compatible **GenerateImage** wire (e.g. gpt-image-1); agent ui.xml **imageModel**; no JVM fallback. Ignored when **imageGenerator** selects a pure script backend unless the script reads it from context.
- *   "imageGenerator": optional string — **GenerateImage** backend: blank = OpenAI-compatible Images wire when key+imageModel exist; **none** / **off** / **disabled** omits the tool; **script:{id}** runs **`/scripts/aiassistant/imagegen/{id}/generate.groovy`**. Agent ui.xml **imageGenerator**; merged from site ui.xml like **imageModel** when POST omits it.
+ *   "imageModel": optional string — Default image model for GenerateImage on the built-in images wire (e.g. gpt-image-1); agent ui.xml **imageModel**; no JVM fallback. Ignored when **imageGenerator** selects a pure script backend unless the script reads it from context.
+ *   "imageGenerator": optional string — **GenerateImage** backend: blank = built-in Images wire when key+imageModel exist; **none** / **off** / **disabled** omits the tool; **script:{id}** runs **`/scripts/aiassistant/imagegen/{id}/generate.groovy`**. Agent ui.xml **imageGenerator**; merged from site ui.xml like **imageModel** when POST omits it.
  *   "expertSkills": optional JSON array of { name, url, description } — per-agent markdown URLs for {@code QueryExpertGuidance} (Spring AI vector store); normalized server-side.
  *   "translateBatchConcurrency": optional integer 1–64 — parallel {@code TranslateContentBatch} workers when the model omits {@code maxConcurrency}; from agent ui.xml; server default 25 when omitted.
  *   "crafterQBearerTokenEnv": optional string — name of a **Studio host environment variable** holding the CrafterQ JWT; server sets {@code Authorization: Bearer} on outbound api.crafterq.ai calls when {@code System.getenv} returns a non-blank value (preferred over literal token in config).
@@ -173,7 +173,7 @@ try {
   def enableTools = omitTools ? false : enableToolsRequested
   log.info("STREAM endpoint hit: agentId={} llm={} promptLen={} chatIdPresent={} siteId={} contentPathPresent={} previewTokenResolvedPresent={} formEngineSurface={} formEngineClientJsonApply={} formEngineItemPath={} fullSuppressWritesFallback={} omitTools={} enableToolsRequested={} enableToolsEffective={}", agentId, llm, (promptForOrchestration ?: '').length(), (chatId != null && chatId.toString().trim().length() > 0), siteIdBody ?: params?.siteId, (previewPathForLog ? true : false), previewTokenResolvedPresent, formEngineForLog, clientJsonApplyForLog, formEngineItemNorm ?: '(none)', fullSuppressWritesFallback, omitTools, enableToolsRequested, enableTools)
 
-  // Default remote hosted chat adapter requires agentId; in-studio Spring AI paths (OpenAI-wire, Claude, script) may omit it.
+  // Default remote hosted chat adapter requires agentId; in-studio Spring AI paths (tools-loop chat, Claude, script) may omit it.
   if (!agentId && StudioAiLlmKind.isCrafterQRemoteApi(llmNorm)) {
     response.setStatus(HttpServletResponse.SC_BAD_REQUEST)
     response.setContentType('application/json')

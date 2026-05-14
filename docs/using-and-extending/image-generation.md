@@ -8,7 +8,7 @@ The **GenerateImage** tool is not hard-wired to a single vendor. The server pick
 
 | Mechanism | When it applies |
 |-----------|------------------|
-| **Default wire** | Blank **`imageGenerator`** + OpenAI-compatible Images URL + API key + **`imageModel`** (e.g. GPT Image ids) |
+| **Default wire** | Blank **`imageGenerator`** + default **GenerateImage** HTTP URL + API key + **`imageModel`** (e.g. GPT Image ids) |
 | **`none` / `off` / `disabled`** | Tool is not registered |
 | **`script:{id}`** | Site Groovy: **`config/studio/scripts/aiassistant/imagegen/{id}/generate.groovy`** |
 

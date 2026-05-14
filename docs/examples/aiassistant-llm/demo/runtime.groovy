@@ -3,7 +3,7 @@
 //
 // Minimal illustration: temporarily re-targets llmNormalized to the built-in OpenAI runtime for one call.
 // For production-style script LLMs that fully own keys, base URL, and ChatModel construction, see
-// docs/using-and-extending/script-llm-bring-your-own-backend.md and docs/examples/aiassistant-llm/byo-openai-compat/runtime.groovy
+// docs/using-and-extending/script-llm-bring-your-own-backend.md and docs/examples/aiassistant-llm/byo-openai-compat/runtime.groovy (tools-loop custom-host sample)
 // (StudioAiScriptLlmContainerRuntime overwrites bundle.llm to scriptLlm:demo after this closure returns).
 
 import plugins.org.craftercms.aiassistant.llm.OpenAiSpringAiLlmRuntime

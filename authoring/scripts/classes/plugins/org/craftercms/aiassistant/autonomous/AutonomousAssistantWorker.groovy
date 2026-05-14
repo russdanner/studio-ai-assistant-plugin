@@ -28,9 +28,10 @@ import plugins.org.craftercms.aiassistant.tools.AiOrchestrationTools
 import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
 
 /**
- * Runs a single autonomous assistant step. Requires an **OpenAI-wire** session: built-in {@code openAI} / xAI /
+ * Runs a single autonomous assistant step. Requires a **tools-loop RestClient** session: built-in {@code openAI} (OpenAI vendor) / xAI /
  * DeepSeek / llama / genesis (gemini), or {@code script:…} site Groovy whose {@code buildSessionBundle} returns
- * {@code openAiApiKeyResolved}, {@code resolvedChatModel}, and {@code openAiWireBaseUrl}. **Claude** is not supported
+ * {@code toolsLoopChatApiKey} (or legacy {@code openAiApiKeyResolved}), {@code resolvedChatModel}, and
+ * {@code toolsLoopChatBaseUrl} (or legacy {@code openAiWireBaseUrl}). **Claude** is not supported
  * for autonomous runs yet.
  * Always sends the Studio {@code tools[]} catalog and runs the native tool loop; for plain drafting without CMS
  * reads/writes in the same inner pass, the model should call the {@code GenerateTextNoTools} tool. Empty catalog,
@@ -66,7 +67,7 @@ final class AutonomousAssistantWorker {
       String normLlm = StudioAiLlmKind.normalize(llm)
       if (!StudioAiLlmKind.supportsAutonomousNativeTools(normLlm)) {
         throw new IllegalStateException(
-          "AutonomousAssistantWorker requires an OpenAI-wire llm (openAI, xAI, deepSeek, llama, genesis/gemini) or script:… site Groovy LLM with an OpenAI-wire bundle; got llm='${llm}' (normalized='${normLlm}'). Claude (claude) is not supported for autonomous runs yet."
+          "AutonomousAssistantWorker requires a tools-loop llm (openAI, xAI, deepSeek, llama, genesis/gemini) or script:… site Groovy LLM with tools-loop bundle fields; got llm='${llm}' (normalized='${normLlm}'). Claude (claude) is not supported for autonomous runs yet."
         )
       }
       String openAiImageExpertKey = AiOrchestration.resolveOpenAiApiKey(definition?.openAiApiKey)
@@ -170,12 +171,12 @@ final class AutonomousAssistantWorker {
           agentEnabledBuiltInTools: null
         )
         Map bundle = StudioAiLlmRuntimeFactory.runtimeFor(normLlm).buildSessionBundle(bundleReq)
-        chatApiKey = (bundle?.get('openAiApiKeyResolved') ?: '').toString()
+        chatApiKey = StudioAiLlmKind.toolsLoopChatApiKeyFromBundle(bundle)
         model = (bundle?.get('resolvedChatModel') ?: '').toString()
-        wireBaseUrl = (bundle?.get('openAiWireBaseUrl') ?: '').toString()
+        wireBaseUrl = StudioAiLlmKind.toolsLoopChatBaseUrlFromBundle(bundle)
         if (!chatApiKey.trim() || !model.trim() || !wireBaseUrl.trim()) {
           throw new IllegalStateException(
-            'Autonomous assistant requires an OpenAI-wire session (resolved API key, chat model, and openAiWireBaseUrl). For script LLM, return these keys from buildSessionBundle.'
+            'Autonomous assistant requires a tools-loop session (resolved API key, chat model, and toolsLoopChatBaseUrl or legacy openAiWireBaseUrl). For script LLM, return these keys from buildSessionBundle.'
           )
         }
         String authoringStack = AiOrchestration.openAiAuthoringSystemOnlyForHeadless(

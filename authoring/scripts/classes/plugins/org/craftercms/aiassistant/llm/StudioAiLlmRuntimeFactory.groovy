@@ -11,7 +11,7 @@ final class StudioAiLlmRuntimeFactory {
     if (StudioAiLlmKind.isScriptHostedLlm(normalizedKind)) {
       return new StudioAiScriptLlmContainerRuntime(StudioAiLlmKind.scriptLlmIdFromNormalized(normalizedKind))
     }
-    if (StudioAiLlmKind.useOpenAiRestClientToolLoopBuiltIn(normalizedKind)) {
+    if (StudioAiLlmKind.useToolsLoopChatRestClientBuiltInKinds(normalizedKind)) {
       return OpenAiSpringAiLlmRuntime.INSTANCE
     }
     if (StudioAiLlmKind.isAnthropicClaude(normalizedKind)) {

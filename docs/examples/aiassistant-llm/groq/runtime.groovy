@@ -1,16 +1,20 @@
-// Copy to: config/studio/scripts/aiassistant/llm/byo-openai-compat/runtime.groovy
-// Agent: <llm>script:byo-openai-compat</llm>
-// Script id "byo-openai-compat" is historical; this sample is a tools-loop (tools-compatible) custom chat host.
+// Copy to: config/studio/scripts/aiassistant/llm/groq/runtime.groovy
+// Agent: <llm>script:groq</llm>
 //
-// Full vendor replacement: this script builds the entire Spring AI session (library chat types + AiOrchestrationTools)
-// for Studio’s tools-loop chat. It does NOT delegate to the plugin’s built-in Spring chat LLM runtimes.
+// Groq Cloud — chat + native CMS tools using Studio’s tools-loop HTTP shape. Vendor docs:
+// https://console.groq.com/docs/openai — that is Groq’s documentation URL slug, not “run chat on another vendor’s cloud.”
 //
-// Configure Studio (host-only base URL, no trailing /v1). Env/JVM identifiers below are legacy plugin spellings:
-//   export SCRIPT_LLM_OPENAI_COMPAT_BASE_URL=https://api.example.com
-//   export SCRIPT_LLM_API_KEY=...
-// JVM: -Dstudio.scriptLlm.openAiCompatBaseUrl=... -Dstudio.scriptLlm.apiKey=...
-// Per-agent chat model: <llmModel> or POST llmModel → req.openAiModelParam (legacy request field name)
-// Testing-only key from widget: optional agent <openAiApiKey> → req.openAiApiKeyFromRequest (legacy names)
+// Required on the Studio host:
+//   export GROQ_API_KEY=gsk_...
+// Optional — tools-loop chat base URL (host only, no trailing /v1). Env var names are legacy plugin spellings:
+//   export GROQ_OPENAI_COMPAT_BASE_URL=https://api.groq.com/openai
+//   export SCRIPT_LLM_OPENAI_COMPAT_BASE_URL=...   (same meaning as GROQ_* if you share one pattern across script LLMs)
+//   export SCRIPT_LLM_API_KEY=...                  (optional alias for GROQ_API_KEY)
+// JVM overrides use the same legacy spellings (they configure *this* script LLM only, regardless of name):
+//   -Dstudio.scriptLlm.openAiCompatBaseUrl=...   -Dstudio.scriptLlm.apiKey=...
+// Per-agent chat model: <llmModel> or POST llmModel → req.openAiModelParam (legacy field name on the request object); default below if unset.
+//
+// Built-in GenerateImage / expert embeddings use Studio’s separate image-and-embedding configuration (not GROQ_API_KEY); see plugin docs for env/JVM names.
 
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.DefaultChatClientBuilder
@@ -24,17 +28,18 @@ import plugins.org.craftercms.aiassistant.llm.StudioAiRuntimeBuildRequest
 import plugins.org.craftercms.aiassistant.orchestration.AiOrchestration
 import plugins.org.craftercms.aiassistant.tools.AiOrchestrationTools
 
-/**
- * Bring-your-own tools-loop chat host: any vendor whose HTTP API matches what Spring {@code OpenAiApi} expects.
- */
-class BringYourOwnToolsLoopHostRuntime implements StudioAiLlmRuntime {
+/** Groq-backed script LLM: Spring AI chat client wired for Groq’s tools-loop host. */
+class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
 
-  private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(BringYourOwnToolsLoopHostRuntime.class)
+  private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(GroqScriptLlmRuntime.class)
+
+  private static final String GROQ_DEFAULT_BASE = 'https://api.groq.com/openai'
+  private static final String GROQ_DEFAULT_MODEL = 'llama-3.3-70b-versatile'
 
   private final String scriptLlmId
 
-  BringYourOwnToolsLoopHostRuntime(String scriptLlmId) {
-    this.scriptLlmId = (scriptLlmId ?: 'byo-openai-compat').toString()
+  GroqScriptLlmRuntime(String scriptLlmId) {
+    this.scriptLlmId = (scriptLlmId ?: 'groq').toString()
   }
 
   @Override
@@ -48,15 +53,24 @@ class BringYourOwnToolsLoopHostRuntime implements StudioAiLlmRuntime {
   }
 
   private static String compatBaseUrl() {
-    String u = System.getenv('SCRIPT_LLM_OPENAI_COMPAT_BASE_URL')?.toString()?.trim()
+    String u = System.getenv('GROQ_OPENAI_COMPAT_BASE_URL')?.toString()?.trim()
+    if (!u) {
+      u = System.getenv('SCRIPT_LLM_OPENAI_COMPAT_BASE_URL')?.toString()?.trim()
+    }
     if (!u) {
       u = System.getProperty('studio.scriptLlm.openAiCompatBaseUrl')?.toString()?.trim()
     }
-    return u ? u.replaceAll(/\/+$/, '') : ''
+    if (!u) {
+      u = GROQ_DEFAULT_BASE
+    }
+    return u.replaceAll(/\/+$/, '')
   }
 
   private static String compatApiKey(StudioAiRuntimeBuildRequest req) {
-    String k = System.getenv('SCRIPT_LLM_API_KEY')?.toString()?.trim()
+    String k = System.getenv('GROQ_API_KEY')?.toString()?.trim()
+    if (!k) {
+      k = System.getenv('SCRIPT_LLM_API_KEY')?.toString()?.trim()
+    }
     if (!k) {
       k = System.getProperty('studio.scriptLlm.apiKey')?.toString()?.trim()
     }
@@ -72,15 +86,15 @@ class BringYourOwnToolsLoopHostRuntime implements StudioAiLlmRuntime {
     String apiKey = compatApiKey(req)
     if (!base) {
       throw new IllegalStateException(
-        'Script LLM byo-openai-compat: set tools-loop chat base URL — SCRIPT_LLM_OPENAI_COMPAT_BASE_URL (host only, no trailing /v1) or JVM studio.scriptLlm.openAiCompatBaseUrl (legacy property name).'
+        'Script LLM groq: set tools-loop chat base URL — GROQ_OPENAI_COMPAT_BASE_URL or SCRIPT_LLM_OPENAI_COMPAT_BASE_URL (host only, no trailing /v1), or JVM studio.scriptLlm.openAiCompatBaseUrl (legacy property name).'
       )
     }
     if (!apiKey) {
       throw new IllegalStateException(
-        'Script LLM byo-openai-compat: set SCRIPT_LLM_API_KEY or JVM studio.scriptLlm.apiKey on Studio, or agent <openAiApiKey> for local testing only (legacy agent field name).'
+        'Script LLM groq: set GROQ_API_KEY (or SCRIPT_LLM_API_KEY / JVM studio.scriptLlm.apiKey), or agent <openAiApiKey> for local testing only (legacy agent field name).'
       )
     }
-    String modelName = (req.openAiModelParam ?: 'gpt-4o-mini').toString().trim()
+    String modelName = (req.openAiModelParam ?: GROQ_DEFAULT_MODEL).toString().trim()
     def orch = req.orchestration
     def imageModel = AiOrchestration.imageModelFromRequestOrNull(req.imageModelParam)
     String builtInImageAndEmbeddingKey = AiOrchestration.resolveOpenAiApiKey(null)
@@ -115,7 +129,7 @@ class BringYourOwnToolsLoopHostRuntime implements StudioAiLlmRuntime {
       .build()
     def chatClient = new DefaultChatClientBuilder(chatModel).build()
     LOG.debug(
-      'Script LLM byo-openai-compat: model={} enableTools={} wireBaseUrl={} apiKeyPreview={} apiKeyChars={}',
+      'Script LLM groq: model={} enableTools={} wireBaseUrl={} apiKeyPreview={} apiKeyChars={}',
       modelName,
       req.enableTools,
       base,
@@ -139,4 +153,4 @@ class BringYourOwnToolsLoopHostRuntime implements StudioAiLlmRuntime {
   }
 }
 
-new BringYourOwnToolsLoopHostRuntime(llmId as String)
+new GroqScriptLlmRuntime(llmId as String)

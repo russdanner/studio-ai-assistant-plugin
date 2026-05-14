@@ -1601,8 +1601,8 @@ class AiOrchestrationTools {
    * @param converter Spring AI tool result converter or Groovy closure {@code (Object result, Type returnType) -> String}; passed via {@code invokeMethod} so site Groovy compiles without {@code ToolCallResultConverter} on the script classpath
    * @param ops Studio tool operations
    * @param toolProgressListener optional progress callback for streaming chat (see {@link #runWithToolProgress})
-   * @param openAiApiKeyForImages API key for OpenAI-compatible **image** HTTP and for embedding/RAG inner calls when applicable (see {@link StudioAiImageGeneratorFactory})
-   * @param imageModel resolved default image model from agent/request for OpenAI-compatible image wire (e.g. gpt-image-1); optional per-call {@code model} in tool args; ignored for pure {@code script:…} image backends unless the script reads it from context
+   * @param openAiApiKeyForImages API key for the built-in **image** HTTP wire and for embedding/RAG inner calls when applicable (see {@link StudioAiImageGeneratorFactory})
+   * @param imageModel resolved default image model from agent/request for the built-in images wire (e.g. gpt-image-1); optional per-call {@code model} in tool args; ignored for pure {@code script:…} image backends unless the script reads it from context
    * @param fullSuppressRepoWrites when true (form engine + client JSON apply but no item path), omit write/publish/revert tools entirely
    * @param protectedFormItemPath normalized repo path of the open form item — when set (and not full suppress), write/publish/revert stay registered but are rejected only for this path; {@code update_content} for this path steers toward {@code crafterqFormFieldUpdates}
    * @param expertSkillSpecs normalized maps {@code skillId},{@code name},{@code url},{@code description} from the chat request; when non-empty and an OpenAI API key is available, registers {@code QueryExpertGuidance}

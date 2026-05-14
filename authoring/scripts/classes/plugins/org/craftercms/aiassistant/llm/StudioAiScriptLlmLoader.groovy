@@ -7,7 +7,11 @@ import org.slf4j.LoggerFactory
 import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
 
 import java.security.MessageDigest
+import java.util.ArrayList
+import java.util.LinkedHashSet
+import java.util.List
 import java.util.Locale
+import java.util.Set
 import java.util.concurrent.ConcurrentHashMap
 import java.util.regex.Pattern
 
@@ -104,21 +108,52 @@ final class StudioAiScriptLlmLoader {
     return sb.toString()
   }
 
-  private static StudioAiLlmRuntime compileDelegate(StudioToolOperations ops, String siteId, String llmId, String scriptPath, String src) {
-    // Prefer the servlet/request TCCL: Spring Boot often loads plugin + Spring AI from the same webapp ClassLoader there,
-    // while {@code ApplicationContext#getClassLoader()} can be a narrower loader that fails Groovy import resolution.
-    ClassLoader parent = Thread.currentThread().getContextClassLoader()
-    if (parent == null) {
-      try {
-        Object ctx = ops?.crafterqStudioApplicationContext()
-        parent = ctx?.getClassLoader()
-      } catch (Throwable ignored) {
-        parent = null
+  /**
+   * Groovy import resolution must see both this plugin's classes and (for advanced scripts) types from the Studio
+   * webapp such as Spring AI. Using only the servlet TCCL can hide the plugin; using only the plugin CL can hide
+   * Spring AI. Parent = plugin; {@code findClass} falls back to TCCL then Spring context loaders.
+   */
+  private static ClassLoader scriptLlmCompilerParent(StudioToolOperations ops) {
+    ClassLoader pluginCl = StudioAiScriptLlmLoader.class.getClassLoader()
+    Set<ClassLoader> extras = new LinkedHashSet<>()
+    ClassLoader tccl = Thread.currentThread().getContextClassLoader()
+    if (tccl != null) {
+      extras.add(tccl)
+    }
+    try {
+      Object ctx = ops?.crafterqStudioApplicationContext()
+      ClassLoader ctxCl = ctx?.getClassLoader()
+      if (ctxCl != null) {
+        extras.add(ctxCl)
+      }
+    } catch (Throwable ignored) {
+    }
+    extras.remove(pluginCl)
+    if (extras.isEmpty()) {
+      return pluginCl
+    }
+    final List<ClassLoader> extraList = new ArrayList<>(extras)
+    return new ClassLoader(pluginCl) {
+      @Override
+      protected Class<?> findClass(String name) throws ClassNotFoundException {
+        ClassNotFoundException last = null
+        for (ClassLoader cl : extraList) {
+          try {
+            return cl.loadClass(name)
+          } catch (ClassNotFoundException e) {
+            last = e
+          }
+        }
+        if (last != null) {
+          throw last
+        }
+        throw new ClassNotFoundException(name)
       }
     }
-    if (parent == null) {
-      parent = StudioAiScriptLlmLoader.class.getClassLoader()
-    }
+  }
+
+  private static StudioAiLlmRuntime compileDelegate(StudioToolOperations ops, String siteId, String llmId, String scriptPath, String src) {
+    ClassLoader parent = scriptLlmCompilerParent(ops)
     Binding binding = new Binding()
     binding.setVariable('log', LOG)
     binding.setVariable('llmId', llmId)

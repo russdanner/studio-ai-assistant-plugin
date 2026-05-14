@@ -8,8 +8,12 @@ import org.slf4j.LoggerFactory
 import plugins.org.craftercms.aiassistant.tools.StudioToolOperations
 
 import java.security.MessageDigest
+import java.util.ArrayList
+import java.util.LinkedHashSet
+import java.util.List
 import java.util.Locale
 import java.util.Map
+import java.util.Set
 import java.util.concurrent.ConcurrentHashMap
 import java.util.regex.Pattern
 
@@ -85,19 +89,47 @@ final class StudioAiScriptImageGenLoader {
     return sb.toString()
   }
 
-  private static Closure compileClosure(StudioToolOperations ops, String siteId, String imageGenId, String scriptPath, String src) {
-    ClassLoader parent = Thread.currentThread().getContextClassLoader()
-    if (parent == null) {
-      try {
-        Object ctx = ops?.crafterqStudioApplicationContext()
-        parent = ctx?.getClassLoader()
-      } catch (Throwable ignored) {
-        parent = null
+  private static ClassLoader scriptImageGenCompilerParent(StudioToolOperations ops) {
+    ClassLoader pluginCl = StudioAiScriptImageGenLoader.class.getClassLoader()
+    Set<ClassLoader> extras = new LinkedHashSet<>()
+    ClassLoader tccl = Thread.currentThread().getContextClassLoader()
+    if (tccl != null) {
+      extras.add(tccl)
+    }
+    try {
+      Object ctx = ops?.crafterqStudioApplicationContext()
+      ClassLoader ctxCl = ctx?.getClassLoader()
+      if (ctxCl != null) {
+        extras.add(ctxCl)
+      }
+    } catch (Throwable ignored) {
+    }
+    extras.remove(pluginCl)
+    if (extras.isEmpty()) {
+      return pluginCl
+    }
+    final List<ClassLoader> extraList = new ArrayList<>(extras)
+    return new ClassLoader(pluginCl) {
+      @Override
+      protected Class<?> findClass(String name) throws ClassNotFoundException {
+        ClassNotFoundException last = null
+        for (ClassLoader cl : extraList) {
+          try {
+            return cl.loadClass(name)
+          } catch (ClassNotFoundException e) {
+            last = e
+          }
+        }
+        if (last != null) {
+          throw last
+        }
+        throw new ClassNotFoundException(name)
       }
     }
-    if (parent == null) {
-      parent = StudioAiScriptImageGenLoader.class.getClassLoader()
-    }
+  }
+
+  private static Closure compileClosure(StudioToolOperations ops, String siteId, String imageGenId, String scriptPath, String src) {
+    ClassLoader parent = scriptImageGenCompilerParent(ops)
     Binding binding = new Binding()
     binding.setVariable('log', LOG)
     binding.setVariable('imageGenId', imageGenId)

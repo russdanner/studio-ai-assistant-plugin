@@ -5,7 +5,7 @@ Second Studio widget: **`craftercms.components.aiassistant.AutonomousAssistants`
 | Aspect | Summary |
 |--------|---------|
 | **Purpose** | Scheduled, in-memory assistant steps, supervisor, human tasks (prototype) |
-| **LLM support** | OpenAI-wire family for steps; see [spec.md](../internals/spec.md) *Autonomous assistants* |
+| **LLM support** | Tools-loop chat family for steps; see [spec.md](../internals/spec.md) *Autonomous assistants* |
 | **Full contract** | REST paths, `control` actions, `autonomousAgents` XML fields: [spec.md](../internals/spec.md) |
 
 ## Showing the widget (opt-in)

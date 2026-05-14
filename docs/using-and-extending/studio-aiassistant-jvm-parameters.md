@@ -14,18 +14,18 @@ Use this file when you need to tune timeouts, logging, or defaults that are not 
 |----------|-------------|
 | **`crafter.openai.apiKey`** | OpenAI API key when **`OPENAI_API_KEY`** is not set. |
 | **`crafter.openai.model`** | Default chat model when **`<llmModel>`** / request body omit it (OpenAI path). |
-| **`crafter.openai.imagesOpenAiBaseUrl`** | Override host for OpenAI-compatible **`/v1/images/generations`** (also env **`OPENAI_IMAGES_OPENAI_BASE_URL`** in code — env is documented in [image-generation.md](image-generation.md) / [studio-plugins-guide.md](studio-plugins-guide.md)). |
+| **`crafter.openai.imagesOpenAiBaseUrl`** | Override host for default **`/v1/images/generations`** (also env **`OPENAI_IMAGES_OPENAI_BASE_URL`** in code — env is documented in [image-generation.md](image-generation.md) / [studio-plugins-guide.md](studio-plugins-guide.md)). |
 | **`crafter.xai.apiKey`** | xAI key when **`XAI_API_KEY`** is unset. |
-| **`crafter.xai.openAiBaseUrl`** | OpenAI-compatible base URL for xAI (env **`XAI_OPENAI_BASE_URL`** takes precedence when set). |
+| **`crafter.xai.openAiBaseUrl`** | Tools-loop chat base URL for xAI (env **`XAI_OPENAI_BASE_URL`** takes precedence when set). |
 | **`crafter.xai.model`** | Default xAI chat model. |
 | **`crafter.deepseek.apiKey`** | DeepSeek key when **`DEEPSEEK_API_KEY`** is unset. |
-| **`crafter.deepseek.openAiBaseUrl`** | DeepSeek OpenAI-compatible base (env **`DEEPSEEK_OPENAI_BASE_URL`**). |
+| **`crafter.deepseek.openAiBaseUrl`** | DeepSeek tools-loop chat base (env **`DEEPSEEK_OPENAI_BASE_URL`**). |
 | **`crafter.deepseek.model`** | Default DeepSeek chat model. |
-| **`crafter.llama.apiKey`** | Llama/Ollama-compatible key when **`LLAMA_API_KEY`** is unset. |
+| **`crafter.llama.apiKey`** | API key for the **llama** tools-loop row when **`LLAMA_API_KEY`** is unset (Ollama often accepts a placeholder). |
 | **`crafter.llama.openAiBaseUrl`** | Base URL (env **`LLAMA_OPENAI_BASE_URL`** / **`OLLAMA_OPENAI_BASE_URL`**). |
 | **`crafter.llama.model`** | Default chat model id. |
 | **`crafter.gemini.apiKey`** / **`crafter.google.apiKey`** | Gemini / Google GenAI key when env keys are unset. |
-| **`crafter.gemini.openAiBaseUrl`** | Gemini OpenAI-compatible base (env **`GEMINI_OPENAI_BASE_URL`** / **`GOOGLE_GENAI_OPENAI_BASE_URL`**). |
+| **`crafter.gemini.openAiBaseUrl`** | Gemini tools-loop chat base (env **`GEMINI_OPENAI_BASE_URL`** / **`GOOGLE_GENAI_OPENAI_BASE_URL`**). |
 | **`crafter.gemini.model`** | Default Gemini chat model. |
 | **`crafter.anthropic.apiKey`** | Anthropic key when **`ANTHROPIC_API_KEY`** is unset. |
 | **`crafter.anthropic.model`** | Default Claude chat model. |

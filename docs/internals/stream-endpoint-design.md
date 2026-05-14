@@ -30,7 +30,7 @@ One endpoint: **agent ID + full prompt in, streamed response out**. The UI does 
 
 ## CrafterQ vs tool-capable LLMs
 
-**CrafterQ** (`llm=crafterQ`) is used **only** for **content / RAG** chat in this plugin (no CMS tool bridging in `ExpertChatModel`). **OpenAI-wire** agents (`openAI`, `deepSeek`, `gemini`, `llama`, `xAI`, …) and **Claude** run the **function-tool** loop (CMS tools, HTTP helpers, optional CrafterQ API tools when **`crafterQAgentId`** is set, etc.) — see **[llm-configuration.md](../using-and-extending/llm-configuration.md)**. On OpenAI-wire paths with **`crafterQAgentId`**, the server registers **CrafterQ API tools**: **`ConsultCrafterQExpert`** (streaming SME consult), **`ListCrafterQAgentChats`**, and **`GetCrafterQAgentChat`** (read-only listing / conversation GETs for analysis).
+**CrafterQ** (`llm=crafterQ`) is used **only** for **content / RAG** chat in this plugin (no CMS tool bridging in `ExpertChatModel`). **Tools-loop chat** agents (`openAI`, `deepSeek`, `gemini`, `llama`, `xAI`, …) and **Claude** run the **function-tool** loop (CMS tools, HTTP helpers, optional CrafterQ API tools when **`crafterQAgentId`** is set, etc.) — see **[llm-configuration.md](../using-and-extending/llm-configuration.md)**. On **tools-loop** paths with **`crafterQAgentId`**, the server registers **CrafterQ API tools**: **`ConsultCrafterQExpert`** (streaming SME consult), **`ListCrafterQAgentChats`**, and **`GetCrafterQAgentChat`** (read-only listing / conversation GETs for analysis).
 
 ## UI
 
