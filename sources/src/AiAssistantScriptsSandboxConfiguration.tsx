@@ -45,13 +45,7 @@ import {
   validateToolsPolicy,
   type ToolsPolicyFormState
 } from './aiAssistantToolsMcpUiModel';
-import {
-  defaultToolsPolicyFormState,
-  parseToolsPolicyFromJsonText,
-  serializeToolsPolicyToJson,
-  validateToolsPolicy,
-  type ToolsPolicyFormState
-} from './aiAssistantToolsMcpUiModel';
+import AiAssistantStudioCodeEditor, { inferStudioSandboxEditorLanguage } from './AiAssistantStudioCodeEditor';
 import {
   fetchAiAssistantPromptDetail,
   fetchAiAssistantScriptsIndex,
@@ -517,17 +511,14 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
           <Typography variant="subtitle1" gutterBottom>
             Registry (<code>{REGISTRY_REL}</code>)
           </Typography>
-          <TextField
+          <AiAssistantStudioCodeEditor
+            language="json"
             value={registryDraft}
-            onChange={(ev) => {
-              setRegistryDraft(ev.target.value);
+            onChange={(v) => {
+              setRegistryDraft(v);
               setRegistryDirty(true);
             }}
-            fullWidth
-            multiline
-            minRows={8}
-            size="small"
-            sx={{ '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 13 } }}
+            minHeightPx={260}
           />
           <Button
             sx={{ mt: 1 }}
@@ -878,41 +869,13 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
                     : undefined
                 }
               >
-                <TextField
+                <AiAssistantStudioCodeEditor
+                  key={editorStudioPath}
+                  language={inferStudioSandboxEditorLanguage(editorStudioPath)}
                   value={editorBody}
-                  onChange={(ev) => setEditorBody(ev.target.value)}
-                  fullWidth
-                  multiline
-                  minRows={editorFullscreen ? undefined : 22}
-                  InputProps={{
-                    sx: {
-                      fontFamily: 'ui-monospace, monospace',
-                      fontSize: 13,
-                      ...(editorFullscreen
-                        ? {
-                            height: '100%',
-                            alignItems: 'stretch',
-                            '& textarea': {
-                              height: '100% !important',
-                              overflow: 'auto !important',
-                              boxSizing: 'border-box',
-                              resize: 'none'
-                            }
-                          }
-                        : {})
-                    }
-                  }}
-                  sx={
-                    editorFullscreen
-                      ? {
-                          flex: '1 1 auto',
-                          minHeight: 0,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          '& .MuiOutlinedInput-root': { flex: 1, display: 'flex', flexDirection: 'column' }
-                        }
-                      : undefined
-                  }
+                  onChange={(v) => setEditorBody(v)}
+                  flexFill={editorFullscreen}
+                  minHeightPx={editorFullscreen ? 320 : 440}
                 />
               </Box>
               <Button size="small" sx={{ mt: 1, flexShrink: 0 }} onClick={() => setEditorBody(editorStub)}>
@@ -1017,28 +980,24 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
                     built-in Groovy literal.
                     {promptReadDefaultTrunc ? ' Truncated in this response for size.' : ''}
                   </Typography>
-                  <TextField
-                    value={promptReadDefault}
-                    fullWidth
-                    multiline
-                    minRows={18}
-                    InputProps={{ readOnly: true }}
-                    size="small"
-                    sx={{ mb: 2, '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 12 } }}
-                  />
+                  <Box sx={{ mb: 2 }}>
+                    <AiAssistantStudioCodeEditor
+                      language="markdown"
+                      readOnly
+                      value={promptReadDefault}
+                      minHeightPx={promptReadFullscreen ? 360 : 280}
+                    />
+                  </Box>
                   <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
                     Site file <code>/scripts/aiassistant/prompts/{promptReadKey}.md</code> (raw). Non-blank file wins for this
                     site. {promptReadSiteEffective ? 'Override is active.' : 'Empty or whitespace only — default applies.'}{' '}
                     {promptReadSiteTrunc ? 'Truncated in this response for size.' : ''}
                   </Typography>
-                  <TextField
+                  <AiAssistantStudioCodeEditor
+                    language="markdown"
+                    readOnly
                     value={promptReadSite}
-                    fullWidth
-                    multiline
-                    minRows={14}
-                    InputProps={{ readOnly: true }}
-                    size="small"
-                    sx={{ '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 12 } }}
+                    minHeightPx={promptReadFullscreen ? 300 : 240}
                   />
                 </>
               ) : null}
