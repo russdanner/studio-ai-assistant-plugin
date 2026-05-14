@@ -1,8 +1,8 @@
 const { Fragment, jsx, jsxs } = craftercms.libs?.reactJsxRuntime;
 const require$$2 = craftercms.libs?.reactJsxRuntime && Object.prototype.hasOwnProperty.call(craftercms.libs?.reactJsxRuntime, 'default') ? craftercms.libs?.reactJsxRuntime['default'] : craftercms.libs?.reactJsxRuntime;
-const { useTheme, Box, CircularProgress, Typography, TableContainer, Paper, Table, TableHead, TableBody, TableRow, TableCell, Stack, Tooltip, IconButton, Tabs, Tab, Button, Divider, TextField, Chip, FormControlLabel, Switch, Popover, paperClasses, GlobalStyles, Menu, MenuItem, ListItemIcon, ListItemText, Dialog, DialogContent, Alert, FormControl, InputLabel, Select, List, ListItem, Checkbox, ListItemButton, Badge, DialogTitle, DialogActions, Avatar, useMediaQuery, ListItemSecondaryAction, FormLabel, FormGroup, RadioGroup, Radio } = craftercms.libs.MaterialUI;
+const { useTheme, Box, CircularProgress, Typography, TableContainer, Paper, Table, TableHead, TableBody, TableRow, TableCell, Stack, Tooltip, IconButton, Tabs, Tab, Button, Divider, TextField, Chip, FormControlLabel, Switch, Popover, paperClasses, GlobalStyles, Menu, MenuItem, ListItemIcon, ListItemText, Dialog, DialogContent, Alert, FormControl, InputLabel, Select, List, ListItem, Checkbox, ListItemButton, Badge, DialogTitle, DialogActions, Avatar, useMediaQuery, ListItemSecondaryAction, FormLabel, FormGroup, Autocomplete, RadioGroup, Radio } = craftercms.libs.MaterialUI;
 const React = craftercms.libs.React;
-const { useRef, useState, useEffect, useCallback, useMemo, useLayoutEffect, useSyncExternalStore } = craftercms.libs.React;
+const { useRef, useState, useEffect, useCallback, useMemo, useLayoutEffect, useSyncExternalStore, createElement } = craftercms.libs.React;
 const MinimizedBar = craftercms.components.MinimizedBar && Object.prototype.hasOwnProperty.call(craftercms.components.MinimizedBar, 'default') ? craftercms.components.MinimizedBar['default'] : craftercms.components.MinimizedBar;
 const DialogHeader = craftercms.components.DialogHeader && Object.prototype.hasOwnProperty.call(craftercms.components.DialogHeader, 'default') ? craftercms.components.DialogHeader['default'] : craftercms.components.DialogHeader;
 const AlertDialog = craftercms.components.AlertDialog && Object.prototype.hasOwnProperty.call(craftercms.components.AlertDialog, 'default') ? craftercms.components.AlertDialog['default'] : craftercms.components.AlertDialog;
@@ -60,7 +60,7 @@ const AddRounded = craftercms.utils.constants.components.get('@mui/icons-materia
 const DeleteOutlineRounded = craftercms.utils.constants.components.get('@mui/icons-material/DeleteOutlineRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/DeleteOutlineRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/DeleteOutlineRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/DeleteOutlineRounded');
 const RefreshRounded = craftercms.utils.constants.components.get('@mui/icons-material/RefreshRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/RefreshRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/RefreshRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/RefreshRounded');
 const SaveRounded = craftercms.utils.constants.components.get('@mui/icons-material/SaveRounded') && Object.prototype.hasOwnProperty.call(craftercms.utils.constants.components.get('@mui/icons-material/SaveRounded'), 'default') ? craftercms.utils.constants.components.get('@mui/icons-material/SaveRounded')['default'] : craftercms.utils.constants.components.get('@mui/icons-material/SaveRounded');
-const Autocomplete = craftercms.libs.MaterialUI.Autocomplete && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.Autocomplete, 'default') ? craftercms.libs.MaterialUI.Autocomplete['default'] : craftercms.libs.MaterialUI.Autocomplete;
+const Autocomplete$1 = craftercms.libs.MaterialUI.Autocomplete && Object.prototype.hasOwnProperty.call(craftercms.libs.MaterialUI.Autocomplete, 'default') ? craftercms.libs.MaterialUI.Autocomplete['default'] : craftercms.libs.MaterialUI.Autocomplete;
 
 /*
  * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
@@ -34984,25 +34984,6 @@ const AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB = `{
   ]
 }
 `;
-/**
- * Starter {@code config/studio/scripts/aiassistant/config/tools.json} — built-in tool allow/deny and MCP
- * (see {@code StudioAiAssistantProjectConfig}).
- */
-const AI_ASSISTANT_TOOLS_JSON_STUB = `{
-  "disabledBuiltInTools": [],
-  "enabledBuiltInTools": [],
-  "mcpEnabled": false,
-  "mcpServers": [
-    {
-      "id": "example",
-      "url": "https://your-mcp-host.example/mcp",
-      "headers": {},
-      "readTimeoutMs": 120000
-    }
-  ],
-  "disabledMcpTools": []
-}
-`;
 /** Starter markdown when creating a site override for {@code config/studio/scripts/aiassistant/prompts/&lt;KEY&gt;.md}. */
 function aiAssistantToolPromptMarkdownStub(key) {
     return `# ${key}
@@ -35010,6 +34991,199 @@ function aiAssistantToolPromptMarkdownStub(key) {
 Non-empty markdown replaces the built-in prompt for this key. Leave the file blank or delete it to keep the plugin default (see ToolPromptsLoader).
 
 `;
+}
+
+/** Built-in wire names for hide/whitelist pickers (excludes the agent-only `mcp:*` sentinel). */
+const BUILTIN_TOOL_NAME_OPTIONS = STUDIO_AI_BUILTIN_TOOL_IDS.filter((id) => id !== STUDIO_AI_MCP_ALL_TOKEN);
+const KNOWN_TOP_LEVEL_KEYS = new Set([
+    'disabledBuiltInTools',
+    'enabledBuiltInTools',
+    'mcpEnabled',
+    'mcpServers',
+    'disabledMcpTools'
+]);
+function defaultToolsPolicyFormState() {
+    return {
+        mcpEnabled: false,
+        mcpServers: [],
+        disabledBuiltInTools: [],
+        enabledBuiltInTools: [],
+        disabledMcpTools: [],
+        extraFields: undefined
+    };
+}
+function headersObjectFromPairs(pairs) {
+    const o = {};
+    for (const { key, value } of pairs) {
+        const k = key.trim();
+        if (k) {
+            o[k] = value;
+        }
+    }
+    return Object.keys(o).length ? o : undefined;
+}
+function mcpServerRowFromUnknown(m) {
+    if (!m || typeof m !== 'object' || Array.isArray(m)) {
+        return { id: '', url: '', readTimeoutMs: '', headerPairs: [{ key: '', value: '' }] };
+    }
+    const rec = m;
+    const headersRaw = rec.headers;
+    const headerPairs = [];
+    if (headersRaw && typeof headersRaw === 'object' && !Array.isArray(headersRaw)) {
+        for (const [k, v] of Object.entries(headersRaw)) {
+            headerPairs.push({ key: k, value: v != null ? String(v) : '' });
+        }
+    }
+    if (headerPairs.length === 0) {
+        headerPairs.push({ key: '', value: '' });
+    }
+    return {
+        id: rec.id != null ? String(rec.id) : '',
+        url: rec.url != null ? String(rec.url) : '',
+        readTimeoutMs: rec.readTimeoutMs != null ? String(rec.readTimeoutMs) : '',
+        headerPairs
+    };
+}
+function parseToolsPolicyFromUnknown(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        return defaultToolsPolicyFormState();
+    }
+    const o = raw;
+    const extraFields = {};
+    for (const [k, v] of Object.entries(o)) {
+        if (!KNOWN_TOP_LEVEL_KEYS.has(k)) {
+            extraFields[k] = v;
+        }
+    }
+    const asStringArray = (v) => {
+        if (!Array.isArray(v)) {
+            return [];
+        }
+        const out = [];
+        for (const x of v) {
+            const s = x != null ? String(x).trim() : '';
+            if (s) {
+                out.push(s);
+            }
+        }
+        return out;
+    };
+    const serversRaw = o.mcpServers;
+    const mcpServers = [];
+    if (Array.isArray(serversRaw)) {
+        for (const s of serversRaw) {
+            mcpServers.push(mcpServerRowFromUnknown(s));
+        }
+    }
+    return {
+        mcpEnabled: Boolean(o.mcpEnabled),
+        mcpServers,
+        disabledBuiltInTools: asStringArray(o.disabledBuiltInTools),
+        enabledBuiltInTools: asStringArray(o.enabledBuiltInTools),
+        disabledMcpTools: asStringArray(o.disabledMcpTools),
+        extraFields: Object.keys(extraFields).length ? extraFields : undefined
+    };
+}
+function parseToolsPolicyFromJsonText(text) {
+    const t = text.trim();
+    if (!t) {
+        return { ok: true, state: defaultToolsPolicyFormState() };
+    }
+    try {
+        const raw = JSON.parse(t);
+        return { ok: true, state: parseToolsPolicyFromUnknown(raw) };
+    }
+    catch {
+        return { ok: false, message: 'Existing tools.json is not valid JSON. Fix the file in Git or restore defaults, then reload.' };
+    }
+}
+function validateToolsPolicy(state) {
+    for (let i = 0; i < state.mcpServers.length; i++) {
+        const r = state.mcpServers[i];
+        const id = r.id.trim();
+        const url = r.url.trim();
+        if (!id && !url) {
+            continue;
+        }
+        if (!id || !url) {
+            return { ok: false, message: `MCP server ${i + 1}: both Server id and MCP URL are required (or clear the row).` };
+        }
+        const rt = r.readTimeoutMs.trim();
+        if (rt) {
+            const n = Number(rt);
+            if (!Number.isFinite(n) || n < 1000 || n > 3600000) {
+                return { ok: false, message: `MCP server "${id}": Read timeout must be between 1000 and 3600000 ms when set.` };
+            }
+        }
+    }
+    return { ok: true };
+}
+function serializeToolsPolicyToJson(state) {
+    const mcpServers = state.mcpServers
+        .map((r) => {
+        const id = r.id.trim();
+        const url = r.url.trim();
+        if (!id && !url) {
+            return null;
+        }
+        const rec = { id, url };
+        const headers = headersObjectFromPairs(r.headerPairs);
+        if (headers) {
+            rec.headers = headers;
+        }
+        const rt = r.readTimeoutMs.trim();
+        if (rt) {
+            const n = Math.round(Number(rt));
+            if (Number.isFinite(n)) {
+                rec.readTimeoutMs = n;
+            }
+        }
+        return rec;
+    })
+        .filter((x) => x != null);
+    const obj = { ...(state.extraFields ?? {}) };
+    obj.disabledBuiltInTools = [...new Set(state.disabledBuiltInTools.map((s) => s.trim()).filter(Boolean))];
+    obj.enabledBuiltInTools = [...new Set(state.enabledBuiltInTools.map((s) => s.trim()).filter(Boolean))];
+    obj.mcpEnabled = Boolean(state.mcpEnabled);
+    obj.mcpServers = mcpServers;
+    obj.disabledMcpTools = [...new Set(state.disabledMcpTools.map((s) => s.trim()).filter(Boolean))];
+    return JSON.stringify(obj, null, 2);
+}
+
+function emptyMcpServerRow() {
+    return { id: '', url: '', readTimeoutMs: '', headerPairs: [{ key: '', value: '' }] };
+}
+function AiAssistantToolsMcpForm(props) {
+    const { value, onChange } = props;
+    const setMcpEnabled = (mcpEnabled) => {
+        onChange({ ...value, mcpEnabled });
+    };
+    const updateServer = (index, row) => {
+        const mcpServers = value.mcpServers.map((r, i) => (i === index ? row : r));
+        onChange({ ...value, mcpServers });
+    };
+    const addServer = () => {
+        onChange({ ...value, mcpServers: [...value.mcpServers, emptyMcpServerRow()] });
+    };
+    const removeServer = (index) => {
+        onChange({ ...value, mcpServers: value.mcpServers.filter((_, i) => i !== index) });
+    };
+    return (jsxs(Stack, { spacing: 3, children: [jsxs(Paper, { variant: "outlined", sx: { p: 2 }, children: [jsx(Typography, { variant: "subtitle2", gutterBottom: true, children: "Built-in CMS tools" }), jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Optional lists use exact wire names (see product docs). If ", jsx("strong", { children: "Whitelist" }), " is non-empty, only those built-ins stay; ", jsx("code", { children: "InvokeSiteUserTool" }), " and dynamic ", jsx("code", { children: "mcp_*" }), " tools still register unless you disable them below or in ", jsx("strong", { children: "Hide MCP tools" }), "."] }), jsxs(Stack, { spacing: 2, children: [jsx(Autocomplete, { multiple: true, freeSolo: true, options: [...BUILTIN_TOOL_NAME_OPTIONS], value: value.disabledBuiltInTools, onChange: (_, v) => onChange({ ...value, disabledBuiltInTools: v.map(String) }), renderTags: (tagValue, getTagProps) => tagValue.map((option, index) => (createElement(Chip, { variant: "outlined", label: option, size: "small", ...getTagProps({ index }), key: `${option}-${index}` }))), renderInput: (params) => (jsx(TextField, { ...params, label: "Hide built-in tools", placeholder: "e.g. GenerateImage", size: "small" })) }), jsx(Autocomplete, { multiple: true, freeSolo: true, options: [...BUILTIN_TOOL_NAME_OPTIONS], value: value.enabledBuiltInTools, onChange: (_, v) => onChange({ ...value, enabledBuiltInTools: v.map(String) }), renderTags: (tagValue, getTagProps) => tagValue.map((option, index) => (createElement(Chip, { variant: "outlined", label: option, size: "small", ...getTagProps({ index }), key: `${option}-${index}` }))), renderInput: (params) => (jsx(TextField, { ...params, label: "Whitelist built-in tools (optional)", placeholder: "Leave empty for no whitelist", size: "small" })) })] })] }), jsxs(Paper, { variant: "outlined", sx: { p: 2 }, children: [jsxs(Stack, { direction: "row", alignItems: "center", justifyContent: "space-between", sx: { mb: 1 }, children: [jsx(Typography, { variant: "subtitle2", children: "MCP (Streamable HTTP)" }), jsx(FormControlLabel, { control: jsx(Switch, { checked: value.mcpEnabled, onChange: (_, c) => setMcpEnabled(c), size: "small" }), label: "Enable MCP client" })] }), jsx(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: "When enabled, each server below is contacted on chat requests to list and call remote tools. URLs must pass the same outbound rules as FetchHttpUrl." }), value.mcpEnabled ? (jsxs(Fragment, { children: [jsxs(Stack, { direction: "row", alignItems: "center", justifyContent: "space-between", sx: { mb: 1 }, children: [jsx(Typography, { variant: "body2", children: "MCP servers" }), jsx(Button, { size: "small", startIcon: jsx(AddRounded, {}), onClick: addServer, children: "Add server" })] }), value.mcpServers.length === 0 ? (jsx(Typography, { variant: "body2", color: "text.secondary", sx: { mb: 1 }, children: "No servers yet. Use Add server to register a Streamable HTTP MCP endpoint." })) : (jsxs(Table, { size: "small", sx: { border: 1, borderColor: 'divider', borderRadius: 1, mb: 1 }, children: [jsx(TableHead, { children: jsxs(TableRow, { children: [jsx(TableCell, { children: "Server id" }), jsx(TableCell, { children: "MCP URL and optional headers" }), jsx(TableCell, { width: 120, children: "Timeout (ms)" }), jsx(TableCell, { align: "right", width: 88, children: ' ' })] }) }), jsx(TableBody, { children: value.mcpServers.map((row, si) => (jsxs(TableRow, { children: [jsx(TableCell, { sx: { verticalAlign: 'top' }, children: jsx(TextField, { size: "small", fullWidth: true, value: row.id, onChange: (e) => updateServer(si, { ...row, id: e.target.value }), placeholder: "e.g. docs" }) }), jsxs(TableCell, { sx: { verticalAlign: 'top' }, children: [jsx(TextField, { size: "small", fullWidth: true, value: row.url, onChange: (e) => updateServer(si, { ...row, url: e.target.value }), placeholder: "https://host/\u2026/mcp" }), jsxs(Stack, { spacing: 0.5, sx: { mt: 1 }, children: [jsx(Typography, { variant: "caption", color: "text.secondary", children: "Optional headers" }), row.headerPairs.map((hp, hi) => (jsxs(Stack, { direction: "row", spacing: 0.5, alignItems: "center", children: [jsx(TextField, { size: "small", label: "Name", value: hp.key, onChange: (e) => {
+                                                                                const headerPairs = row.headerPairs.map((p, j) => j === hi ? { ...p, key: e.target.value } : p);
+                                                                                updateServer(si, { ...row, headerPairs });
+                                                                            }, sx: { flex: 1 } }), jsx(TextField, { size: "small", label: "Value", value: hp.value, onChange: (e) => {
+                                                                                const headerPairs = row.headerPairs.map((p, j) => j === hi ? { ...p, value: e.target.value } : p);
+                                                                                updateServer(si, { ...row, headerPairs });
+                                                                            }, sx: { flex: 2 } }), jsx(IconButton, { size: "small", "aria-label": "Remove header", onClick: () => {
+                                                                                const headerPairs = row.headerPairs.filter((_, j) => j !== hi);
+                                                                                updateServer(si, {
+                                                                                    ...row,
+                                                                                    headerPairs: headerPairs.length ? headerPairs : [{ key: '', value: '' }]
+                                                                                });
+                                                                            }, children: jsx(DeleteOutlineRounded, { fontSize: "small" }) })] }, hi))), jsx(Button, { size: "small", onClick: () => updateServer(si, {
+                                                                        ...row,
+                                                                        headerPairs: [...row.headerPairs, { key: '', value: '' }]
+                                                                    }), children: "Add header" })] })] }), jsx(TableCell, { sx: { verticalAlign: 'top' }, children: jsx(TextField, { size: "small", fullWidth: true, value: row.readTimeoutMs, onChange: (e) => updateServer(si, { ...row, readTimeoutMs: e.target.value }), placeholder: "120000" }) }), jsx(TableCell, { align: "right", sx: { verticalAlign: 'top' }, children: jsx(Button, { size: "small", color: "error", startIcon: jsx(DeleteOutlineRounded, {}), onClick: () => removeServer(si), children: "Remove" }) })] }, si))) })] })), jsx(Autocomplete, { multiple: true, freeSolo: true, options: [], value: value.disabledMcpTools, onChange: (_, v) => onChange({ ...value, disabledMcpTools: v.map(String) }), renderTags: (tagValue, getTagProps) => tagValue.map((option, index) => (createElement(Chip, { variant: "outlined", label: option, size: "small", ...getTagProps({ index }), key: `${option}-${index}` }))), renderInput: (params) => (jsx(TextField, { ...params, label: "Hide MCP wire tools", placeholder: "e.g. mcp_docs_search", size: "small" })) })] })) : null] })] }));
 }
 
 const BASE$1 = '/studio/api/2/plugin/script/plugins/org/craftercms/aiassistant/studio/aiassistant/scripts';
@@ -35098,9 +35272,9 @@ function AiAssistantScriptsSandboxConfiguration(props) {
     const [registryDraft, setRegistryDraft] = useState('');
     const [registryDirty, setRegistryDirty] = useState(false);
     const [savingRegistry, setSavingRegistry] = useState(false);
-    const [toolsJsonDraft, setToolsJsonDraft] = useState(AI_ASSISTANT_TOOLS_JSON_STUB);
-    const [toolsJsonDirty, setToolsJsonDirty] = useState(false);
-    const [savingToolsJson, setSavingToolsJson] = useState(false);
+    const [toolsPolicy, setToolsPolicy] = useState(() => defaultToolsPolicyFormState());
+    const [toolsPolicyDirty, setToolsPolicyDirty] = useState(false);
+    const [savingToolsPolicy, setSavingToolsPolicy] = useState(false);
     const [editorOpen, setEditorOpen] = useState(false);
     const [editorFullscreen, setEditorFullscreen] = useState(false);
     const [editorTitle, setEditorTitle] = useState('');
@@ -35127,10 +35301,10 @@ function AiAssistantScriptsSandboxConfiguration(props) {
     React.useEffect(() => {
         registryDirtyRef.current = registryDirty;
     }, [registryDirty]);
-    const toolsJsonDirtyRef = React.useRef(false);
+    const toolsPolicyDirtyRef = React.useRef(false);
     React.useEffect(() => {
-        toolsJsonDirtyRef.current = toolsJsonDirty;
-    }, [toolsJsonDirty]);
+        toolsPolicyDirtyRef.current = toolsPolicyDirty;
+    }, [toolsPolicyDirty]);
     const reload = useCallback(async () => {
         if (!siteId)
             return;
@@ -35148,14 +35322,21 @@ function AiAssistantScriptsSandboxConfiguration(props) {
                 const t = (data.registryText ?? '').trim();
                 setRegistryDraft(t || AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB);
             }
-            if (!toolsJsonDirtyRef.current) {
+            if (!toolsPolicyDirtyRef.current) {
                 try {
                     const raw = await firstValueFrom(fetchConfigurationJSON(siteId, TOOLS_JSON_REL, 'studio'));
                     const text = typeof raw === 'string' ? raw : '';
-                    setToolsJsonDraft(text.trim() ? text : AI_ASSISTANT_TOOLS_JSON_STUB);
+                    const parsed = parseToolsPolicyFromJsonText(text.trim() ? text : '');
+                    if (!parsed.ok) {
+                        setLoadError(parsed.message);
+                        setToolsPolicy(defaultToolsPolicyFormState());
+                    }
+                    else {
+                        setToolsPolicy(parsed.state);
+                    }
                 }
                 catch {
-                    setToolsJsonDraft(AI_ASSISTANT_TOOLS_JSON_STUB);
+                    setToolsPolicy(defaultToolsPolicyFormState());
                 }
             }
         }
@@ -35196,21 +35377,24 @@ function AiAssistantScriptsSandboxConfiguration(props) {
             setSavingRegistry(false);
         }
     };
-    const saveToolsJson = async () => {
+    const saveToolsPolicy = async () => {
         if (!siteId)
             return;
-        const parsed = safeJsonParse(toolsJsonDraft);
-        if (parsed == null) {
-            setLoadError('tools.json is invalid JSON — fix syntax before saving.');
+        const v = validateToolsPolicy(toolsPolicy);
+        if (!v.ok) {
+            setLoadError(v.message);
             return;
         }
-        const normalized = JSON.stringify(parsed, null, 2);
-        setSavingToolsJson(true);
+        const normalized = serializeToolsPolicyToJson(toolsPolicy);
+        setSavingToolsPolicy(true);
         setLoadError(null);
         try {
             await firstValueFrom(writeConfiguration(siteId, TOOLS_JSON_REL, 'studio', normalized));
-            setToolsJsonDraft(normalized);
-            setToolsJsonDirty(false);
+            const roundTrip = parseToolsPolicyFromJsonText(normalized);
+            if (roundTrip.ok) {
+                setToolsPolicy(roundTrip.state);
+            }
+            setToolsPolicyDirty(false);
             await postAiAssistantScriptsMutate(siteId, { action: 'refreshSync' }).catch(() => { });
             await reload();
         }
@@ -35218,7 +35402,7 @@ function AiAssistantScriptsSandboxConfiguration(props) {
             setLoadError(e instanceof Error ? e.message : String(e));
         }
         finally {
-            setSavingToolsJson(false);
+            setSavingToolsPolicy(false);
         }
     };
     const openEditor = (title, studioPath, body, stub) => {
@@ -35417,15 +35601,15 @@ function AiAssistantScriptsSandboxConfiguration(props) {
             : panel === 'scripts'
                 ? 'Script backends'
                 : 'AI Assistant Scripts';
-    const pageIntro = panel === 'prompts' ? (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Markdown under ", jsx("code", { children: "scripts/aiassistant/prompts/<KEY>.md" }), " overrides built-in tool prompt text (see ToolPromptsLoader). Empty files open with a working stub."] })) : panel === 'tools' ? (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Edit ", jsx("code", { children: "scripts/aiassistant/config/tools.json" }), " to map built-in CMS tools (", jsx("code", { children: "disabledBuiltInTools" }), ",", ' ', jsx("code", { children: "enabledBuiltInTools" }), ") and attach MCP servers (", jsx("code", { children: "mcpEnabled" }), ", ", jsx("code", { children: "mcpServers" }), ",", ' ', jsx("code", { children: "disabledMcpTools" }), "). Edit ", jsx("code", { children: "user-tools/registry.json" }), " and Groovy tools under", ' ', jsx("code", { children: "scripts/aiassistant/user-tools/" }), ". Empty files open with a working stub."] })) : panel === 'scripts' ? (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Script image generators under ", jsx("code", { children: "scripts/aiassistant/imagegen/<id>/generate.groovy" }), " and script LLMs under ", jsx("code", { children: "scripts/aiassistant/llm/<id>/runtime.groovy" }), ". Empty files open with a working stub."] })) : (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Edit ", jsx("code", { children: "scripts/aiassistant/config/tools.json" }), " (built-in tool policy + MCP), ", jsx("code", { children: "user-tools/registry.json" }), ", site Groovy tools under ", jsx("code", { children: "scripts/aiassistant/user-tools/" }), ", script image generators under", ' ', jsx("code", { children: "scripts/aiassistant/imagegen/<id>/generate.groovy" }), ", script LLMs under", ' ', jsx("code", { children: "scripts/aiassistant/llm/<id>/runtime.groovy" }), ", and optional markdown overrides for built-in tool prompts under ", jsx("code", { children: "scripts/aiassistant/prompts/<KEY>.md" }), ". Empty files open with a working stub you can replace."] }));
+    const pageIntro = panel === 'prompts' ? (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Markdown under ", jsx("code", { children: "scripts/aiassistant/prompts/<KEY>.md" }), " overrides built-in tool prompt text (see ToolPromptsLoader). Empty files open with a working stub."] })) : panel === 'tools' ? (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Configure built-in tool visibility, optional MCP servers, and hidden MCP tools using the form below (saved to", ' ', jsx("code", { children: "scripts/aiassistant/config/tools.json" }), "). Edit ", jsx("code", { children: "user-tools/registry.json" }), " and Groovy tools under", ' ', jsx("code", { children: "scripts/aiassistant/user-tools/" }), ". Empty registry files open with a working stub."] })) : panel === 'scripts' ? (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Script image generators under ", jsx("code", { children: "scripts/aiassistant/imagegen/<id>/generate.groovy" }), " and script LLMs under ", jsx("code", { children: "scripts/aiassistant/llm/<id>/runtime.groovy" }), ". Empty files open with a working stub."] })) : (jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Edit ", jsx("code", { children: "scripts/aiassistant/config/tools.json" }), " (built-in tool policy + MCP), ", jsx("code", { children: "user-tools/registry.json" }), ", site Groovy tools under ", jsx("code", { children: "scripts/aiassistant/user-tools/" }), ", script image generators under", ' ', jsx("code", { children: "scripts/aiassistant/imagegen/<id>/generate.groovy" }), ", script LLMs under", ' ', jsx("code", { children: "scripts/aiassistant/llm/<id>/runtime.groovy" }), ", and optional markdown overrides for built-in tool prompts under ", jsx("code", { children: "scripts/aiassistant/prompts/<KEY>.md" }), ". Empty files open with a working stub you can replace."] }));
     return (jsxs(Box, { sx: { p: 2, maxWidth: 1100, mx: 'auto' }, children: [jsx(Typography, { variant: "h5", component: "h1", gutterBottom: true, children: pageTitle }), pageIntro, !siteId ? (jsx(Alert, { severity: "info", children: "Select a site to edit scripts." })) : (jsxs(Fragment, { children: [loadError ? (jsx(Alert, { severity: "error", sx: { mb: 2 }, onClose: () => setLoadError(null), children: loadError })) : null, jsx(Stack, { direction: "row", spacing: 1, sx: { mb: 2 }, flexWrap: "wrap", alignItems: "center", children: jsx(Button, { size: "small", variant: "outlined", startIcon: jsx(RefreshRounded, {}), disabled: loading, onClick: () => {
                                 setRegistryDirty(false);
-                                setToolsJsonDirty(false);
+                                setToolsPolicyDirty(false);
                                 void reload();
-                            }, children: "Reload" }) }), showTools ? (jsxs(Fragment, { children: [jsxs(Typography, { variant: "subtitle1", gutterBottom: true, children: ["Built-in tools and MCP (", jsx("code", { children: TOOLS_JSON_REL }), ")"] }), jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Set ", jsx("code", { children: "mcpEnabled" }), " to ", jsx("code", { children: "true" }), " before ", jsx("code", { children: "mcpServers" }), " is used. Each server needs", ' ', jsx("code", { children: "id" }), " and ", jsx("code", { children: "url" }), " (Streamable HTTP POST endpoint); optional ", jsx("code", { children: "headers" }), " and", ' ', jsx("code", { children: "readTimeoutMs" }), ". MCP tools appear as ", jsx("code", { children: "mcp_<id>_<toolName>" }), " wire names. Non-empty", ' ', jsx("code", { children: "enabledBuiltInTools" }), " whitelists CMS built-ins only (exact wire names in product docs);", ' ', jsx("code", { children: "InvokeSiteUserTool" }), " and ", jsx("code", { children: "mcp_*" }), " stay unless listed in ", jsx("code", { children: "disabledBuiltInTools" }), " or", ' ', jsx("code", { children: "disabledMcpTools" }), "."] }), jsx(TextField, { value: toolsJsonDraft, onChange: (ev) => {
-                                    setToolsJsonDraft(ev.target.value);
-                                    setToolsJsonDirty(true);
-                                }, fullWidth: true, multiline: true, minRows: 12, size: "small", sx: { '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 13 } } }), jsx(Button, { sx: { mt: 1 }, size: "small", variant: "contained", startIcon: jsx(SaveRounded, {}), disabled: savingToolsJson || !toolsJsonDirty, onClick: () => void saveToolsJson(), children: "Save tools.json" }), jsx(Button, { sx: { mt: 1, ml: 1 }, size: "small", onClick: () => loadFileForEditor('tools.json', `/${TOOLS_JSON_REL}`, AI_ASSISTANT_TOOLS_JSON_STUB), children: "Open in editor" }), jsx(Divider, { sx: { my: 3 } }), jsxs(Typography, { variant: "subtitle1", gutterBottom: true, children: ["Registry (", jsx("code", { children: REGISTRY_REL }), ")"] }), jsx(TextField, { value: registryDraft, onChange: (ev) => {
+                            }, children: "Reload" }) }), showTools ? (jsxs(Fragment, { children: [jsxs(Typography, { variant: "subtitle1", gutterBottom: true, children: ["Built-in tools and MCP (", jsx("code", { children: TOOLS_JSON_REL }), ")"] }), jsxs(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: ["Use the form below to map built-in tools and optional MCP servers. The site file remains", ' ', jsx("code", { children: "scripts/aiassistant/config/tools.json" }), " (written on Save). MCP tools use wire names like", ' ', jsx("code", { children: "mcp_<serverId>_<toolName>" }), "."] }), jsx(AiAssistantToolsMcpForm, { value: toolsPolicy, onChange: (next) => {
+                                    setToolsPolicy(next);
+                                    setToolsPolicyDirty(true);
+                                } }), jsx(Button, { sx: { mt: 2 }, size: "small", variant: "contained", startIcon: jsx(SaveRounded, {}), disabled: savingToolsPolicy || !toolsPolicyDirty, onClick: () => void saveToolsPolicy(), children: "Save tools & MCP" }), jsx(Divider, { sx: { my: 3 } }), jsxs(Typography, { variant: "subtitle1", gutterBottom: true, children: ["Registry (", jsx("code", { children: REGISTRY_REL }), ")"] }), jsx(TextField, { value: registryDraft, onChange: (ev) => {
                                     setRegistryDraft(ev.target.value);
                                     setRegistryDirty(true);
                                 }, fullWidth: true, multiline: true, minRows: 8, size: "small", sx: { '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 13 } } }), jsx(Button, { sx: { mt: 1 }, size: "small", variant: "contained", startIcon: jsx(SaveRounded, {}), disabled: savingRegistry || !registryDirty, onClick: () => void saveRegistry(), children: "Save registry" }), jsx(Button, { sx: { mt: 1, ml: 1 }, size: "small", onClick: () => loadFileForEditor('Registry', `/${REGISTRY_REL}`, AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB), children: "Open in editor" })] })) : null, showTools && showPrompts ? jsx(Divider, { sx: { my: 3 } }) : null, showPrompts ? (jsxs(Fragment, { children: [jsxs(Typography, { variant: "subtitle1", gutterBottom: true, children: ["Tool prompt overrides (", jsx("code", { children: "scripts/aiassistant/prompts/" }), ")"] }), jsx(Typography, { variant: "body2", color: "text.secondary", paragraph: true, children: "Non-empty markdown for a key replaces the plugin default (see ToolPromptsLoader). Remove the file to use the built-in text again. Click a row to read the default and the site file side by side." }), jsx(TableContainer, { sx: { maxHeight: 420, border: 1, borderColor: 'divider', borderRadius: 1 }, children: jsxs(Table, { size: "small", stickyHeader: true, children: [jsx(TableHead, { children: jsxs(TableRow, { children: [jsx(TableCell, { children: "Key" }), jsx(TableCell, { children: "Status" }), jsx(TableCell, { align: "right", children: "Actions" })] }) }), jsx(TableBody, { children: toolPromptOverrides.length === 0 ? (jsx(TableRow, { children: jsx(TableCell, { colSpan: 3, children: jsx(Typography, { variant: "body2", color: "text.secondary", children: "No prompt keys returned from the server." }) }) })) : (toolPromptOverrides.map((row) => (jsxs(TableRow, { hover: true, selected: promptReadOpen && promptReadKey === row.key, sx: { cursor: 'pointer' }, onClick: () => openPromptRead(row.key), children: [jsx(TableCell, { children: jsx("code", { children: row.key }) }), jsx(TableCell, { children: row.hasOverride ? `Site override (${row.byteLength} bytes)` : 'Built-in default' }), jsxs(TableCell, { align: "right", children: [jsx(Button, { size: "small", startIcon: jsx(EditRounded, {}), onClick: (ev) => {
@@ -35857,13 +36041,13 @@ function AiAssistantStudioUiSettings() {
                             } }), label: "Show AI Assistants in top navigation (preview toolbar)" }), jsx(FormControlLabel, { control: jsx(Switch, { checked: draft.showAutonomousAiAssistantsInSidebar === true, onChange: (_, v) => {
                                 setDraft((d) => ({ ...d, showAutonomousAiAssistantsInSidebar: v }));
                                 setDirty(true);
-                            } }), label: "Show Autonomous AI Assistants (experimental) in sidebar" }), jsx(Divider, {}), jsxs(FormControl, { component: "fieldset", variant: "standard", children: [jsx(FormLabel, { component: "legend", children: "AI Assistant Form Engine Integration:" }), jsx(Typography, { variant: "caption", color: "text.secondary", display: "block", sx: { mb: 1 }, children: "Update content types so AI Chat is present and image pickers support AI generated images." }), jsxs(RadioGroup, { row: true, value: imageScope, onChange: (_, v) => setImageScope(v), children: [jsx(FormControlLabel, { value: "all", control: jsx(Radio, {}), label: "All content types" }), jsx(FormControlLabel, { value: "none", control: jsx(Radio, {}), label: "None" }), jsx(FormControlLabel, { value: "selected", control: jsx(Radio, {}), label: "Selected only" })] })] }), jsx(Autocomplete, { multiple: true, options: catalog, getOptionLabel: (o) => o.label, isOptionEqualToValue: (a, b) => a.id === b.id, value: imageSelected, onChange: (_, v) => {
+                            } }), label: "Show Autonomous AI Assistants (experimental) in sidebar" }), jsx(Divider, {}), jsxs(FormControl, { component: "fieldset", variant: "standard", children: [jsx(FormLabel, { component: "legend", children: "AI Assistant Form Engine Integration:" }), jsx(Typography, { variant: "caption", color: "text.secondary", display: "block", sx: { mb: 1 }, children: "Update content types so AI Chat is present and image pickers support AI generated images." }), jsxs(RadioGroup, { row: true, value: imageScope, onChange: (_, v) => setImageScope(v), children: [jsx(FormControlLabel, { value: "all", control: jsx(Radio, {}), label: "All content types" }), jsx(FormControlLabel, { value: "none", control: jsx(Radio, {}), label: "None" }), jsx(FormControlLabel, { value: "selected", control: jsx(Radio, {}), label: "Selected only" })] })] }), jsx(Autocomplete$1, { multiple: true, options: catalog, getOptionLabel: (o) => o.label, isOptionEqualToValue: (a, b) => a.id === b.id, value: imageSelected, onChange: (_, v) => {
                             setDraft((d) => ({
                                 ...d,
                                 contentTypeIdsForImageAugmentation: v.map((x) => x.id)
                             }));
                             setDirty(true);
-                        }, disabled: imageScope !== 'selected', renderInput: (params) => (jsx(TextField, { ...params, label: "Content types (image augmentation)", placeholder: "Pick types\u2026" })) }), jsx(Divider, {}), jsx(Typography, { variant: "subtitle1", children: "AI Assistant form control on content types" }), jsx(Typography, { variant: "caption", color: "text.secondary", display: "block", sx: { mb: 1 }, children: "Inserts or removes a marked field block in the first fields section of form-definition.xml for each chosen content type. Review in Git before publishing. Backup recommended." }), catalogError ? jsx(Alert, { severity: "warning", children: catalogError }) : null, bulkMsg ? jsx(Alert, { severity: "info", children: bulkMsg }) : null, jsxs(Stack, { direction: { xs: 'column', sm: 'row' }, spacing: 1, flexWrap: "wrap", useFlexGap: true, children: [jsx(Button, { variant: "outlined", disabled: bulkBusy || !catalog.length, onClick: () => void runBulk('add', allTypeIds), children: "Add to all" }), jsx(Button, { variant: "outlined", color: "warning", disabled: bulkBusy || !catalog.length, onClick: () => void runBulk('remove', allTypeIds), children: "Remove from all" })] }), jsx(Autocomplete, { multiple: true, options: catalog, getOptionLabel: (o) => o.label, isOptionEqualToValue: (a, b) => a.id === b.id, value: formTargets, onChange: (_, v) => setFormTargets(v), renderInput: (params) => (jsx(TextField, { ...params, label: "Selected content types (form control)", placeholder: "Pick types\u2026" })) }), jsxs(Stack, { direction: { xs: 'column', sm: 'row' }, spacing: 1, flexWrap: "wrap", useFlexGap: true, children: [jsx(Button, { variant: "contained", disabled: bulkBusy || formTargets.length === 0, onClick: () => void runBulk('add', formTargets.map((x) => x.id)), children: "Add to selected" }), jsx(Button, { variant: "outlined", color: "warning", disabled: bulkBusy || formTargets.length === 0, onClick: () => void runBulk('remove', formTargets.map((x) => x.id)), children: "Remove from selected" })] }), jsx(Divider, {}), jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", children: [jsx(Button, { variant: "contained", startIcon: jsx(SaveRounded, {}), disabled: !dirty || saving, onClick: () => void save(), children: "Save UI settings" }), dirty ? (jsx(Typography, { variant: "caption", color: "text.secondary", children: "Unsaved changes" })) : null] })] })] }));
+                        }, disabled: imageScope !== 'selected', renderInput: (params) => (jsx(TextField, { ...params, label: "Content types (image augmentation)", placeholder: "Pick types\u2026" })) }), jsx(Divider, {}), jsx(Typography, { variant: "subtitle1", children: "AI Assistant form control on content types" }), jsx(Typography, { variant: "caption", color: "text.secondary", display: "block", sx: { mb: 1 }, children: "Inserts or removes a marked field block in the first fields section of form-definition.xml for each chosen content type. Review in Git before publishing. Backup recommended." }), catalogError ? jsx(Alert, { severity: "warning", children: catalogError }) : null, bulkMsg ? jsx(Alert, { severity: "info", children: bulkMsg }) : null, jsxs(Stack, { direction: { xs: 'column', sm: 'row' }, spacing: 1, flexWrap: "wrap", useFlexGap: true, children: [jsx(Button, { variant: "outlined", disabled: bulkBusy || !catalog.length, onClick: () => void runBulk('add', allTypeIds), children: "Add to all" }), jsx(Button, { variant: "outlined", color: "warning", disabled: bulkBusy || !catalog.length, onClick: () => void runBulk('remove', allTypeIds), children: "Remove from all" })] }), jsx(Autocomplete$1, { multiple: true, options: catalog, getOptionLabel: (o) => o.label, isOptionEqualToValue: (a, b) => a.id === b.id, value: formTargets, onChange: (_, v) => setFormTargets(v), renderInput: (params) => (jsx(TextField, { ...params, label: "Selected content types (form control)", placeholder: "Pick types\u2026" })) }), jsxs(Stack, { direction: { xs: 'column', sm: 'row' }, spacing: 1, flexWrap: "wrap", useFlexGap: true, children: [jsx(Button, { variant: "contained", disabled: bulkBusy || formTargets.length === 0, onClick: () => void runBulk('add', formTargets.map((x) => x.id)), children: "Add to selected" }), jsx(Button, { variant: "outlined", color: "warning", disabled: bulkBusy || formTargets.length === 0, onClick: () => void runBulk('remove', formTargets.map((x) => x.id)), children: "Remove from selected" })] }), jsx(Divider, {}), jsxs(Stack, { direction: "row", spacing: 1, alignItems: "center", children: [jsx(Button, { variant: "contained", startIcon: jsx(SaveRounded, {}), disabled: !dirty || saving, onClick: () => void save(), children: "Save UI settings" }), dirty ? (jsx(Typography, { variant: "caption", color: "text.secondary", children: "Unsaved changes" })) : null] })] })] }));
 }
 
 /**

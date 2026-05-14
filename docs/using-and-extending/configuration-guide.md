@@ -389,6 +389,8 @@ You are assisting CrafterCMS authors. Use CMS tools when they are on the wire. P
 
 ### 9.2 Enable / disable stock (built‑in) tools
 
+You can maintain **`tools.json`** in Git or use **Project Tools → AI Assistant → Tools and MCP** in Studio (form for built-ins + MCP; same tab as **`user-tools/registry.json`** and the Groovy tool list).
+
 **Put JSON here:**
 
 ```text

@@ -33,11 +33,18 @@ import {
 import {
   AI_ASSISTANT_IMAGEGEN_GROOVY_STUB,
   AI_ASSISTANT_LLM_RUNTIME_GROOVY_STUB,
-  AI_ASSISTANT_TOOLS_JSON_STUB,
   AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB,
   AI_ASSISTANT_USER_TOOL_GROOVY_STUB,
   aiAssistantToolPromptMarkdownStub
 } from './aiAssistantScriptStubs';
+import AiAssistantToolsMcpForm from './AiAssistantToolsMcpForm';
+import {
+  defaultToolsPolicyFormState,
+  parseToolsPolicyFromJsonText,
+  serializeToolsPolicyToJson,
+  validateToolsPolicy,
+  type ToolsPolicyFormState
+} from './aiAssistantToolsMcpUiModel';
 import {
   fetchAiAssistantPromptDetail,
   fetchAiAssistantScriptsIndex,
@@ -83,9 +90,9 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
   const [registryDirty, setRegistryDirty] = useState(false);
   const [savingRegistry, setSavingRegistry] = useState(false);
 
-  const [toolsJsonDraft, setToolsJsonDraft] = useState(AI_ASSISTANT_TOOLS_JSON_STUB);
-  const [toolsJsonDirty, setToolsJsonDirty] = useState(false);
-  const [savingToolsJson, setSavingToolsJson] = useState(false);
+  const [toolsPolicy, setToolsPolicy] = useState<ToolsPolicyFormState>(() => defaultToolsPolicyFormState());
+  const [toolsPolicyDirty, setToolsPolicyDirty] = useState(false);
+  const [savingToolsPolicy, setSavingToolsPolicy] = useState(false);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorFullscreen, setEditorFullscreen] = useState(false);
@@ -117,10 +124,10 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
     registryDirtyRef.current = registryDirty;
   }, [registryDirty]);
 
-  const toolsJsonDirtyRef = React.useRef(false);
+  const toolsPolicyDirtyRef = React.useRef(false);
   React.useEffect(() => {
-    toolsJsonDirtyRef.current = toolsJsonDirty;
-  }, [toolsJsonDirty]);
+    toolsPolicyDirtyRef.current = toolsPolicyDirty;
+  }, [toolsPolicyDirty]);
 
   const reload = useCallback(async () => {
     if (!siteId) return;
@@ -138,13 +145,19 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
         const t = (data.registryText ?? '').trim();
         setRegistryDraft(t || AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB);
       }
-      if (!toolsJsonDirtyRef.current) {
+      if (!toolsPolicyDirtyRef.current) {
         try {
           const raw = await firstValueFrom(fetchConfigurationJSON(siteId, TOOLS_JSON_REL, 'studio'));
           const text = typeof raw === 'string' ? raw : '';
-          setToolsJsonDraft(text.trim() ? text : AI_ASSISTANT_TOOLS_JSON_STUB);
+          const parsed = parseToolsPolicyFromJsonText(text.trim() ? text : '');
+          if (!parsed.ok) {
+            setLoadError(parsed.message);
+            setToolsPolicy(defaultToolsPolicyFormState());
+          } else {
+            setToolsPolicy(parsed.state);
+          }
         } catch {
-          setToolsJsonDraft(AI_ASSISTANT_TOOLS_JSON_STUB);
+          setToolsPolicy(defaultToolsPolicyFormState());
         }
       }
     } catch (e) {
@@ -187,26 +200,29 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
     }
   };
 
-  const saveToolsJson = async () => {
+  const saveToolsPolicy = async () => {
     if (!siteId) return;
-    const parsed = safeJsonParse(toolsJsonDraft);
-    if (parsed == null) {
-      setLoadError('tools.json is invalid JSON — fix syntax before saving.');
+    const v = validateToolsPolicy(toolsPolicy);
+    if (!v.ok) {
+      setLoadError(v.message);
       return;
     }
-    const normalized = JSON.stringify(parsed, null, 2);
-    setSavingToolsJson(true);
+    const normalized = serializeToolsPolicyToJson(toolsPolicy);
+    setSavingToolsPolicy(true);
     setLoadError(null);
     try {
       await firstValueFrom(writeConfiguration(siteId, TOOLS_JSON_REL, 'studio', normalized));
-      setToolsJsonDraft(normalized);
-      setToolsJsonDirty(false);
+      const roundTrip = parseToolsPolicyFromJsonText(normalized);
+      if (roundTrip.ok) {
+        setToolsPolicy(roundTrip.state);
+      }
+      setToolsPolicyDirty(false);
       await postAiAssistantScriptsMutate(siteId, { action: 'refreshSync' }).catch(() => {});
       await reload();
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : String(e));
     } finally {
-      setSavingToolsJson(false);
+      setSavingToolsPolicy(false);
     }
   };
 
@@ -412,10 +428,9 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
       </Typography>
     ) : panel === 'tools' ? (
       <Typography variant="body2" color="text.secondary" paragraph>
-        Edit <code>scripts/aiassistant/config/tools.json</code> to map built-in CMS tools (<code>disabledBuiltInTools</code>,{' '}
-        <code>enabledBuiltInTools</code>) and attach MCP servers (<code>mcpEnabled</code>, <code>mcpServers</code>,{' '}
-        <code>disabledMcpTools</code>). Edit <code>user-tools/registry.json</code> and Groovy tools under{' '}
-        <code>scripts/aiassistant/user-tools/</code>. Empty files open with a working stub.
+        Configure built-in tool visibility, optional MCP servers, and hidden MCP tools using the form below (saved to{' '}
+        <code>scripts/aiassistant/config/tools.json</code>). Edit <code>user-tools/registry.json</code> and Groovy tools under{' '}
+        <code>scripts/aiassistant/user-tools/</code>. Empty registry files open with a working stub.
       </Typography>
     ) : panel === 'scripts' ? (
       <Typography variant="body2" color="text.secondary" paragraph>
@@ -457,7 +472,7 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
               disabled={loading}
               onClick={() => {
                 setRegistryDirty(false);
-                setToolsJsonDirty(false);
+                setToolsPolicyDirty(false);
                 void reload();
               }}
             >
@@ -471,37 +486,26 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
             Built-in tools and MCP (<code>{TOOLS_JSON_REL}</code>)
           </Typography>
           <Typography variant="body2" color="text.secondary" paragraph>
-            Set <code>mcpEnabled</code> to <code>true</code> before <code>mcpServers</code> is used. Each server needs{' '}
-            <code>id</code> and <code>url</code> (Streamable HTTP POST endpoint); optional <code>headers</code> and{' '}
-            <code>readTimeoutMs</code>. MCP tools appear as <code>mcp_&lt;id&gt;_&lt;toolName&gt;</code> wire names. Non-empty{' '}
-            <code>enabledBuiltInTools</code> whitelists CMS built-ins only (exact wire names in product docs);{' '}
-            <code>InvokeSiteUserTool</code> and <code>mcp_*</code> stay unless listed in <code>disabledBuiltInTools</code> or{' '}
-            <code>disabledMcpTools</code>.
+            Use the form below to map built-in tools and optional MCP servers. The site file remains{' '}
+            <code>scripts/aiassistant/config/tools.json</code> (written on Save). MCP tools use wire names like{' '}
+            <code>mcp_&lt;serverId&gt;_&lt;toolName&gt;</code>.
           </Typography>
-          <TextField
-            value={toolsJsonDraft}
-            onChange={(ev) => {
-              setToolsJsonDraft(ev.target.value);
-              setToolsJsonDirty(true);
+          <AiAssistantToolsMcpForm
+            value={toolsPolicy}
+            onChange={(next) => {
+              setToolsPolicy(next);
+              setToolsPolicyDirty(true);
             }}
-            fullWidth
-            multiline
-            minRows={12}
-            size="small"
-            sx={{ '& textarea': { fontFamily: 'ui-monospace, monospace', fontSize: 13 } }}
           />
           <Button
-            sx={{ mt: 1 }}
+            sx={{ mt: 2 }}
             size="small"
             variant="contained"
             startIcon={<SaveRounded />}
-            disabled={savingToolsJson || !toolsJsonDirty}
-            onClick={() => void saveToolsJson()}
+            disabled={savingToolsPolicy || !toolsPolicyDirty}
+            onClick={() => void saveToolsPolicy()}
           >
-            Save tools.json
-          </Button>
-          <Button sx={{ mt: 1, ml: 1 }} size="small" onClick={() => loadFileForEditor('tools.json', `/${TOOLS_JSON_REL}`, AI_ASSISTANT_TOOLS_JSON_STUB)}>
-            Open in editor
+            Save tools &amp; MCP
           </Button>
 
           <Divider sx={{ my: 3 }} />

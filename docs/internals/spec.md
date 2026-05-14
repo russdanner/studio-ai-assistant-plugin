@@ -208,8 +208,8 @@ Defined in `sources/src/consts.ts`:
   - `popoverWidgetId`
   - `helperWidgetId`
   - `autonomousAssistantsWidgetId` (`craftercms.components.aiassistant.AutonomousAssistants`)
-  - `projectToolsAiAssistantConfigWidgetId` (`craftercms.components.aiassistant.ProjectToolsConfiguration`) — **Project Tools** single entry (**UI** / **Agents** / **Prompts** / **Tools** / **Scripts** tabs)
-  - `projectToolsCentralAgentsWidgetId`, `projectToolsScriptsSandboxWidgetId`, `projectToolsStudioUiSettingsWidgetId` — **legacy** widget ids; bundle still registers them and maps each to the same tabbed shell with the matching default tab (**ScriptsSandboxConfiguration** opens the **Tools** tab — registry and user Groovy — for sites that still have three merged tools until admins remove duplicates)
+  - `projectToolsAiAssistantConfigWidgetId` (`craftercms.components.aiassistant.ProjectToolsConfiguration`) — **Project Tools** single entry (**UI** / **Agents** / **Prompts** / **Tools and MCP** / **Scripts** tabs)
+  - `projectToolsCentralAgentsWidgetId`, `projectToolsScriptsSandboxWidgetId`, `projectToolsStudioUiSettingsWidgetId` — **legacy** widget ids; bundle still registers them and maps each to the same tabbed shell with the matching default tab (**ScriptsSandboxConfiguration** opens the **Tools and MCP** tab — `tools.json`, registry, and user Groovy — for sites that still have three merged tools until admins remove duplicates)
 - **XB message topics**
   - `openCrafterQMessageId`
   - `CrafterQClosedMessageId`
