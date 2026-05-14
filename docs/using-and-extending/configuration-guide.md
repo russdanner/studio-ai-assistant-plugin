@@ -1,10 +1,10 @@
-# Configuration guide — AI Assistant for Crafter Studio
+# Configuration Guide — AI Assistant for Crafter Studio
 
 **Audience:** **Crafter Studio administrators** responsible for installing and configuring the assistant and its **tools** for authors—`ui.xml` widgets, agents, credentials, form wiring, optional TinyMCE, and optional site-script overrides—without reading the full implementation spec first.
 
-## Table of contents
+## Table of Contents
 
-**[Basic configuration](#cg-basic)** — `ui.xml` + forms: Helper / Tools Panel / Preview / Autonomous placement, **`plugin`** line, **`<agents>`**, secrets, form pipeline, checklist; TinyMCE last (**§8**) within **§1–§8**.
+**[Basic Configuration](#cg-basic)** — `ui.xml` + forms: Helper / Tools Panel / Preview / Autonomous placement, **`plugin`** line, **`<agents>`**, secrets, form pipeline, checklist; TinyMCE last (**§8**) within **§1–§8**.
 
 | § | Topic |
 |---|--------|
@@ -17,7 +17,7 @@
 | [7](#cg-7) | Checklist before support |
 | [8](#cg-8) | TinyMCE (rich text editor) |
 
-**[Advanced configuration](#cg-adv)** — Site Git scripts under `config/studio/scripts/aiassistant/…`: Markdown prompts, **`tools.json`**, user tools, script image backends, script LLMs, MCP.
+**[Advanced Configuration](#cg-adv)** — Site Git scripts under `config/studio/scripts/aiassistant/…`: Markdown prompts, **`tools.json`**, user tools, script image backends, script LLMs, MCP.
 
 | § | Topic |
 |---|--------|
@@ -26,9 +26,9 @@
 | [9.3](#cg-9-3) | Scripted tools, script LLMs, image generators |
 | [9.4](#cg-9-4) | MCP servers (optional remote tools) |
 
-**[Related documentation](#cg-related)** — Cross-links to **spec.md**, LLM guide, studio plugins guide, scripted tools, runtime doc, advanced overrides, and **Screenshots**.
+**[Related Documentation](#cg-related)** — Cross-links to **spec.md**, LLM guide, studio plugins guide, scripted tools, runtime doc, advanced overrides, and **Screenshots**.
 
-**[Where to go next](#cg-10)** — Links to [llm-configuration.md](llm-configuration.md), [spec.md](../internals/spec.md), and the rest of this doc set.
+**[Where to Go Next](#cg-10)** — Links to [llm-configuration.md](llm-configuration.md), [spec.md](../internals/spec.md), and the rest of this doc set.
 
 **[Screenshots](#cg-screenshots)** — Project Tools entry and **AI Assistant Configuration** dialog (all tabs).
 
@@ -40,37 +40,37 @@
 
 These screenshots show **Project Tools** (where you install the plugin and open **AI Assistant**) and the tabbed **AI Assistant Configuration** dialog. Paths below are relative to this file (`docs/using-and-extending/`).
 
-### Project Tools (sidebar)
+### Project Tools (Sidebar)
 
 ![Project Tools sidebar: Plugin Management selected; AI Assistant entry at the bottom of the list](../images/ai-assistant-studio/project-tools-sidebar.png)
 
 *Use **Plugin Management → Search & install** for the marketplace flow; open **AI Assistant** for configuration after install.*
 
-### AI Assistant Configuration — UI tab
+### AI Assistant Configuration — UI Tab
 
 ![AI Assistant Configuration modal with the UI tab active](../images/ai-assistant-studio/ai-assistant-configuration-ui-tab.png)
 
 *Toolbar/sidebar toggles, Experience Builder image augmentation scope, and bulk add/remove of the form-engine AI Assistant field.*
 
-### Agents tab
+### Agents Tab
 
 ![AI Assistant Configuration modal with the Agents tab active](../images/ai-assistant-studio/ai-assistant-configuration-agents-tab.png)
 
 *Chat assistants vs autonomous agents; reload, example catalog, and save to site.*
 
-### Edit agent
+### Edit Agent
 
 ![Edit agent dialog for a single catalog entry](../images/ai-assistant-studio/ai-assistant-edit-agent-dialog.png)
 
 *Provider, model, image generator, CMS tools checklist, and optional quick-prompt chips.*
 
-### Tools and MCP tab
+### Tools and MCP Tab
 
 ![AI Assistant Configuration modal with the Tools and MCP tab active](../images/ai-assistant-studio/ai-assistant-configuration-tools-tab.png)
 
 *Built-in tool visibility, MCP client toggle, and user-tools registry (table + **Open in editor**).*
 
-### Scripts tab
+### Scripts Tab
 
 ![AI Assistant Configuration modal with the Scripts tab active](../images/ai-assistant-studio/ai-assistant-configuration-scripts-tab.png)
 
@@ -80,7 +80,7 @@ These screenshots show **Project Tools** (where you install the plugin and open 
 
 <a id="cg-basic"></a>
 
-## Basic configuration
+## Basic Configuration
 
 Typical authoring setup is **`config/studio/ui.xml`** plus content-type form definitions: register the Helper (and optional Autonomous), use one consistent **`plugin`** line, define **`<agents>`**, supply keys, run the checklist (**§1–§7**), then optionally wire **TinyMCE** (**§8**). **§1–§8** below are the subsections in reading order.
 
@@ -88,7 +88,7 @@ Typical authoring setup is **`config/studio/ui.xml`** plus content-type form def
 
 <a id="cg-1"></a>
 
-### 1. What you are configuring
+### 1. What You Are Configuring
 
 | Goal | Typical touchpoints |
 |------|---------------------|
@@ -101,7 +101,7 @@ Commit **`config/studio/ui.xml`** (and any content-type changes) to the site san
 
 <a id="cg-1-xml"></a>
 
-### Where to put XML (file + parent elements)
+### Where to Put XML (File + Parent Elements)
 
 | What | File on disk (site Git sandbox) | Where inside the file |
 |------|-----------------------------------|------------------------|
@@ -143,7 +143,7 @@ Longer copy-paste blocks (Tools Panel + Preview + Autonomous together): [example
 
 <a id="cg-1b"></a>
 
-#### B) Studio Tools Panel (left rail)
+#### B) Studio Tools Panel (Left Rail)
 
 **Locate:** **`craftercms.components.ToolsPanel`** → **`configuration`** → **`widgets`**.
 
@@ -169,7 +169,7 @@ Longer copy-paste blocks (Tools Panel + Preview + Autonomous together): [example
 
 <a id="cg-1c"></a>
 
-#### C) Content type form (AI Assistant field)
+#### C) Content Type Form (AI Assistant Field)
 
 **Locate:** `config/studio/content-types/<content-type-id>/form-definition.xml` — inside the **`<fields>`** collection for the section where you want the accordion.
 
@@ -181,7 +181,7 @@ Agent rows still come from **`config/studio/ui.xml`** **`<agents>`** (same stabl
 
 <a id="cg-1d"></a>
 
-#### D) Autonomous assistants (Tools Panel only)
+#### D) Autonomous Assistants (Tools Panel Only)
 
 **Locate:** same parent as **B** — **`craftercms.components.ToolsPanel`** → **`configuration`** → **`widgets`**.
 
@@ -213,7 +213,7 @@ Full sample (including optional SVG icon): [examples/studio-ui-aiassistant-fragm
 
 <a id="cg-1e"></a>
 
-#### E) Studio UI flags & bulk tools (`studio-ui.json` + Project Tools)
+#### E) Studio UI Flags & Bulk Tools (`studio-ui.json` + Project Tools)
 
 **File:** **`config/studio/scripts/aiassistant/config/studio-ui.json`** (module **`studio`**). Authors usually create or edit it from **Project Tools → AI Assistant** → **UI** tab (`craftercms.components.aiassistant.ProjectToolsConfiguration`); you can also commit the JSON by hand in the site sandbox. The Project Tools save uses **`write_configuration`** with **`content`** set to **`JSON.stringify(...)`** — the Studio v2 API expects a **string** body for this endpoint, not a raw JSON object.
 
@@ -238,7 +238,7 @@ Full sample (including optional SVG icon): [examples/studio-ui-aiassistant-fragm
 
 <a id="cg-2"></a>
 
-### 2. Helper, Autonomous, and toolbar widgets: `plugin` element
+### 2. Helper, Autonomous, and Toolbar Widgets: `plugin` Element
 
 Studio resolves the **JavaScript bundle** from the **`plugin`** child on each widget that mounts this plugin (Helper, AutonomousAssistants, and any **Experience Builder preview toolbar** entry that uses the same pattern). Use the same values everywhere so Studio loads **`index.js`** from the installed plugin.
 
@@ -298,7 +298,7 @@ Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concu
 
 <a id="cg-4"></a>
 
-### 4. Secrets and API keys (recommended order)
+### 4. Secrets and API Keys (Recommended Order)
 
 1. **Studio host environment variables** — Preferred for production API keys and base URLs. Provider names and variables are listed in [llm-configuration.md](llm-configuration.md).
 2. **Per‑agent `ui.xml` / widget JSON** — e.g. `<openAiApiKey>`: **testing only**; discouraged in Git‑tracked sites. Precedence vs host env is described in [chat-and-tools-runtime.md § OpenAI API key](../internals/chat-and-tools-runtime.md#openai-api-key-server-side).
@@ -324,7 +324,7 @@ Optional toggles (`openAsPopup`, `enableTools`, expert skills, translation concu
 
 <a id="cg-5"></a>
 
-### 5. Form Engine control
+### 5. Form Engine Control
 
 The AI Assistant **form control** reads agent definitions from the same **`/ui.xml`** agent collection as the Helper (by stable id). Changing only the Helper widget JSON in Studio UI without updating **`/config/studio/ui.xml`** can leave the form panel out of sync—see the form pipeline and locked panel behavior in [studio-plugins-guide.md](studio-plugins-guide.md) (**Form assistant panel**) and [spec.md](../internals/spec.md) (content-type form assistant).
 
@@ -332,7 +332,7 @@ The AI Assistant **form control** reads agent definitions from the same **`/ui.x
 
 <a id="cg-6"></a>
 
-### 6. Autonomous assistants (optional)
+### 6. Autonomous Assistants (Optional)
 
 Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑memory state. Not a substitute for interactive chat configuration: you still define **`llm`**, **`llmModel`**, schedules, scopes, and human‑task behavior per [spec.md — Autonomous assistants widget](../internals/spec.md#autonomous-assistants-widget-tools-panel).
 
@@ -340,7 +340,7 @@ Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑
 
 <a id="cg-7"></a>
 
-### 7. Checklist before opening a support thread
+### 7. Checklist Before Opening a Support Thread
 
 - [ ] Plugin installed for the **site** (Marketplace or `copy-plugin` / `install-plugin.sh`); **`org.craftercms.aiassistant.studio`** appears in Plugin Management.
 - [ ] **`ui.xml`** committed; Studio **Sync** performed if you rely on git‑backed sandbox.
@@ -353,7 +353,7 @@ Separate widget, separate XML block **`autonomousAgents`**, supervisor and in‑
 
 <a id="cg-8"></a>
 
-### 8. TinyMCE (rich text editor)
+### 8. TinyMCE (Rich Text Editor)
 
 **File:** **`config/studio/ui.xml`**
 
@@ -388,13 +388,13 @@ Full toolbar list and keys: [tinymce-integration.md](tinymce-integration.md).
 
 <a id="cg-adv"></a><a id="cg-9"></a>
 
-## Advanced configuration (prompts, tools, scripts, MCP)
+## Advanced Configuration (Prompts, Tools, Scripts, MCP)
 
 All paths in this section are under the **site** Git sandbox (`config/studio/scripts/aiassistant/…`). Commit changes and refresh Studio configuration as you do for other site scripts.
 
 <a id="cg-9-1"></a>
 
-### 9.1 Override tool / system prompt text
+### 9.1 Override Tool / System Prompt Text
 
 **Put Markdown here:**
 
@@ -433,7 +433,7 @@ You are assisting CrafterCMS authors. Use CMS tools when they are on the wire. P
 
 <a id="cg-9-2"></a>
 
-### 9.2 Enable / disable stock (built‑in) tools
+### 9.2 Enable / Disable Stock (Built‑In) Tools
 
 You can maintain **`tools.json`** in Git or use **Project Tools → AI Assistant → Tools and MCP** in Studio (form for built-ins + MCP; same tab as **`user-tools/registry.json`** and the Groovy tool list).
 
@@ -512,7 +512,7 @@ Per-request **`omitTools`** / agent **`<enableTools>false</enableTools>`** still
 
 <a id="cg-9-3"></a>
 
-### 9.3 Scripted tools, script LLMs, and image generators
+### 9.3 Scripted Tools, Script LLMs, and Image Generators
 
 | What | Where you put it | How the model uses it |
 |------|------------------|------------------------|
@@ -565,7 +565,7 @@ Implement **`config/studio/scripts/aiassistant/llm/mybackend/runtime.groovy`** p
 
 <a id="cg-9-4"></a>
 
-### 9.4 MCP servers (optional remote tools)
+### 9.4 MCP Servers (Optional Remote Tools)
 
 Same file: **`config/studio/scripts/aiassistant/config/tools.json`**.
 
@@ -602,7 +602,7 @@ Full behavior, lifecycle, and limits: [chat-and-tools-runtime.md § MCP client t
 
 <a id="cg-10"></a>
 
-## 10. Where to go next
+## 10. Where to Go Next
 
 | Topic | Document |
 |-------|-----------|
@@ -617,6 +617,6 @@ Full behavior, lifecycle, and limits: [chat-and-tools-runtime.md § MCP client t
 
 <a id="cg-related"></a>
 
-### Related documentation
+### Related Documentation
 
 **Official product specification:** [spec.md](../internals/spec.md) — requirements & mechanics for surfaces, `ui.xml`, form vs preview, macros, autonomous REST (update **`spec.md`** when those contracts change). [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. **[scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md)** — **Integrators:** Groovy **`InvokeSiteUserTool`** / **`script:{id}`** image backends (bindings, examples, return shapes); this guide **§9.3** is the short overview. Optional hosted SaaS HTTP (bearer, chat audit tools): [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md). **Site overrides** for prompts, built‑in tool policy, scripted tools, image backends, and MCP: [Advanced configuration](#cg-adv). **Visual overview (Studio UI):** [Screenshots — Project Tools and AI Assistant Configuration](#cg-screenshots).

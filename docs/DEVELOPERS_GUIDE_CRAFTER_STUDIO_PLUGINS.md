@@ -1,4 +1,4 @@
-# Moved: Developers guide (Studio plugins & extensions)
+# Moved: Developers Guide (Studio Plugins & Extensions)
 
 This guide now lives at **`docs/using-and-extending/studio-plugins-guide.md`**.
 

@@ -1,4 +1,4 @@
-# Moved: Streaming endpoint design
+# Moved: Streaming Endpoint Design
 
 This document now lives at **`docs/internals/stream-endpoint-design.md`**.
 

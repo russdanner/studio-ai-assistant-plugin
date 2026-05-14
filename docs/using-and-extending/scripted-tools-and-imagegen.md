@@ -1,4 +1,4 @@
-# Scripted site tools & script image backends
+# Scripted Site Tools & Script Image Backends
 
 **Audience:** **Integrators** — teams extending Studio with **site sandbox Groovy**: **`InvokeSiteUserTool`** (`user-tools/` + **`registry.json`**) and/or **`script:{id}`** **`GenerateImage`** backends (`imagegen/{id}/generate.groovy`). Covers interfaces, bindings, return shapes, and configuration checklists.
 
@@ -6,7 +6,7 @@
 
 ---
 
-## 1. At a glance
+## 1. at a Glance
 
 | Capability | Studio path (site Git sandbox) | How the model calls it |
 |------------|--------------------------------|-------------------------|
@@ -20,7 +20,7 @@ Both features:
 
 ---
 
-## 2. Site user tools (`InvokeSiteUserTool`)
+## 2. Site User Tools (`InvokeSiteUserTool`)
 
 ### 2.1 Layout
 
@@ -31,7 +31,7 @@ Both features:
 
 Studio reads the registry at configuration path **`/scripts/aiassistant/user-tools/registry.json`** (same folder on disk as above).
 
-### 2.2 `registry.json` shape
+### 2.2 `registry.json` Shape
 
 The parser accepts either:
 
@@ -63,7 +63,7 @@ Each **entry** (object):
 }
 ```
 
-### 2.3 Model-facing tool contract (`InvokeSiteUserTool`)
+### 2.3 Model-facing Tool contract (`InvokeSiteUserTool`)
 
 The Spring AI JSON schema requires:
 
@@ -72,7 +72,7 @@ The Spring AI JSON schema requires:
 | **`toolId`** | string | Yes | Must equal a **`registry.json`** **`id`** |
 | **`args`** | object | No | Arbitrary keys; becomes the Groovy binding **`args`** (`Map`) |
 
-### 2.4 Groovy script: compile-time bindings
+### 2.4 Groovy Script: Compile-time Bindings
 
 The **entire script file** is evaluated once per invocation with **`GroovyShell`**. These variables exist **during evaluation** (same as `StudioAiUserSiteTools.invokeRegisteredTool`):
 
@@ -84,7 +84,7 @@ The **entire script file** is evaluated once per invocation with **`GroovyShell`
 | **`siteId`** | `String` | Effective site id (`studio.resolveEffectiveSiteId('')`). |
 | **`log`** | `org.slf4j.Logger` | Logger for **`StudioAiUserSiteTools`**. |
 
-### 2.5 Groovy script: return value
+### 2.5 Groovy Script: Return Value
 
 | Last expression | Server behavior |
 |-----------------|-----------------|
@@ -93,7 +93,7 @@ The **entire script file** is evaluated once per invocation with **`GroovyShell`
 
 Prefer explicit maps such as **`[ ok: true, message: '…', data: … ]`** or **`[ ok: false, error: true, message: '…' ]`** on failure.
 
-### 2.6 Minimal example script
+### 2.6 Minimal Example Script
 
 Source: [`docs/examples/aiassistant-user-tools/hello.groovy`](../examples/aiassistant-user-tools/hello.groovy).
 
@@ -107,7 +107,7 @@ def name = args?.name?.toString()?.trim() ?: 'author'
 ]
 ```
 
-### 2.7 Enabling in the tool catalog
+### 2.7 Enabling in the Tool Catalog
 
 - **`InvokeSiteUserTool`** is registered only when **`registry.json`** parses to **at least one** valid entry.
 - Built-in allow/deny lists in **`config/studio/scripts/aiassistant/config/tools.json`** apply to other tools; **`InvokeSiteUserTool`** is **exempt from `enabledBuiltInTools` whitelists** but can still be listed under **`disabledBuiltInTools`** if you need to hide it.
@@ -119,13 +119,13 @@ Anyone who can commit under **`user-tools/`** can run **arbitrary Groovy** as th
 
 ---
 
-## 3. Script image backend (`script:{id}`)
+## 3. Script Image Backend (`script:{id}`)
 
-### 3.1 When to use it
+### 3.1 When to Use It
 
 Use a script backend when **`GenerateImage`** must call a **non-default** pipeline (internal HTTP service, on-prem model, deterministic placeholder, save to blob storage + return URL, etc.). When **`imageGenerator`** is blank and keys + **`imageModel`** are set, the server uses the **built-in GenerateImage HTTP** path instead — see [image-generation.md](image-generation.md).
 
-### 3.2 Selector & path
+### 3.2 Selector & Path
 
 | Agent / POST field | Example | Resolved script path |
 |--------------------|---------|-------------------------|
@@ -144,7 +144,7 @@ The **`{id}`** segment after **`script:`** is **normalized to lowercase** for lo
 
 **Not supported:** a bare **`Map`** as the top-level script result (must be closure or typed object).
 
-### 3.4 Compile-time bindings (while the script is evaluated)
+### 3.4 Compile-time Bindings (While the Script Is Evaluated)
 
 These exist when **`GroovyShell.evaluate`** runs **`generate.groovy`** (`StudioAiScriptImageGenLoader`):
 
@@ -156,7 +156,7 @@ These exist when **`GroovyShell.evaluate`** runs **`generate.groovy`** (`StudioA
 | **`scriptPath`** | Studio-relative path, e.g. **`/scripts/aiassistant/imagegen/mygen/generate.groovy`**. |
 | **`studio`** | `StudioToolOperations`. |
 
-### 3.5 Runtime arguments to the closure
+### 3.5 Runtime Arguments to the Closure
 
 Each **`GenerateImage`** tool call invokes your closure with:
 
@@ -176,7 +176,7 @@ Each **`GenerateImage`** tool call invokes your closure with:
 | **`imagesGenerationsHttpUrl`** | Resolved **`POST …/v1/images/generations`** URL when applicable. |
 | **`generatorSpec`** | Raw **`imageGenerator`** string (e.g. **`script:mygen`**). |
 
-### 3.6 `GenerateImage` tool input (`input` map)
+### 3.6 `GenerateImage` Tool Input (`input` Map)
 
 Aligned with the built-in JSON schema ( **`prompt`** required):
 
@@ -187,7 +187,7 @@ Aligned with the built-in JSON schema ( **`prompt`** required):
 | **`quality`** | No | GPT Image quality when on the wire. |
 | **`model`** | No | Per-call model override when using the OpenAI Images wire; script backends may read it or ignore it. |
 
-### 3.7 Return `Map` shape (tool result)
+### 3.7 Return `Map` Shape (Tool Result)
 
 Match the historical **`GenerateImage`** tool result so the UI and orchestration behave correctly. The built-in HTTP implementation sets at minimum:
 
@@ -203,7 +203,7 @@ Match the historical **`GenerateImage`** tool result so the UI and orchestration
 
 See **`StudioAiImageGenerator`** in the plugin sources (`imagegen/StudioAiImageGenerator.groovy`) for the interface contract comment.
 
-### 3.8 Minimal stub (returns error until implemented)
+### 3.8 Minimal Stub (Returns Error Until Implemented)
 
 ```groovy
 // evaluate to a Closure: (Map input, Map ctx) -> Map
@@ -244,7 +244,7 @@ Compiled closures are cached **per site + id** with a SHA-256 of the script text
 
 ---
 
-## 4. Related: script LLM (`llm/{id}/runtime.groovy`)
+## 4. Related: Script LLM (`llm/{id}/runtime.groovy`)
 
 **Chat** backends live under **`config/studio/scripts/aiassistant/llm/{id}/`** (not `user-tools/` or `imagegen/`). They implement **`StudioAiLlmRuntime`** or the documented **Map** bundle contract — see **[llm-configuration.md](llm-configuration.md)** and the plugin **`docs/examples/aiassistant-llm/`** tree.
 
@@ -252,7 +252,7 @@ For a **real-world Groovy `StudioAiLlmRuntime` class** that builds the **full** 
 
 ---
 
-## 5. Side-by-side comparison
+## 5. Side-by-side Comparison
 
 | Topic | User tool (`user-tools/`) | Script image (`imagegen/{id}/`) |
 |-------|---------------------------|----------------------------------|
@@ -264,7 +264,7 @@ For a **real-world Groovy `StudioAiLlmRuntime` class** that builds the **full** 
 
 ---
 
-## 6. Configuration checklist
+## 6. Configuration Checklist
 
 | Step | User tools | Script image |
 |------|------------|----------------|
@@ -275,7 +275,7 @@ For a **real-world Groovy `StudioAiLlmRuntime` class** that builds the **full** 
 
 ---
 
-## 7. Source references (maintainers)
+## 7. Source References (Maintainers)
 
 | Concern | Class |
 |---------|--------|

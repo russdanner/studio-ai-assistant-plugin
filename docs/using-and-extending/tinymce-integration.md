@@ -1,8 +1,8 @@
-# TinyMCE (RTE) integration
+# TinyMCE (RTE) Integration
 
 Wire the AI Assistant into **TinyMCE** via your site **`ui.xml`** on the **`craftercms.components.TinyMCE`** widget: open **`configuration → setups → setup → tinymceOptions`**, then merge the options below into that JSON.
 
-## Toolbar and external plugin
+## Toolbar and External Plugin
 
 Replace **`YOUR_SITE_ID`** with the Studio site id (e.g. `new-demo`).
 
@@ -18,7 +18,7 @@ Replace **`YOUR_SITE_ID`** with the Studio site id (e.g. `new-demo`).
 
 Use **`&amp;`** for `&` inside XML attribute values if you inline JSON in XML.
 
-## Exported buttons
+## Exported Buttons
 
 | Toolbar id | Behavior |
 |--------------|----------|
@@ -28,7 +28,7 @@ Use **`&amp;`** for `&` inside XML attribute values if you inline JSON in XML.
 
 Legacy toolbar id **`CrafterQdialog`** was removed; update toolbar strings if you still reference it.
 
-## `craftercms_aiassistant` config object
+## `craftercms_aiassistant` Config Object
 
 Add a **`craftercms_aiassistant`** object next to **`external_plugins`** (sibling under `tinymceOptions`).
 

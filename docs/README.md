@@ -1,12 +1,10 @@
-# Documentation index
+# Documentation Index
 
-High-level map; deep dives live in linked files.
+**Official specifications:** Product requirements and mechanics — **[`internals/spec.md`](internals/spec.md)**. Build and install invariants — **[`using-and-extending/studio-plugins-guide.md`](using-and-extending/studio-plugins-guide.md)**. Together with **`spec.md`**, those documents define correct implementation; update them when behavior or packaging changes.
 
-**Official specifications:** Product requirements & mechanics — **[`internals/spec.md`](internals/spec.md)**. Build & install invariants — **[`using-and-extending/studio-plugins-guide.md`](using-and-extending/studio-plugins-guide.md)** (together with **`spec.md`**, they define what “correct” implementation means). Keep them updated when behavior or packaging changes.
+## By Audience
 
-## By audience
-
-| Audience | Start here |
+| Audience | Start Here |
 |----------|------------|
 | **Product / review** — mandatory outcomes in plain English (not setup steps) | [Product requirements](using-and-extending/product-requirements.md) |
 | **Operators** — install, `ui.xml`, agents, keys, surfaces, optional **`studio-ui.json`** toggles | [Configuration guide](using-and-extending/configuration-guide.md) |
@@ -16,7 +14,7 @@ High-level map; deep dives live in linked files.
 | **Maintainers** — **`spec.md`** (requirements & mechanics), streaming, tools runtime | [Internals](internals/README.md) |
 | **Plugin repo contributors** — clone, `yarn package`, policy, spec | [CONTRIBUTING.md](../CONTRIBUTING.md) |
 
-## Topic → document
+## Topic → Document
 
 | Topic | Document |
 |-------|----------|
@@ -35,4 +33,4 @@ High-level map; deep dives live in linked files.
 | JVM / `-D` tuning (timeouts, HTTP caps, key fallbacks) | [studio-aiassistant-jvm-parameters.md](using-and-extending/studio-aiassistant-jvm-parameters.md) |
 | TinyMCE toolbar & `craftercms_aiassistant` | [tinymce-integration.md](using-and-extending/tinymce-integration.md) |
 
-**Examples** (copy-paste fragments): [`examples/`](examples/).
+**Examples:** [`examples/`](examples/).

@@ -1,4 +1,4 @@
-# Chat, CMS tools, and runtime behavior
+# Chat, CMS Tools, and Runtime Behavior
 
 **What this is:** Official companion to **[`spec.md`](spec.md)** for tools, REST bodies, CrafterQ/SaaS HTTP, MCP, and runtime troubleshooting contracts. When those behaviors change, update **this file** and the relevant **`spec.md`** sections.
 
@@ -10,7 +10,7 @@
 
 ---
 
-## Crafter Studio version (CMS tools)
+## Crafter Studio Version (CMS Tools)
 
 **Native function tool** calls that read/write repository content (`GetContent`, `WriteContent`, etc.) are wired to **CrafterCMS 4.5.x** Studio Java APIs:
 
@@ -27,7 +27,7 @@
 
 ---
 
-## OpenAI vendor API key (`OPENAI_API_KEY`, server-side) and testing-only widget key {#openai-api-key-server-side}
+## OpenAI Vendor API Key (`OPENAI_API_KEY`, Server-side) and Testing-only Widget Key {#openai-api-key-server-side}
 
 **Recommended:** set on the **Studio host** as an environment variable (never commit real keys to site config):
 
@@ -35,7 +35,7 @@
 
 Server-side key fallbacks that use JVM system properties are listed in **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**.
 
-### Optional: `<openAiApiKey>` in ui.xml (testing only)
+### Optional: `<openAiApiKey>` in `ui.xml` (Testing Only)
 
 **Not recommended** for production: the key lives in Studio configuration (often Git-tracked), is visible to anyone who can read/edit that config, and is sent from the browser on each chat request.
 
@@ -57,7 +57,7 @@ The REST body may also include `openAiApiKey` (same precedence); the React widge
 
 ---
 
-## Example agents (Preview Toolbar widget)
+## Example Agents (Preview Toolbar Widget)
 
 See `craftercms-plugin.yaml` under `installation` → `configuration` → `agents` → `agent`:
 
@@ -78,7 +78,7 @@ See `craftercms-plugin.yaml` under `installation` → `configuration` → `agent
 
 ---
 
-## Hosted SaaS API tools on the tool-capable path (`ConsultCrafterQExpert`, `ListCrafterQAgentChats`, `GetCrafterQAgentChat`) {#crafterq-api-tools-tools-loop}
+## Hosted SaaS API Tools on the Tool-capable Path (`ConsultCrafterQExpert`, `ListCrafterQAgentChats`, `GetCrafterQAgentChat`) {#crafterq-api-tools-tools-loop}
 
 These three tools are registered **only** for agents that use the **Spring AI native tool loop** with the shared **`AiOrchestrationTools`** catalog (e.g. **`openAI`**, **`xAI`**, **`deepSeek`**, **`llama`**, **`genesis`/`gemini`**, **`claude`**). They are **not** registered for **`crafterQ`** hosted chat alone (`ExpertChatModel` — no function tools on that adapter).
 
@@ -122,11 +122,11 @@ If listing or chat calls return **401/403**, verify **`X-CrafterQ-Chat-User`** a
 
 ---
 
-## MCP client tools (Streamable HTTP) {#mcp-client-tools-streamable-http}
+## MCP Client Tools (Streamable HTTP) {#mcp-client-tools-streamable-http}
 
 Sites can attach **remote MCP servers** so **tools-loop chat** agents (and other **native-tool** agents) gain **extra function tools** beyond the built-in CMS catalog. Configuration lives in **`config/studio/scripts/aiassistant/config/tools.json`**. MCP is **off by default**: set JSON boolean **`mcpEnabled`** to **`true`** in that file to load **`mcpServers`** (site config only — not a JVM env var). The same file continues to hold **`disabledBuiltInTools`** / **`enabledBuiltInTools`** as today.
 
-### `tools.json` fields
+### `tools.json` Fields
 
 | Key | Purpose |
 |-----|---------|
@@ -134,7 +134,7 @@ Sites can attach **remote MCP servers** so **tools-loop chat** agents (and other
 | **`mcpServers`** | JSON array of server objects (processed only when **`mcpEnabled`** is **`true`**): required **`id`**, required **`url`** (MCP **Streamable HTTP** endpoint — single path accepting `POST`), optional **`headers`**, optional **`readTimeoutMs`** (default **120000**). |
 | **`disabledMcpTools`** | Optional array of **wire** tool names to omit (case-insensitive), e.g. **`mcp_docs_search`**. You can also list those names under **`disabledBuiltInTools`**. |
 
-### Wire names and lifecycle
+### Wire Names and Lifecycle
 
 - Each MCP tool from **`tools/list`** becomes a Studio tool whose name is **`mcp_<serverId>_<mcpToolName>`** (non-alphanumeric segments collapsed to `_`, total length capped at **64** characters to match the **tools-loop** wire’s tool-name constraints).
 - **Per chat request**, when the plugin builds **`AiOrchestrationTools`**, it runs **`initialize`** → **`notifications/initialized`** → **`tools/list`** for **each** configured server, then keeps a **single session** (including **`Mcp-Session-Id`** when returned) for all **`tools/call`** invocations from that request.
@@ -144,7 +144,7 @@ Sites can attach **remote MCP servers** so **tools-loop chat** agents (and other
 
 ---
 
-## Optional: per-agent expert skills (markdown RAG, embeddings + tools)
+## Optional: Per-Agent Expert Skills (Markdown RAG, Embeddings + Tools)
 
 Inside an `<agent>` that uses `<llm>openAI</llm>`, add one or more **`<expertSkill>`** children. Each row points to a **public `http(s)` URL** whose response body is treated as **UTF-8 markdown**. On first use, Studio **fetches** that URL (same SSRF rules as **`FetchHttpUrl`**), **chunks** the text, **embeds** it with Spring AI (**`text-embedding-3-small`** by default), and stores vectors in a **per-skill in-memory `SimpleVectorStore`**. The model gets a system appendix with **`skillId`** (stable hash from the URL) and may call **`QueryExpertGuidance`** (`skillId`, `query`, optional `topK`).
 
@@ -167,13 +167,13 @@ Element form is also supported: `<expertSkill><name>…</name><url>…</url><des
 
 ---
 
-## Chat widget: stream completion
+## Chat Widget: Stream Completion
 
 The Studio React client stops reading the SSE body as soon as it sees **`metadata.completed: true`** or **`metadata.error: true`**, then **`cancel()`s** the fetch reader. That avoids waiting for the HTTP connection to close (some servlet/async stacks keep it open), which previously surfaced as **“Timed out waiting for chat response”** after 65s. The safety timeout is now **5 minutes** for long tool runs.
 
 **Server-side (Spring AI flux + native tools-loop RestClient):** `AiOrchestration` waits up to **5 minutes** by default for the `chatResponse()` flux to complete or error, or for the **RestClient** multi-round tool `Future` to finish—then **disposes** / **cancels** so the outbound HTTP call is torn down (the **chat host** may see a **client disconnect**). Each **sync** `POST /v1/chat/completions` uses a read timeout tied to that outer budget so JDK **Read timed out** does not fire first. On timeout it sends an **SSE error** so authors see a reason in chat. **Await/read-timeout tuning** and **optional Spring AI HTTP trace** use JVM system properties documented in **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**. Crafter Studio uses **Log4j2** — expect first SSE chunk, `onComplete`, `onError`, and a **WARN** if the await times out.
 
-### Author-visible progress (tools-loop + tools)
+### Author-visible Progress (Tools-loop + Tools)
 
 - **Prompts** (built-in system text from `ToolPrompts.getOPENAI_AUTHORING_INSTRUCTIONS()` — site override file `GENERAL_OPENAI_AUTHORING_INSTRUCTIONS.md` — plus `[TOOL-GUARD]` and optional user prefix): the model must stream a **## Plan** heading and numbered steps **before** the first tool call, follow that plan, **re-post the same checklist after each tool** with **✅** / **❌** / **⚠️** / **⬜** (pending — not the hourglass emoji, to avoid mimicking server logs), and prefix **🛠️** when narrating tool use in its own words (use **🤓** when narrating **QueryExpertGuidance**, **GetCrafterizingPlaybook**, or **ConsultCrafterQExpert**). It must **not** fabricate server-style tool-progress lines; real progress is SSE-injected. The closing message repeats the checklist with the same markers.
 - **Tools-loop + tools (RestClient loop):** the model emits **`## Plan`** and **`tool_calls` in the same** `stream:false` **chat.completions** round when the API allows; the plan text is **streamed to the client** (SSE) **before** server-executed tools run. There is **no separate author “approve plan” step** in Studio — the gate only **withholds tools** briefly if the plan is empty/meta, then retries with a nudge (see `ToolPrompts` / `AiOrchestration`).
@@ -181,13 +181,13 @@ The Studio React client stops reading the SSE body as soon as it sees **`metadat
 
 ---
 
-## SSE stream errors (tool failures in stream)
+## SSE Stream Errors (Tool Failures in Stream)
 
 If a tool throws mid-stream (e.g. Spring AI `MessageAggregator` / `UndeclaredThrowableException`), the plugin **does not** switch the HTTP response to JSON — that caused `AsyncRequestNotUsableException` when the body was already `text/event-stream`. Instead, **`AiOrchestration`** emits a final SSE frame with `metadata.error: true`, `metadata.message`, and `metadata.completed: true`. The React chat app surfaces that as **Stream error** in the assistant bubble.
 
 ---
 
-## REST body (advanced) {#rest-body-advanced}
+## REST Body (Advanced) {#rest-body-advanced}
 
 `POST` … `/ai/stream` and `/ai/agent/chat` accept:
 
@@ -203,7 +203,7 @@ The React widget sends `llm` / model / key from the selected agent config and se
 
 ---
 
-## Crafterizing playbook tool
+## Crafterizing Playbook Tool
 
 **Native tools mode** registers **`GetCrafterizingPlaybook`**, which returns markdown from an **editable file** shipped with the plugin classes:
 
@@ -218,11 +218,11 @@ If the file is missing at runtime, the tool still returns a short embedded fallb
 
 ---
 
-## Troubleshooting: `400 Bad Request` on `/v1/chat/completions` (tools-loop)
+## Troubleshooting: `400 Bad Request` On `/v1/chat/completions` (Tools-loop)
 
 Often caused by **invalid tool `parameters` JSON Schema**. This plugin registers Spring AI `FunctionToolCallback` tools with explicit `inputSchema` strings so chat hosts that accept OpenAI-shaped `tools[]` accept the request. If you still see 400, check Studio logs for a line **`Tools-loop chat error response body:`** — it includes the upstream JSON error (`error.message`, `param`, etc.).
 
-### Tool / edit prompts: `JsonEOFException` or empty JSON from the chat host
+### Tool / Edit Prompts: `JsonEOFException` or Empty JSON from the Chat Host
 
 If you see **`Unexpected end-of-input`** while parsing `ChatCompletion` during **edit / write / create** style prompts, that was typically caused by a **blocking** `ChatClient.call()` tool path on a worker thread. The plugin uses the **SSE `chatResponse` flux** for all **tools-loop** tool chats (including those prompts) so Spring AI can finish the full tool loop. `extractContentFromCallResult` also prefers **`chatResponse()`** over **`content()`** for non-streaming fallbacks.
 
@@ -234,15 +234,15 @@ If you see **`Unexpected end-of-input`** while parsing `ChatCompletion` during *
 - **Plugin behavior:** If OpenSearch is down, `ListPagesAndComponents` returns a JSON tool result with **`error: true`** and a short message instead of throwing, so the chat stream can continue and the model can fall back to paths the user provides.
 - **`siteId`:** The widget and REST body should send the **actual Studio site id** (e.g. `new-demo` for this repo’s default local test site in `install-plugin.sh`). If the model passes `default`, the server substitutes the request’s `siteId` when present (`crafterq.siteId` attribute / query / body).
 
-### `WriteContent` returns `ok: false` / “no commit” (Studio did not save)
+### `WriteContent` Returns `ok: false` / “No Commit” (Studio Did Not Save)
 
 Crafter’s `writeContentAndNotify` only succeeds when the sandbox creates a **new git commit**. If the body you send is **identical** to the file already in the repo, the commit id is empty and the plugin returns **`ok: false`** with `skippedReason: no_commit` — this is **not** a Spring/stream exception anymore; the model should read the hint, call **GetContent** for that path, and only write when there is a real diff.
 
-### 404 on `/static/...` in preview
+### 404 on `/static/...` in Preview
 
 Engine serves static files from **`/static-assets/`**. Templates that use `/static/images/...` will not resolve. Prefer **`/static-assets/images/...`**, existing repo paths, or CSS-only backgrounds until assets exist.
 
-### “No error” but content did not change in Studio
+### “No Error” but Content Did Not Change in Studio
 
 `update_content`, `update_template`, and `update_content_type` only **fetch** current text and return guidance. **Nothing is persisted** until the model calls **`WriteContent`** with the full updated XML/FTL. If the assistant stops after `update_content`, the repo is unchanged by design.
 
@@ -263,7 +263,7 @@ The plugin **captures** `SecurityContextHolder.getContext()` on the **Studio ser
 
 ---
 
-## Studio AI assistant — autonomous (scheduled steps) {#autonomous-assistants}
+## Studio AI Assistant — Autonomous (Scheduled Steps) {#autonomous-assistants}
 
 The **Tools Panel** widget **`craftercms.components.aiassistant.AutonomousAssistants`** (**Studio AI assistant — autonomous**) uses **`autonomousAgents`** / **`agent`** rows with **`llm`**, **`llmModel`**, optional **`openAiApiKey`**, optional **`startAutomatically`** (default **true**; when **false**, sync registers the agent as **stopped** until **Start** in the widget), optional **`stopOnFailure`** (default **true**; when **false**, a failed run records **`lastError`** and schedules a retry instead of **`error`** status), and optional **`expertSkills`** (same JSON shape as Helper **`<expertSkill>`** for **QueryExpertGuidance**). Each autonomous step uses a **tools-loop** **`llm`** (`openAI`, `xAI`, `deepSeek`, `llama`, `genesis` / `gemini`): the **same authoring system stack** as **`/ai/stream`** where RAG/embeddings still prefer **`OPENAI_API_KEY`**, the **same native `tools[]` catalog** and **RestClient** tool loop, then the agent’s per-step JSON contract. **`claude`** is **not** supported for autonomous runs (use a **tools-loop** provider). **Key precedence** per provider matches interactive chat (server env/JVM first; per-agent **`<openAiApiKey>`** only when no server key for that provider).
 

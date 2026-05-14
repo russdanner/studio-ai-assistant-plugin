@@ -1,10 +1,10 @@
-# Plugin internals
+# Plugin Internals
 
 Documentation here is aimed at **maintainers**, **integrators**, and anyone debugging **server-side behavior**, contracts, and orchestration—not at day-to-day site configuration (see **[`docs/using-and-extending/`](../using-and-extending/README.md)** for that).
 
 ## Documents
 
-| Document | What it covers |
+| Document | What It Covers |
 |----------|----------------|
 | [**spec.md**](spec.md) | **Official requirements & mechanics specification** — product surfaces, `ui.xml` / agent contracts, form engine, macros, autonomous widget, REST contracts, **`studio-ui.json`** runtime flags (**[#studio-ui-flags-studio-uijson](spec.md#studio-ui-flags-studio-uijson)**); must stay aligned with code. Plain-language product requirements: [**product-requirements.md**](../using-and-extending/product-requirements.md) |
 | [**stream-endpoint-design.md**](stream-endpoint-design.md) | SSE stream (and related) contract, CrafterQ vs tool-capable LLMs on the wire, classpath notes |
@@ -12,7 +12,7 @@ Documentation here is aimed at **maintainers**, **integrators**, and anyone debu
 | [**studio-aiassistant-jvm-parameters.md**](../using-and-extending/studio-aiassistant-jvm-parameters.md) | JVM **`-D`** / `System.getProperty` tuning (timeouts, HTTP/MCP caps, optional key/model defaults) |
 | [**reference-spring-ai-completions-with-tools.md**](reference-spring-ai-completions-with-tools.md) | Archived Spring AI pattern reference (may diverge from current wiring) |
 
-## Debug logging
+## Debug Logging
 
 Logger categories for Studio when troubleshooting server-side behavior. **JVM-only flags** (for example Spring AI HTTP trace) are documented in **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**.
 
@@ -20,6 +20,6 @@ Logger categories for Studio when troubleshooting server-side behavior. **JVM-on
 |------|-----|
 | Plugin orchestration / payload previews | Logger **DEBUG** on `plugins.org.craftercms.aiassistant.*` |
 
-## User-facing configuration
+## User-facing Configuration
 
 Operators configuring the site (no code changes): start with **[`docs/using-and-extending/configuration-guide.md`](../using-and-extending/configuration-guide.md)**. **`<llm>` ids, env + XML (tools-loop chat / Claude first):** **[`llm-configuration.md`](../using-and-extending/llm-configuration.md)**. **JVM-only tuning:** **[`studio-aiassistant-jvm-parameters.md`](../using-and-extending/studio-aiassistant-jvm-parameters.md)**. **CMS tools, SSE, optional hosted SaaS auth, troubleshooting:** **[`chat-and-tools-runtime.md`](chat-and-tools-runtime.md)**.

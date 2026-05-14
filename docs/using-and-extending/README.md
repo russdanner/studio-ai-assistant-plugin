@@ -1,10 +1,10 @@
-# Using the AI Assistant & developing extensions
+# Using the AI Assistant & Developing Extensions
 
-Configure or extend the plugin **without** changing core sources unless you are developing the plugin itself. **Plain-language product requirements** (mandatory “must” statements—not technical contracts): **[`product-requirements.md`](product-requirements.md)**. **Official requirements & mechanics** for implementers: **[`../internals/spec.md`](../internals/spec.md)** (with **[`studio-plugins-guide.md`](studio-plugins-guide.md)** for build invariants).
+Configuration and extension of the plugin for a site do not require changes under **`sources/`** unless you are developing the plugin. **Product requirements (non-technical):** **[`product-requirements.md`](product-requirements.md)**. **Implementation contracts:** **[`../internals/spec.md`](../internals/spec.md)** and **[`studio-plugins-guide.md`](studio-plugins-guide.md)** (build and packaging invariants).
 
-## Guides (table)
+## Guides (Table)
 
-| Document | What it covers |
+| Document | What It Covers |
 |----------|----------------|
 | [product-requirements.md](product-requirements.md) | **Product / review** — what the plugin **must** deliver for authors, admins, and integrators in everyday language (points to **`spec.md`** for engineering detail) |
 | [configuration-guide.md](configuration-guide.md) | **Operators — start here** — **Basic:** `ui.xml`, plugin id, agents, keys, form pipeline, autonomous checklist; **TinyMCE last** (**§8**) within **§1–§8**. **`§1e`:** **`studio-ui.json`** (toolbar/sidebar toggles, XB image augmentation scope, bulk form field). **Advanced:** [site scripts](configuration-guide.md#cg-adv) — prompts, `tools.json`, MCP, user tools, script LLM. **Visual:** [Screenshots](configuration-guide.md#cg-screenshots). |

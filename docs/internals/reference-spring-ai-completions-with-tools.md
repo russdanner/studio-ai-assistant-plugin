@@ -1,4 +1,4 @@
-# Reference: Spring AI completions API with tools
+# Reference: Spring AI Completions API With Tools
 
 **Internals** — archived pattern reference. **Doc index:** [README.md](../README.md).
 
@@ -40,7 +40,7 @@ import org.springframework.core.io.DefaultResourceLoader
 
 ```
 
-## Chat client with tools (function calling only)
+## Chat Client With Tools (Function Calling Only)
 
 - **Chat model**: `OpenAiChatModel` + `OpenAiChatOptions` (e.g. `gpt-4o-mini`).
 - **Tools**: Wrapped with `FunctionCallbackWrapper.builder(yourTool).withName("...").withDescription("...").withResponseConverter(...).build()`.
@@ -95,7 +95,7 @@ public class AiChatClient {
 }
 ```
 
-## Example tool (Function callback)
+## Example Tool (Function Callback)
 
 ```groovy
 @Component

@@ -1,8 +1,8 @@
-# Cursor rules, skills, and AI policy (this repo)
+# Cursor Rules, Skills, and AI Policy (This Repo)
 
 This file is the **in-project index** of everything under **`.cursor/`** that guides agents and humans. **Whenever you add, rename, or materially change a rule or project skill, update this document** so it stays the single place that lists “what we store locally” for Cursor.
 
-## Project rules (`.cursor/rules/`)
+## Project Rules (`.cursor/rules/`)
 
 | File | `alwaysApply` | Summary |
 |------|-----------------|---------|
@@ -11,7 +11,7 @@ This file is the **in-project index** of everything under **`.cursor/`** that gu
 
 Rules are the **strictest** layer: follow them even if generic advice conflicts.
 
-## Project skills (`.cursor/skills/`)
+## Project Skills (`.cursor/skills/`)
 
 | Directory | Purpose |
 |-----------|---------|
@@ -19,14 +19,14 @@ Rules are the **strictest** layer: follow them even if generic advice conflicts.
 
 **Skill discovery:** Ensure the **crafterq-studio-plugin** skill (folder name is legacy) is enabled for this project in Cursor if you rely on it for agent behavior (project skills are optional per workspace settings).
 
-## Related documentation (keep aligned with policy)
+## Related Documentation (Keep Aligned With Policy)
 
 - **`docs/using-and-extending/studio-plugins-guide.md`** — Includes the locked **form assistant panel** paragraph; keep it consistent with `crafterq-form-panel-contract.mdc`. See **§ AI Assistant plugin repo: canonical sources vs generated files** for which paths under `authoring/static-assets/` are overwritten by `yarn package`.
 - **`docs/internals/spec.md`** — As-is behavior specification; update when author-facing behavior, macros, or configuration contracts change (includes **Helper** `agents` and **autonomous** widget `autonomousAgents` / REST / human tasks). **Terminology:** Studio AI assistant (product); CrafterQ = `crafterQ` tool path.
 
 Full doc layout: **`docs/README.md`** (using & extending vs internals).
 
-## Maintenance checklist (for contributors and agents)
+## Maintenance Checklist (for Contributors and Agents)
 
 When you change **local** Cursor artifacts or policies:
 

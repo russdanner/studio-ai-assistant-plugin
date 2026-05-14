@@ -1,4 +1,4 @@
-# Pluggable image generation (`GenerateImage`)
+# Pluggable Image Generation (`GenerateImage`)
 
 The **GenerateImage** tool is not hard-wired to a single vendor. The server picks a backend from the agent / request and site scripts.
 
@@ -16,7 +16,7 @@ Configure per agent in **`/config/studio/ui.xml`**: **`<imageModel>`** (default 
 
 **Reference script (Nano Banana 2 / Gemini 3.1 Flash Image):** copy [`docs/examples/aiassistant-imagegen/nano-banana-2/generate.groovy`](../examples/aiassistant-imagegen/nano-banana-2/generate.groovy) to **`/scripts/aiassistant/imagegen/nano-banana-2/generate.groovy`** and set **`script:nano-banana-2`** — see [scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md) (**§3.9**).
 
-## Related site configuration
+## Related Site Configuration
 
 | Path / file | Purpose |
 |-------------|---------|

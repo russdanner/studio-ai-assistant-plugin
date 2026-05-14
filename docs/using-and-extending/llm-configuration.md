@@ -1,4 +1,4 @@
-# Supported LLMs (`<llm>`) — ids, configuration, behavior
+# Supported LLMs (`<llm>`) — IDs, Configuration, and Behavior
 
 **What this is:** Official specification for **`<llm>`** identifiers, env/XML keys, merge rules, and the provider capability matrix. Parent product requirements: **[`spec.md`](../internals/spec.md)** — keep **this file** and **`spec.md`** aligned when those contracts change together.
 
@@ -10,7 +10,7 @@
 
 ---
 
-## Summary table
+## Summary Table
 
 Rows are ordered by **typical priority** for Studio authoring (tool-capable providers first; hosted-only chat last).
 
@@ -27,13 +27,13 @@ Rows are ordered by **typical priority** for Studio authoring (tool-capable prov
 
 ---
 
-## Configuration examples (`ui.xml`)
+## Configuration Examples (`ui.xml`)
 
 Paths are under site configuration (commonly **`/config/studio/ui.xml`**). The widget registers **`craftercms.components.aiassistant.Helper`** with a **`configuration`** → **`agents`** → **`agent`** tree.
 
 **Use a tool-capable `<llm>` (tools-loop chat, e.g. **`openAI`** / **`xAI`**, **Claude**, or **`script:`**) for authors who need repository tools or image generation.** The **`crafterQ`** example at the end is **hosted chat only** (no CMS tools on that adapter).
 
-### Recommended: OpenAI with CMS tools (+ optional image + optional hosted SaaS API tools)
+### Recommended: OpenAI with CMS Tools (+ Optional Image + Optional Hosted SaaS API Tools)
 
 ```xml
 <widget id="craftercms.components.aiassistant.Helper">
@@ -70,7 +70,7 @@ Paths are under site configuration (commonly **`/config/studio/ui.xml`**). The w
 
 Set **`ANTHROPIC_API_KEY`** on the Studio host.
 
-### xAI (Grok) — env for key and optional base URL
+### xAI (Grok) — Env for Key and Optional Base URL
 
 ```xml
 <agent>
@@ -82,7 +82,7 @@ Set **`ANTHROPIC_API_KEY`** on the Studio host.
 
 Set **`XAI_API_KEY`**. Optionally set **`XAI_OPENAI_BASE_URL`** if your deployment uses a non-default tools-loop chat base.
 
-### Ollama / local llama tools-loop endpoint
+### Ollama / Local Llama Tools-loop Endpoint
 
 ```xml
 <agent>
@@ -106,7 +106,7 @@ Set **`LLAMA_OPENAI_BASE_URL`** or **`OLLAMA_OPENAI_BASE_URL`** (e.g. `http://12
 
 Set **`DEEPSEEK_API_KEY`**. Optional **`DEEPSEEK_OPENAI_BASE_URL`**.
 
-### Gemini / Google GenAI (tools-loop wire)
+### Gemini / Google GenAI (Tools-loop Wire)
 
 ```xml
 <agent>
@@ -118,7 +118,7 @@ Set **`DEEPSEEK_API_KEY`**. Optional **`DEEPSEEK_OPENAI_BASE_URL`**.
 
 Set **`GEMINI_API_KEY`** or **`GOOGLE_API_KEY`**. Optional **`GEMINI_OPENAI_BASE_URL`** / **`GOOGLE_GENAI_OPENAI_BASE_URL`**.
 
-### Optional: hosted-only chat (`crafterQ`)
+### Optional: Hosted-only Chat (`crafterQ`)
 
 **No CMS tools, GenerateImage, or expert vector tools** on this adapter — remote **`/v1/chats`** only. Prefer **`openAI`** (or another tool row) for repository authoring.
 
@@ -145,7 +145,7 @@ Wire normalizes to **`scriptLlm:mybackend`**. Implement **`config/studio/scripts
 
 ---
 
-## Omitted `<llm>` and POST body
+## Omitted `<llm>` And POST Body
 
 The React client **does not** send **`llm`** on the stream/chat JSON when the agent has no **`<llm>`** in `ui.xml`. The server **does not** infer a default adapter: after optional **ui.xml merge** (below), **`StudioAiLlmKind.normalize`** requires a **non-blank**, **recognized** `llm` string. Missing, blank-only, invalid **`script:…`** ids, or unknown values produce **`IllegalArgumentException`** → **HTTP 400** (JSON **`message`**) on **`/ai/stream`** and **`/ai/agent/chat`**.
 
@@ -155,9 +155,9 @@ When **`siteId`** + **`agentId`** are present and the matching **`<agent>`** def
 
 ---
 
-## Per-provider notes
+## Per-provider Notes
 
-### Tools-loop chat family (`openAI`, `xAI`, `deepSeek`, `llama`, `gemini` / `genesis`)
+### Tools-loop Chat Family (`openAI`, `xAI`, `deepSeek`, `llama`, `gemini` / `genesis`)
 
 - **Transport:** Spring AI **`OpenAiChatModel`** + **RestClient** **`/v1/chat/completions`** native tool loop (`AiOrchestrationTools`).
 - **Image generation:** **`<imageModel>`** for the default **GenerateImage** wire (e.g. **`gpt-image-1`**). **`<imageGenerator>`** selects **`script:{id}`**, **`none`**, or default wire.
@@ -166,20 +166,20 @@ When **`siteId`** + **`agentId`** are present and the matching **`<agent>`** def
 
 - **Transport:** Spring AI **`AnthropicChatModel`** — tools run inside Spring AI’s Anthropic integration, not the OpenAI RestClient loop.
 
-### `script:{id}` (site Groovy LLM)
+### `script:{id}` (Site Groovy LLM)
 
 - **Wire:** **`<llm>script:mybackend</llm>`** → **`scriptLlm:mybackend`**.
 - **Id pattern:** `{id}` = `a-z`, `0-9`, `_`, `-`, max **64** chars.
 - Full contract: [studio-plugins-guide.md](studio-plugins-guide.md) and **`docs/examples/aiassistant-llm/demo/runtime.groovy`**. **Full vendor replacement (Groovy class, no built-in runtime delegation):** [script-llm-bring-your-own-backend.md](script-llm-bring-your-own-backend.md). **Groq (tools-loop):** **`docs/examples/aiassistant-llm/groq/runtime.groovy`**.
 
-### `crafterQ` (hosted chat only — secondary)
+### `crafterQ` (Hosted Chat Only — Secondary)
 
 - **Transport:** Spring AI **`ExpertChatModel`** → **`POST`** `api.crafterq.ai` **`/v1/chats`**.
 - **Not on this adapter:** CMS function tools, **GenerateImage**, **QueryExpertGuidance**, hosted SaaS **API** tools. For repository authoring, images, or those APIs, use **`openAI`** (or another tool-capable row); add **`<crafterQAgentId>`** on that row **only** if you need the optional hosted SaaS API tools.
 
 ---
 
-## Agent XML fields (cross-LLM)
+## Agent XML Fields (cross-LLM)
 
 | Field | Applies to | Purpose |
 |-------|------------|---------|
@@ -195,7 +195,7 @@ When **`siteId`** + **`agentId`** are present and the matching **`<agent>`** def
 
 ---
 
-## REST / stream body keys (reference)
+## REST / Stream Body Keys (Reference)
 
 The widget mirrors **`ui.xml`** onto **`POST …/ai/stream`** and **`…/ai/agent/chat`**. Common keys: **`llm`**, **`llmModel`**, **`imageModel`**, **`imageGenerator`**, **`openAiApiKey`**, **`agentId`**, **`crafterQBearerTokenEnv`**, **`crafterQBearerToken`**, **`expertSkills`**, preview **`contentPath`** / **`contentTypeId`**, **`omitTools`**, **`enableTools`**. Full list: [chat-and-tools-runtime.md § REST body](../internals/chat-and-tools-runtime.md#rest-body-advanced).
 
@@ -203,6 +203,6 @@ When **`siteId`** + **`agentId`** are present, the server may **merge** missing 
 
 ---
 
-## Autonomous widget (`<llm>` there)
+## Autonomous Widget (`<llm>` There)
 
 **`AutonomousAssistants`** agents use **`openAI`**, **`xAI`**, **`deepSeek`**, **`llama`**, **`genesis`** / **`gemini`** for steps (**tools-loop** stack). **`claude`** is **not** supported for autonomous runs. Default **`llm`** for new autonomous definitions in code is **`openAI`**. Details: [chat-and-tools-runtime.md § Autonomous](../internals/chat-and-tools-runtime.md#autonomous-assistants) and [spec.md](../internals/spec.md).

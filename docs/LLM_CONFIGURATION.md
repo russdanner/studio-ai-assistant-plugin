@@ -1,4 +1,4 @@
-# Moved: LLM configuration
+# Moved: LLM Configuration
 
 This guide now lives at **`docs/using-and-extending/llm-configuration.md`**.
 

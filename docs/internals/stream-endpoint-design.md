@@ -1,4 +1,4 @@
-# AI streaming endpoint design
+# AI Streaming Endpoint Design
 
 **What this is:** Official companion to **[`spec.md`](spec.md)** for SSE/stream wire behavior. When stream URLs, body fields, or server-side stream semantics change, update **this file** and the relevant sections of **`spec.md`**.
 
@@ -18,7 +18,7 @@ One endpoint: **agent ID + full prompt in, streamed response out**. The UI does 
 | **Request headers** | Most inbound headers on the Studio→plugin request are forwarded to CrafterQ (`AiHttpProxy.applyCrafterQForwardedHeaders`). Excluded: hop-by-hop (`Connection`, `Transfer-Encoding`, …), `Host`, `Content-Length` / `Content-Type` / `Accept` (the plugin sets these for the outbound JSON or SSE), and **`authorization`** (Studio JWT must not be sent upstream). **`X-CrafterQ-Chat-User`** and other allowlisted values are copied when present. Optional **JSON body** fields **`crafterQBearerTokenEnv`** / **`crafterQBearerToken`** (per-agent ui.xml) cause the plugin to set **`Authorization: Bearer …`** on outbound CrafterQ calls using the host env or literal CrafterQ JWT — see [llm-configuration.md](../using-and-extending/llm-configuration.md). |
 | **Response** | `Content-Type: text/event-stream` — same SSE shape as CrafterQ so the existing UI can consume it unchanged. |
 
-## Server-side behavior
+## Server-Side Behavior
 
 - **LLM selection**: Per-agent **`&lt;llm&gt;`** in `ui.xml` (or widget JSON). The client may omit **`llm`** when the agent has no **`<llm>`**; the server then **400**s unless **`siteId`** + **`agentId`** allow copying **`llm`** from **`/ui.xml`** before **`StudioAiLlmKind.normalize`** — see **[llm-configuration.md](../using-and-extending/llm-configuration.md)** (table + **Omitted `<llm>` and POST body**). See also **`llmModel`** / **`imageModel`** on each request.
 - **CrafterQ (`llm=crafterQ` after explicit normalize)**: Spring AI **`ExpertChatModel`** POSTs a **single text `prompt`** to CrafterQ’s `/v1/chats` API. **No CMS tools** on this path — content/RAG style chat only. Prompt = short system text + `Human:` / `Assistant:` transcript. **DEBUG logs** (when enabled): `CrafterQ HTTP TX/RX` previews, `CrafterQ call start/parsed` (see **README.md** server logging).
@@ -28,7 +28,7 @@ One endpoint: **agent ID + full prompt in, streamed response out**. The UI does 
 - **Note**: The REST scripts depend on `authoring/scripts/classes` (`AiOrchestration`, `AiHttpProxy`). Marketplace/copy may not copy the classes folder to the site; if the stream fails with “unable to resolve class”, copy `authoring/scripts/classes` to the site’s `config/studio/scripts/classes` manually after install.
 - **Studio plugin classpath**: Classes under `scripts/classes` compile in a **restricted** Groovy environment. **`groovy.util.XmlSlurper`** is not available there — use **JDK** `javax.xml.parsers.DocumentBuilderFactory` / `org.w3c.dom` for XML parsing (see `AiOrchestrationTools.extractFormFieldIdsFromFormDefinitionXml`).
 
-## CrafterQ vs tool-capable LLMs
+## CrafterQ vs Tool-capable LLMs
 
 **CrafterQ** (`llm=crafterQ`) is used **only** for **content / RAG** chat in this plugin (no CMS tool bridging in `ExpertChatModel`). **Tools-loop chat** agents (`openAI`, `deepSeek`, `gemini`, `llama`, `xAI`, …) and **Claude** run the **function-tool** loop (CMS tools, HTTP helpers, optional CrafterQ API tools when **`crafterQAgentId`** is set, etc.) — see **[llm-configuration.md](../using-and-extending/llm-configuration.md)**. On **tools-loop** paths with **`crafterQAgentId`**, the server registers **CrafterQ API tools**: **`ConsultCrafterQExpert`** (streaming SME consult), **`ListCrafterQAgentChats`**, and **`GetCrafterQAgentChat`** (read-only listing / conversation GETs for analysis).
 

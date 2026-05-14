@@ -1,4 +1,4 @@
-# Autonomous assistants widget (optional)
+# Autonomous Assistants Widget (Optional)
 
 Second Studio widget: **`craftercms.components.aiassistant.AutonomousAssistants`**. Same **`plugin`** element as the Helper (`id="org.craftercms.aiassistant.studio"`, `type="aiassistant"`, `name="components"`, `file="index.js"`).
 
@@ -8,15 +8,15 @@ Second Studio widget: **`craftercms.components.aiassistant.AutonomousAssistants`
 | **LLM support** | Tools-loop chat family for steps; see [spec.md](../internals/spec.md) *Autonomous assistants* |
 | **Full contract** | REST paths, `control` actions, `autonomousAgents` XML fields: [spec.md](../internals/spec.md) |
 
-## Showing the widget (opt-in)
+## Showing the Widget (Opt-in)
 
 Set **`showAutonomousAiAssistantsInSidebar`** to **`true`** in **`config/studio/scripts/aiassistant/config/studio-ui.json`** ([configuration guide §1e](configuration-guide.md#cg-1e), [spec.md — Studio UI flags](../internals/spec.md#studio-ui-flags-studio-uijson)). The default is **`false`** (omit or false keeps the row empty while the **`AutonomousAssistants`** widget remains merged in **`ui.xml`**). Use **Project Tools → AI Assistant → UI** to toggle, or edit the JSON in the site sandbox. Reload Studio if the panel does not refresh immediately.
 
-## Hiding the widget without removing `ui.xml`
+## Hiding the Widget Without Removing `ui.xml`
 
 Set **`showAutonomousAiAssistantsInSidebar`** to **`false`** or remove the key. The **`AutonomousAssistants`** widget can stay in **`ui.xml`**; the bundle renders no UI while the flag is off.
 
-## If the widget never appears
+## If the Widget Never Appears
 
 | Cause | Fix |
 |-------|-----|

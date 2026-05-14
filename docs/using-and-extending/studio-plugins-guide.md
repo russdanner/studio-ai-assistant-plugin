@@ -8,7 +8,7 @@ This guide captures what you need to build, package, and install Crafter Studio 
 
 ---
 
-## Reference: Crafter Studio UI (support/4.x)
+## Reference: Crafter Studio UI (Support/4.x)
 
 When implementing features or matching Studio behavior, use the **Crafter Studio UI** source as the canonical reference:
 
@@ -24,7 +24,7 @@ Your plugin depends on `@craftercms/studio-ui`; inspecting this branch helps whe
 
 ---
 
-## 1. Plugin identity and path resolution
+## 1. Plugin Identity and Path Resolution
 
 ### Plugin ID
 
@@ -36,7 +36,7 @@ Your plugin depends on `@craftercms/studio-ui`; inspecting this branch helps whe
 
 If the ID in `ui.xml` (or in the TinyMCE URL) does not match the ID used at install time, Studio will look for files under a different path and return **404** for the plugin script.
 
-### How Studio resolves plugin file paths
+### How Studio Resolves Plugin File Paths
 
 When Studio serves a plugin file, it uses:
 
@@ -58,7 +58,7 @@ config/studio/static-assets/plugins/org/craftercms/aiassistant/studio/aiassistan
 
 The **plugin ID path** is the plugin id with dots replaced by slashes. The installer copies from the plugin repo’s `authoring/static-assets/` tree into `config/studio/static-assets/plugins/<pluginId-path>/`. Your build must output into a folder structure that, when copied, matches what Studio expects for that plugin id + type + name.
 
-### Build output must match the installed path
+### Build Output Must Match the Installed Path
 
 In your plugin repo, the **marketplace/copy** (or **copy-plugin**) install step copies:
 
@@ -78,18 +78,18 @@ Then, after install, Studio will find them at the same relative path under `conf
 
 ## 2. Descriptor: `craftercms-plugin.yaml`
 
-### Location and role
+### Location and Role
 
 - File: **`craftercms-plugin.yaml`** at the **plugin project root** (next to `authoring/`).
 - It defines plugin metadata and **installation**: what gets merged into the site’s `config/studio/ui.xml` when the plugin is installed (e.g. via marketplace/copy or copy-plugin).
 
-### Important fields
+### Important Fields
 
 - **`plugin.id`** — Unique ID; must match everywhere the plugin is referenced (see above).
 - **`plugin.type`** — e.g. `site` for a site-level plugin.
 - **`installation`** — List of entries that merge into site Studio config (e.g. **preview-app** for `ui.xml`, **form-datasource** and **form-control** for `administration/site-config-tools.xml`).
 
-### Installation entries
+### Installation Entries
 
 **preview-app:** each entry describes **where** to merge **what** in the site’s UI config:
 
@@ -134,14 +134,14 @@ In the datasource JS, **`CStudioAuthoring.Module.moduleLoaded(...)`’s first ar
 
 ---
 
-## 3. UI configuration: `config/studio/ui.xml`
+## 3. UI Configuration: `config/studio/ui.xml`
 
-### Where the plugin is referenced
+### Where the Plugin Is Referenced
 
 - **Tools Panel (sidebar):** Under `craftercms.components.ToolsPanel` → `configuration` → `widgets` → your widget.
 - **Preview Toolbar (top bar):** Under `craftercms.components.PreviewToolbar` → `configuration` → `middleSection` or `rightSection` (or left) → `widgets` → your widget.
 
-### Plugin element in the widget
+### Plugin Element in the Widget
 
 Each reference to your plugin’s JS must look like:
 
@@ -158,7 +158,7 @@ Each reference to your plugin’s JS must look like:
 - **`plugin id`** must be the **full** plugin id (e.g. `org.craftercms.aiassistant.studio`). If you shorten it (e.g. to `org.craftercms`), Studio will resolve a different path and your script will 404.
 - **type** and **name** must match the path segments under the plugin id path where you built the file (e.g. `aiassistant` / `components` for `.../aiassistant/components/index.js`).
 
-### Second widget: Studio AI assistant — autonomous
+### Second Widget: Studio AI Assistant — Autonomous
 
 **Left rail order (Autonomous vs Project Tools):** The plugin descriptor **does not** auto-merge **AutonomousAssistants** (or **Helper**) into **Tools Panel**. If you add **`AutonomousAssistants`** under **`ToolsPanel` → `configuration` → `widgets`** manually and Studio lists it in an order you do not want relative to **Project Tools**, edit **`config/studio/ui.xml`**: move the **`<widget id="craftercms.components.aiassistant.AutonomousAssistants">…</widget>`** node so it appears **before** the **`reference`** / block that lists **Project Tools** site tools (exact parent depends on your Studio version—keep both under the same sidebar tree your build uses).
 
@@ -188,12 +188,12 @@ This plugin also registers **`craftercms.components.aiassistant.AutonomousAssist
 
 Field reference, REST endpoints, `control` actions, and human-task behavior: **`docs/internals/spec.md`** § *Autonomous assistants widget (Tools Panel)*. The marketplace/descriptor sample merges this under **Tools Panel**; custom sites can paste the block manually into **`config/studio/ui.xml`**.
 
-### Toolbar vs sidebar
+### Toolbar vs Sidebar
 
 - **Sidebar:** Widget is listed under Tools Panel; often rendered as a list item or panel button.
 - **Toolbar:** Same widget in `PreviewToolbar` with e.g. `<configuration ui="IconButton"/>` so it appears as an icon in the top bar (e.g. next to the address bar). Users can have both: one in the sidebar and one in the toolbar.
 
-### Common gotcha: you may have two copies configured
+### Common Gotcha: You May Have Two Copies Configured
 
 It’s common (and often desirable) to configure the same plugin widget in **both** places:
 
@@ -202,7 +202,7 @@ It’s common (and often desirable) to configure the same plugin widget in **bot
 
 If you later change the widget’s `<configuration>` (e.g. agent labels, prompts, icon), make sure you update **both** widget entries or you’ll see “old” values depending on which UI surface you’re clicking.
 
-### How `<configuration>` is passed to React widgets (important for parsing)
+### How `<configuration>` Is Passed to React Widgets (Important for Parsing)
 
 Studio’s UI layer deserializes `ui.xml` into JS objects and passes widget config into the React component. In practice, you can see two patterns:
 
@@ -217,7 +217,7 @@ Studio’s UI layer deserializes `ui.xml` into JS objects and passes widget conf
 - `props.<field>` (spread)
 - `props.configuration?.<field>` (nested)
 
-### Repeated XML elements may deserialize as arrays *or* numeric-keyed objects
+### Repeated XML Elements May Deserialize as Arrays *or* Numeric-keyed Objects
 
 Depending on the parser and transform layer, repeated XML elements can show up as:
 
@@ -235,9 +235,9 @@ This is why some working plugins iterate with `Object.keys(...)` / `Object.value
 
 ---
 
-## 4. Plugin file URL and authentication
+## 4. Plugin File URL and Authentication
 
-### How Studio serves plugin files
+### How Studio Serves Plugin files
 
 Studio serves plugin assets from an endpoint like:
 
@@ -251,7 +251,7 @@ Example:
 /studio/1/plugin/file?siteId=new-demo&pluginId=org.craftercms.aiassistant.studio&type=aiassistant&name=components&file=index.js
 ```
 
-### Authentication required
+### Authentication Required
 
 - Plugin file requests use the **same authentication** as the rest of Studio (and preview).
 - The browser sends the **same cookies** (e.g. `JSESSIONID`, `XSRF-TOKEN`, `crafterSite`, `crafterPreview`) when loading the page; so when you’re logged in, the plugin script loads.
@@ -261,11 +261,11 @@ For scripted or API tests, pass the same session (cookies or JWT) you use for St
 
 ---
 
-### Calling plugin APIs from plugin UI (REST scripts)
+### Calling Plugin APIs from Plugin UI (REST Scripts)
 
 Studio plugins commonly ship **Groovy REST scripts** (e.g. `*.get.groovy`, `*.post.groovy`) that the plugin UI calls.
 
-#### Endpoint shape (Studio proxy to plugin scripts)
+#### Endpoint Shape (Studio Proxy to Plugin Scripts)
 
 - **Base endpoint**: Studio executes plugin Groovy scripts via:
 
@@ -276,7 +276,7 @@ Studio plugins commonly ship **Groovy REST scripts** (e.g. `*.get.groovy`, `*.po
 - **`siteId` is required**. If you omit it, Studio returns an error like:
   - `MissingServletRequestParameterException: Required request parameter 'siteId' ... is not present`
 
-#### Mapping from URL → repo path
+#### Mapping from URL → Repo Path
 
 - `<scriptPath>` maps to the installed site sandbox under:
 
@@ -295,7 +295,7 @@ POST /studio/api/2/plugin/script/plugins/org/craftercms/aiassistant/studio/aiass
 - **Script lives in plugin repo** (and must be copied into the site sandbox at install time):
   - `authoring/scripts/rest/plugins/org/craftercms/aiassistant/studio/aiassistant/ai/stream.post.groovy`
 
-#### Important: include plugin id in the script path (Trello pattern)
+#### Important: Include Plugin Id in the Script Path (Trello Pattern)
 
 When your REST scripts import classes from `config/studio/scripts/classes`, the script path must be shaped so Studio can resolve the **pluginId** and classpath correctly.
 
@@ -306,7 +306,7 @@ When your REST scripts import classes from `config/studio/scripts/classes`, the 
   - `pluginId is null` (NPE) during script execution
   - or `unable to resolve class plugins.org...` when importing your Groovy classes
 
-#### Authentication: what the UI must do
+#### Authentication: What the UI Must Do
 
 - Plugin UI runs in Studio, so auth is the **Studio session** (cookies) + **XSRF**.
 - For `fetch()` calls:
@@ -349,7 +349,7 @@ async function callPluginScriptJson<T>(siteId: string, scriptPath: string, body:
 }
 ```
 
-#### Response types (JSON vs SSE)
+#### Response Types (JSON vs SSE)
 
 - If your plugin endpoint returns **JSON**, set `Accept: application/json` and parse with `res.json()`.
 - If your plugin endpoint is **SSE streaming**:
@@ -357,7 +357,7 @@ async function callPluginScriptJson<T>(siteId: string, scriptPath: string, body:
   - Client must use `EventSource` (GET-only) or `fetch()` + `ReadableStream` parsing
   - Server-side Groovy script must **not** return a Map/object after writing SSE bytes (Studio will attempt content negotiation and can throw `HttpMediaTypeNotAcceptableException`)
 
-#### Debug checklist for UI → plugin API issues
+#### Debug Checklist for UI → Plugin API Issues
 
 - **401 Unauthenticated**:
   - The UI call is not same-origin (wrong base URL) or cookies aren’t being sent.
@@ -369,7 +369,7 @@ async function callPluginScriptJson<T>(siteId: string, scriptPath: string, body:
   - Script path doesn’t include plugin id segments (use Trello pattern).
   - `authoring/scripts/classes` wasn’t copied + committed into `{siteRepo}/config/studio/scripts/classes`.
 
-#### User-authored **tools** (site Groovy, survives plugin reinstall)
+#### User-authored **Tools** (Site Groovy, Survives Plugin Reinstall)
 
 **Convention (AI Assistant plugin):** Site-specific **tool code** (Groovy the model or plugin may invoke—not prompt/RAG “skills”) lives under the sandbox at:
 
@@ -419,7 +419,7 @@ Each entry needs **`id`** (letters, digits, `_`, `-`, max 64 chars) and **`scrip
 
 **Return value:** The script’s **last expression** should be a **Map** (e.g. `ok`, `message`, custom fields). Non-Map results are wrapped as `{ ok: true, result: … }`.
 
-**Copy-paste examples** live in this repo under:
+**Example files** (copy into your site sandbox):
 
 ```text
 docs/examples/aiassistant-user-tools/
@@ -432,7 +432,7 @@ Copy `registry.json` and `hello.groovy` into the site sandbox folder above, comm
 **Consolidated integrator guide** (user-tool bindings vs script **`generate.groovy`**, `GenerateImage` return maps, checklists): **[scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md)**.
 
 
-### Calling Crafter Studio services in-process from Groovy (preferred for “tools”)
+### Calling Crafter Studio Services In-process from Groovy (Preferred for “Tools”)
 
 If your Groovy REST scripts (or Groovy classes under `config/studio/scripts/classes`) need to call Studio capabilities (read/write content, query search, etc.), prefer using **Studio Spring beans in-process** instead of calling Studio REST endpoints.
 
@@ -442,7 +442,7 @@ Benefits:
 - No auth/XSRF forwarding needed
 - Easier to compose multi-step “tools” for agents
 
-#### How to obtain beans
+#### How to Obtain Beans
 
 From a plugin REST script you typically have `applicationContext` available:
 
@@ -458,7 +458,7 @@ import org.craftercms.engine.util.spring.ApplicationContextAccessor
 def contentService = ApplicationContextAccessor.get('cstudioContentService')
 ```
 
-#### Bean names (common)
+#### Bean Names (Common)
 
 - **v1 content (writes, revert item):** `cstudioContentService` — `org.craftercms.studio.api.v1.service.content.ContentService`
 - **v2 content (reads, version history):** `contentService` — `org.craftercms.studio.api.v2.service.content.ContentService`
@@ -468,7 +468,7 @@ def contentService = ApplicationContextAccessor.get('cstudioContentService')
 
 See **§7–8** below for preview refresh, v1/v2 services, and publish/revert pitfalls.
 
-#### Quick method discovery (when version differences exist)
+#### Quick Method Discovery (When Version Differences Exist)
 
 Studio service interfaces can differ by version. For quick experimentation:
 
@@ -481,15 +481,15 @@ Keep experiments non-fatal (log + continue) so streaming endpoints aren’t brok
 
 ---
 
-## 5. Build and packaging
+## 5. Build and Packaging
 
-### Typical layout
+### Typical Layout
 
 - **Source:** e.g. `sources/src/` (React/TypeScript).
 - **Build:** Vite or similar for dev; **Rollup** (or equivalent) for the **plugin bundle** that gets copied into `authoring/static-assets/...`.
 - **Output:** Paths under `authoring/static-assets/plugins/...` must match the installed path (see section 1).
 
-### Rollup (or similar) configuration
+### Rollup (or Similar) Configuration
 
 - Set the **output directory** to the path that, after copy, becomes `config/studio/static-assets/plugins/<pluginId-path>/<type>/<name>/` (and optionally a sibling like `tinymce`).
 - Example for plugin id `org.craftercms.aiassistant.studio`, type `aiassistant`, name `components`:
@@ -499,7 +499,7 @@ Keep experiments non-fatal (log + continue) so streaming endpoints aren’t brok
 
 - Use **externals** and/or **replace** so the bundle uses Studio’s shared libs (e.g. `craftercms.libs.React`, `craftercms.components`, etc.) instead of bundling React/MUI/studio-ui.
 
-### TinyMCE plugin
+### TinyMCE Plugin
 
 - Built as a separate bundle (e.g. IIFE) and placed under the same plugin id path, e.g. `tinymce/craftercms_aiassistant.js`.
 - In `ui.xml`, TinyMCE’s `external_plugins` must point at the **plugin file URL** with the **correct pluginId**:
@@ -512,11 +512,11 @@ Keep experiments non-fatal (log + continue) so streaming endpoints aren’t brok
 
 - Use `file=...` (not `filename=...`) in the query string if that’s what Studio expects.
 
-### Packaging command
+### Packaging Command
 
 - From the **plugin repo**, run the command that produces the artifact under `authoring/static-assets/...` (e.g. `yarn package`). That tree is what gets copied into the site on install.
 
-### AI Assistant plugin repo: canonical sources vs generated files (avoid “disappearing” fixes)
+### AI Assistant Plugin Repo: Canonical Sources vs Generated files (Avoid “Disappearing” Fixes)
 
 Edits belong in **`sources/`**. Most paths under **`authoring/static-assets/`** are **build outputs or copies** produced by `yarn package` (`sources/rollup.config.cjs`). If you change only `authoring/...` and someone runs `yarn package`, Rollup **overwrites** those files from `sources/` and your change **vanishes**.
 
@@ -533,14 +533,14 @@ Edits belong in **`sources/`**. Most paths under **`authoring/static-assets/`** 
 
 ## 6. Installation
 
-### From local plugin repo
+### From Local Plugin Repo
 
 - **API:** `POST /studio/api/2/marketplace/copy` with body e.g. `{ "siteId": "new-demo", "path": "/absolute/path/to/plugin/repo" }` (substitute your site id). Use the same auth (e.g. Bearer token) as for Studio.
 - **CLI:** e.g. `crafter-cli copy-plugin -e <env> -s <siteId> --path /path/to/plugin/repo`.
 
 Installation copies `authoring/static-assets/*` into the site’s `config/studio/static-assets/plugins/<pluginId-path>/` and runs the descriptor’s **installation** steps to merge into `config/studio/ui.xml`. The **scripts** that Studio runs for plugin REST endpoints are typically copied from `authoring/scripts/rest`. The **`authoring/scripts/classes`** folder may not be copied by marketplace/copy; this plugin requires it for Spring AI and tools. If after install the stream fails with “unable to resolve class”, copy `authoring/scripts/classes` to the site’s `config/studio/scripts/classes` manually.
 
-### Where Studio reads `ui.xml` from (and why commits matter)
+### Where Studio Reads `ui.xml` From (and Why Commits Matter)
 
 Studio reads UI configuration from the site repository under:
 
@@ -565,7 +565,7 @@ In practice, changes to `ui.xml` are most reliable in Studio after they are **co
 - `git status` in the sandbox repo and commit the changes
 - Refresh the browser (hard refresh if needed)
 
-### Local development: package + install script
+### Local Development: Package + Install Script
 
 This repo provides **`scripts/install-plugin.sh`** to package and install in one step so you can test changes quickly:
 
@@ -591,7 +591,7 @@ The script (edit `CRAFTER_DATA` at the top for your machine):
 
 **Run this after every plugin code change** so the installed site has the latest bundle. Refresh the browser (and clear cache if needed) to load the new JS.
 
-### Storing the Studio Bearer token
+### Storing the Studio Bearer Token
 
 The install script needs a **Bearer token** (JWT) for Studio’s API. Two options:
 
@@ -606,12 +606,12 @@ Get the token by logging into Studio, opening DevTools → Application → Cooki
 
 The install script **copies and commits** `authoring/scripts/classes` into the site’s `config/studio/scripts/classes`. Edit the hardcoded `CRAFTER_DATA` at the top of `scripts/install-plugin.sh` to match your Crafter authoring data path (e.g. `.../crafter-authoring/data`).
 
-### After install
+### After Install
 
 - Ensure **plugin id** in `ui.xml` matches the descriptor. If the site had an older version of the plugin with a different id, fix the plugin id in `ui.xml` (and in TinyMCE config if present) so it matches the descriptor and the installed path.
 - If you added a **toolbar** entry in the descriptor, the toolbar widget should appear after install (default: **`rightSection/widgets`**). For an icon next to the address bar, move the widget under `PreviewToolbar` → `middleSection` → `widgets` (see section 3 and examples).
 
-### Groovy scripting sandbox
+### Groovy Scripting Sandbox
 
 Plugin REST scripts and Groovy classes run inside Crafter Studio’s **scripting sandbox**. The AI Assistant plugin avoids a **compile-time** reference to `org.springframework.ai.tool.execution.ToolCallResultConverter` (it is often absent from the **site Groovy script compile classpath** even when Spring AI is present at runtime). `AiOrchestrationTools` passes tool wire converters through `invokeMethod('toolCallResultConverter', …)` on `FunctionToolCallback` builders so site scripts compile; runtime still uses Spring AI as usual.
 
@@ -631,11 +631,11 @@ Revert to `true` (or remove the override) in production if you rely on sandbox s
 
 ---
 
-## 7. Preview iframe refresh from plugin React UI (Studio 4.x)
+## 7. Preview Iframe Refresh from Plugin React UI (Studio 4.x)
 
 Authors expect the **preview** (guest iframe) to reflect repository changes made through your widget (tools, writes, revert, new static assets). Studio’s own refresh control does **not** run automatically when plugin code mutates the sandbox from the server; the **host** preview shell must be told to reload.
 
-### Redux action and event buses
+### Redux Action and Event Buses
 
 Studio 4.x preview uses a Redux action and RxJS subjects to coordinate host ↔ guest:
 
@@ -655,7 +655,7 @@ function triggerStudioPreviewReload(): void {
 
 Reference implementation: [craftercms/studio-ui `support/4.x`](https://github.com/craftercms/studio-ui/tree/support/4.x) — search for `reloadRequest` / preview refresh patterns.
 
-### When to call it from plugin UI
+### When to Call It from Plugin UI
 
 Call **`triggerStudioPreviewReload()`** after you know the **sandbox** changed in a way the preview should show:
 
@@ -667,17 +667,17 @@ Call **`triggerStudioPreviewReload()`** after you know the **sandbox** changed i
 
 In this plugin’s chat, SSE tool progress events expose **`metadata.status: "tool-progress"`** and **`metadata.phase`**: `start` | `done` | `warn` | `error`. Injected **`text`** lines start with **🛠️** plus a category (**🔍** read, **✏️** write/revert/publish/update/GenerateImage, **📈** analyze, **🔄** other). **Expert** tools **QueryExpertGuidance**, **GetCrafterizingPlaybook**, and **ConsultCrafterQExpert** use **🛠️🤓** before the category emoji so authors can spot instruction/research/SME work. The React client sets a flag when **`phase === "done"`** for selected tool names (`WriteContent`, `revert_change`, `GenerateImage`), then calls **`triggerStudioPreviewReload()`** once after the stream finishes (and skips this path for the **form-engine** client-JSON-apply surface where the open item is intentionally not written server-side from tools).
 
-### `writeContentAndNotify` vs client reload
+### `writeContentAndNotify` Vs Client Reload
 
 Studio’s v1 **`writeContentAndNotify`** (when available) emits content events that may update some Studio UI surfaces. **Still** trigger **`reloadRequest`** if authors report a stale preview after plugin-driven writes — guest iframe caching and timing vary; the buses are the supported “hard refresh” signal.
 
 ---
 
-## 8. In-process Studio services: v1 vs v2 (4.x lessons)
+## 8. In-process Studio Services: V1 vs V2 (4.x Lessons)
 
 Crafter Studio 4.x exposes **both** legacy **v1** and **v2** service facades as Spring beans. Method names and parameter meanings differ; **do not** assume one interface’s `revert` or `publish` matches another.
 
-### Content: reads and history (v2)
+### Content: Reads and History (V2)
 
 - Bean: **`contentService`** → `org.craftercms.studio.api.v2.service.content.ContentService`.
 - Use for **read-by-commit** / descriptor-style APIs your version exposes (e.g. `getContentByCommitId`, `getItemDescriptor`).
@@ -685,32 +685,32 @@ Crafter Studio 4.x exposes **both** legacy **v1** and **v2** service facades as 
 
 Confirm signatures against [craftercms/studio `support/4.x`](https://github.com/craftercms/studio/tree/support/4.x) `ContentService` v2.
 
-### Content: writes and item revert (v1)
+### Content: Writes and Item Revert (V1)
 
 - Bean: **`cstudioContentService`** → v1 `org.craftercms.studio.api.v1.service.content.ContentService`.
 - **Writes:** prefer **`writeContentAndNotify(site, path, InputStream)`** when the bean supports it and you want Studio’s normal post-write notifications; otherwise use the **8-arg `writeContent`** overload your version documents, plus explicit **`notifyContentEvent`** if required.
 - **Revert a sandbox item to a historical Studio version:** use v1 **`revertContentItem(String site, String path, String version, boolean major, String comment)`** with **`version`** taken from **`ItemVersion.getVersionNumber()`** (from v2 history). **Do not** pass semantic strings like `"content"` / `"template"` as the version argument, and **do not** assume v2’s **`revert(...)`** overloads accept the same parameters as a Git commit id — mismatches produce “no signature of method … revert” style errors at runtime.
 
-### Publishing (v1 `DeploymentService`)
+### Publishing (V1 `DeploymentService`)
 
 - Bean: **`cstudioDeploymentService`** → `org.craftercms.studio.api.v1.service.deployment.DeploymentService`.
 - For **submitting a new publish** of one or more paths to an environment (e.g. `live`), use **`deploy(site, environment, paths, scheduledDate, approver, submissionComment, scheduleDateNow)`** (parameter order and types per your Studio version — see [DeploymentService.java](https://github.com/craftercms/studio/blob/support/4.x/src/main/java/org/craftercms/studio/api/v1/service/deployment/DeploymentService.java)).
 - **`approveAndDeploy`** is for **existing** workflow submissions; using it when you meant “start a new deployment” leads to wrong behavior or signature mismatch.
 - Pass the **current authenticated Studio user** as **approver** (from `SecurityContextHolder` / your `Authentication`), not a hardcoded service account string, so auditing and permissions match the author.
 
-### Spring Security on worker threads
+### Spring Security on Worker Threads
 
 Plugin code that calls Studio services from **async** paths (e.g. OpenAI tool execution on Reactor/HTTP client threads) must **restore** the HTTP request’s **`SecurityContext`** around bean calls. **`@HasPermission`** on v1/v2 services resolves the current user from **`SecurityContextHolder`**; an empty context yields **`SubjectNotFoundException`** / permission failures.
 
 Pattern: capture **`SecurityContextHolder.getContext()`** on the Studio servlet thread, then **`SecurityContextHolder.setContext(copy)`** in a `try/finally` around tool I/O. See `StudioToolOperations#withStudioRequestSecurity` in this repo.
 
-### Configuration reads
+### Configuration Reads
 
 - Bean **`configurationService`** (v2-style) is used for **`getConfigurationAsString(siteId, module, path, environment)`**-style reads in this plugin. Names vary by minor version — resolve the bean your Studio registers and align with [studio support/4.x](https://github.com/craftercms/studio/tree/support/4.x).
 
 ---
 
-## 9. Checklist: plugin loads without 404
+## 9. Checklist: Plugin Loads Without 404
 
 - [ ] **Descriptor** `plugin.id` is set and consistent (e.g. `org.craftercms.aiassistant.studio`).
 - [ ] **Build** writes to `authoring/static-assets/plugins/<pluginId-path>/<type>/<name>/...` (and tinymce if used).
@@ -721,7 +721,7 @@ Pattern: capture **`SecurityContextHolder.getContext()`** on the Studio servlet 
 
 ---
 
-## 10. Quick reference: plugin id and paths
+## 10. Quick Reference: Plugin Id and Paths
 
 | What | Value / path |
 |------|-----------------------------|

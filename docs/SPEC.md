@@ -1,4 +1,4 @@
-# Moved: AI Assistant plugin specification
+# Moved: AI Assistant Plugin Specification
 
 This specification now lives at **`docs/internals/spec.md`**.
 

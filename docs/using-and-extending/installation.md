@@ -1,4 +1,4 @@
-# Installing the plugin
+# Installing the Plugin
 
 ## Studio UI
 
@@ -12,7 +12,7 @@ After install, open **Project Tools → AI Assistant** for the tabbed **AI Assis
 
 More tabs and captions: [Configuration guide — Screenshots](configuration-guide.md#cg-screenshots).
 
-## Local / from-repo install
+## Local / From-repo Install
 
 From repo root (with `CRAFTER_DATA` and `CRAFTER_STUDIO_TOKEN` set when using the CLI or HTTP API), after **`yarn package`** in **`sources/`**:
 
@@ -46,6 +46,6 @@ curl --location --request POST 'http://localhost:8080/studio/api/2/marketplace/c
   --data-raw '{"siteId":"MySite","path":"/absolute/path/to/plugin-studio-crafterq"}'
 ```
 
-## Build before install
+## Build Before Install
 
 From **`sources/`**: `yarn install`, then **`yarn package`** (Rollup + form-control verify). See root **Contributing** for dev server vs package workflow.

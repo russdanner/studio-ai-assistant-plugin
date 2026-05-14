@@ -1,4 +1,4 @@
-# Moved: Spring AI reference
+# Moved: Spring AI Reference
 
 This reference now lives at **`docs/internals/reference-spring-ai-completions-with-tools.md`**.
 

@@ -1,8 +1,8 @@
-# Helper widget (Experience Builder & Tools Panel)
+# Helper Widget (Experience Builder & Tools Panel)
 
 Embeds the **Studio AI assistant** so authors open chat on demand. Each agent’s **`<llm>`** selects the backend; see [llm-configuration.md](llm-configuration.md).
 
-## Minimal `ui.xml` snippet
+## Minimal `ui.xml` Snippet
 
 The **`plugin` id must be the full descriptor id** `org.craftercms.aiassistant.studio`. A shortened id loads the wrong path and Studio cannot resolve the bundle.
 
@@ -19,7 +19,7 @@ The **`plugin` id must be the full descriptor id** `org.craftercms.aiassistant.s
 </widget>
 ```
 
-## “Component craftercms.components.aiassistant.Helper not found”
+## “Component craftercms.components.aiassistant.Helper Not Found”
 
 | Check | Action |
 |-------|--------|
@@ -29,11 +29,11 @@ The **`plugin` id must be the full descriptor id** `org.craftercms.aiassistant.s
 
 Deeper wiring: [spec.md](../internals/spec.md), paths: [studio-plugins-guide.md](studio-plugins-guide.md). For **optional** Tools Panel + **Autonomous** + preview-toolbar fragments, see [examples/studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml).
 
-## Hiding the preview toolbar icon without editing `ui.xml`
+## Hiding the Preview Toolbar Icon Without Editing `ui.xml`
 
 When the Helper stays merged under **`PreviewToolbar`** with **`configuration ui="IconButton"`**, operators can set **`showAiAssistantsInTopNavigation`** to **`false`** in **`config/studio/scripts/aiassistant/config/studio-ui.json`** (see [configuration guide §1e](configuration-guide.md#cg-1e) and [spec.md — Studio UI flags](../internals/spec.md#studio-ui-flags-studio-uijson)). That hides **only** the toolbar **icon**; a **Tools Panel** Helper row added manually in **`ui.xml`** is unchanged. Reload Studio if the icon still appears until configuration cache refreshes.
 
-## Preview toolbar icon missing (next to the URL bar)
+## Preview Toolbar Icon Missing (Next to the URL Bar)
 
 The plugin descriptor merges a **second** Helper under **`craftercms.components.PreviewToolbar` → `configuration` → `rightSection` → `widgets`** (reliable marketplace / `copy-plugin` wiring). For an icon **next to the URL bar**, move or copy that **`<widget id="craftercms.components.aiassistant.Helper">…</widget>`** under **`…/middleSection/widgets`** in `config/studio/ui.xml` (see [studio-ui-aiassistant-fragments.xml](../examples/studio-ui-aiassistant-fragments.xml)).
 

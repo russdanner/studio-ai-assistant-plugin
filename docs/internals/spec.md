@@ -12,13 +12,13 @@
 | [../using-and-extending/llm-configuration.md](../using-and-extending/llm-configuration.md) | **`<llm>`** identifiers, env + XML configuration, provider capability matrix, merge rules |
 | [../using-and-extending/product-requirements.md](../using-and-extending/product-requirements.md) | **Plain-language product requirements** — mandatory “must” outcomes for authors, admins, and integrators (not wire-level or build detail) |
 
-**Scope:** Operator-only “how to turn it on in a site” procedures live in **[configuration-guide.md](../using-and-extending/configuration-guide.md)**. **Plain-language requirements** (what the product **must** deliver before you read implementation detail): **[product-requirements.md](../using-and-extending/product-requirements.md)**. JVM **`-D`** flags live in **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**. This **`spec.md`** must still record any **new** author-visible, wire-level, or cross-surface contract when it ships, even when details are duplicated or deep-linked in a companion doc.
+**Scope:** Site operator procedures — **[configuration-guide.md](../using-and-extending/configuration-guide.md)**. **Plain-language requirements** (mandatory outcomes before implementation detail) — **[product-requirements.md](../using-and-extending/product-requirements.md)**. JVM **`-D`** flags — **[studio-aiassistant-jvm-parameters.md](../using-and-extending/studio-aiassistant-jvm-parameters.md)**. **`spec.md`** must record any **new** author-visible, wire-level, or cross-surface contract when it ships, including where the same detail appears in a companion document.
 
 **Review rule:** Code changes that alter documented behavior without updating **`spec.md`** / the relevant companion should be **blocked in review** unless the PR states a doc-only follow-up with a tracked issue (use sparingly—prefer same-merge updates).
 
 **Audience:** Maintainers and advanced integrators. **Configuration & LLM keys:** [llm-configuration.md](../using-and-extending/llm-configuration.md). **Doc index:** [README.md](../README.md).
 
-### Terminology (product vs integrations)
+### Terminology (Product vs Integrations)
 
 - **Studio AI assistant** — The authoring-facing assistant in Crafter Studio that this plugin provides: the form-engine control, the Helper widget on the Tools Panel or preview toolbar, optional autonomous scheduled runs, and **TinyMCE** when sites wire the RTE integration. Use this name for the product experience authors see.
 - **CrafterQ** — A **backend integration** (CrafterQ API / SaaS chat) selected per agent when **`llm` is `crafterQ`**. It is **not** a synonym for the whole Studio assistant; **`openAI`** and other options are separate tools on the same assistant.
@@ -61,7 +61,7 @@ The UI uses a combination of:
 
 Note: Message-bus wiring to open the assistant via `openCrafterQMessageId` is present but currently commented out in `AiAssistantHelper.tsx`.
 
-#### Autonomous assistants widget (Tools Panel)
+#### Autonomous Assistants Widget (Tools Panel)
 
 - **Widget id**: `craftercms.components.aiassistant.AutonomousAssistants` (constant `autonomousAssistantsWidgetId` in `sources/src/consts.ts`).
 - **Component**: `sources/src/AiAssistantAutonomousAssistants.tsx` — registered in `sources/index.tsx` with the same **`plugin`** element as the Helper (`org.craftercms.aiassistant.studio` / `aiassistant` / `components` / `index.js`).
@@ -69,7 +69,7 @@ Note: Message-bus wiring to open the assistant via `openCrafterQMessageId` is pr
 - **Where to place it**: Typically under **`craftercms.components.ToolsPanel`** → `configuration` → `widgets`, alongside or below the Helper when a site wants the left rail. The plugin descriptor **does not** auto-merge **AutonomousAssistants** (or **Helper**) into **ToolsPanel**; add the widget manually to **`config/studio/ui.xml`** or paste from **`docs/examples/studio-ui-aiassistant-fragments.xml`** (commit the sandbox for reliable loads).
 - **How Studio passes props**: After the plugin registers, Studio’s **`Widget`** spreads the widget’s **`<configuration>`** onto the React component as **root props** (not only `props.configuration`). The autonomous parser reads **full widget props first**, then nested `configuration`, so `autonomousAgents` is found in either shape.
 
-##### Configuration shape (`autonomousAgents`)
+##### Configuration Shape (`autonomousAgents`)
 
 Under `<configuration>`, use **`autonomousAgents`** with one or more **`agent`** entries, **or** define autonomous rows in **`config/studio/ai-assistant/agents.json`** with **`mode: autonomous`** (Project Tools editor). When that JSON file contains at least one autonomous row, the widget uses those definitions instead of **`autonomousAgents`** from **`ui.xml`**. Studio may deserialize repeated `<agent>` elements as an **array** or as a **numeric-keyed object**; the widget normalizer accepts both (same pattern as Helper **`agents`**). A **single** `<agent>` is often a **flat object** (`{ name, schedule, … }`); the parser must **not** treat it like a map with `Object.values()` (that yields string fragments and zero agents).
 
@@ -108,7 +108,7 @@ Example (minimal):
 </widget>
 ```
 
-##### Plugin REST scripts (`/studio/api/2/plugin/script/...`)
+##### Plugin REST Scripts (`/studio/api/2/plugin/script/...`)
 
 All require an authenticated Studio session (same cookies / auth as other plugin scripts).
 
@@ -132,11 +132,11 @@ All require an authenticated Studio session (same cookies / auth as other plugin
 - **Human tasks** (require **`agentId`** + **`taskId`**): `complete_human_task`, `dismiss_human_task`, `reopen_human_task`.
 - **Recovery**: `clear_agent_error` (requires **`agentId`**; scope-checked) — clears **`state.lastError`**, sets **`state.status`** to **waiting** with **`nextStepRequired: false`** so ticks can run again for that agent (supervisor stays as-is).
 
-##### Human tasks (model → UI)
+##### Human Tasks (Model → UI)
 
 On each successful worker step, the model may return JSON with optional **`humanTasks`**: `[{ "title": string, "prompt": string, "assignedUsername"?: string, "assignedName"?: string }, …]` (aliases `assigneeUsername` / `assigneeName` are accepted). Prompts must be self-contained text a human can execute or paste into another assistant. Optional assignee fields set the Studio user shown in the widget when the agent’s instructions call for routing a task to someone. The server merges new rows into **`state.humanTasks`** (deduped by prompt text against non-dismissed tasks), then **trims to at most 10** rows by removing the **oldest** (`createdAt`) first. Each worker run also appends an **OpenSearch digest** of indexed `/site/website/` pages (paths, types, titles) to the user message as optional site context for whatever mission the agent’s prompt defines (requires `sync`/`status` to have registered `applicationContext` + security on an HTTP thread). Each row has **`id`**, **`title`**, **`prompt`**, **`status`** (`open` \| `done` \| `dismissed`), optional **`assignedUsername`** / **`assignedName`**, and timestamps. The widget lists tasks across agents with filters, assignee controls, toggle done, dismiss, or **copy prompt** to the clipboard.
 
-##### Model JSON “tools” (same reply object as `humanTasks`)
+##### Model JSON “Tools” (Same Reply Object As `humanTasks`)
 
 The worker instructs the model to optionally return **task id arrays** and **`stopSelf`** so a single JSON payload can update human tasks without extra REST calls (applied in memory before the final state write):
 
@@ -149,13 +149,13 @@ If the worker throws or the model response cannot be parsed as JSON, **`state.la
 
 **Authoring “brain” parity:** Each autonomous OpenAI step prepends the same system stack as interactive **`/ai/stream`** — **`ToolPrompts.getOPENAI_AUTHORING_INSTRUCTIONS()`**, optional **plugin RAG** (`PluginRagVectorRegistry.adjustAuthoringCore`), site-id tool lines, optional **`expertSkills`** appendix + **`QueryExpertGuidance`** registration when **`expertSkills`** are synced on the agent definition, and **`PlanOrchestration.machineInstructionsAddendum()`**, then the agent’s JSON reply contract in a following section.
 
-##### Widget UX (errors and open tasks)
+##### Widget UX (Errors and Open Tasks)
 
 - Header shows a **warning badge** with **`openHumanTaskCount`** when greater than zero.
 - When **`hasAgentError`** or a halt reason is present, the panel uses **error styling** (border/background) and lists **agents in error** with **`lastError.message`** (and detail when present); each row may call **`clear_agent_error`**.
 - For site-level or custom Studio chrome, the widget sets **`document.body`** attributes **`data-cq-autonomous-open-tasks`** (count) and **`data-cq-autonomous-has-error`** (`"true"` / `"false"`) while mounted so CSS can tint a Tools icon or shell element if desired (Studio’s default Tools list icon is not modified by the plugin).
 
-##### Implementation pointers (Groovy)
+##### Implementation Pointers (Groovy)
 
 - `authoring/scripts/classes/plugins/org/craftercms/aiassistant/autonomous/` — registry, state store, supervisor, worker, scope guard, id builder, schedule probe, **`AutonomousAssistantRuntimeHooks`** (Spring context + auth for worker threads), **`AutonomousSiteDigestBuilder`** (authoring OpenSearch digest for prompts).
 - `authoring/scripts/rest/plugins/org/craftercms/aiassistant/studio/aiassistant/autonomous/assistants/` — `sync.post`, `status.get`, `control.post`.
@@ -179,7 +179,7 @@ When invoked, the plugin:
 - Builds a message array (based on the instance config) and opens the Studio AI assistant
 - Provides an **“Insert”** action that inserts returned content into the selection via `editor.selection.setContent(content)`
 
-##### XB vs non-XB execution
+##### XB vs non-XB Execution
 
 The TinyMCE integration detects Experience Builder:
 
@@ -188,7 +188,7 @@ The TinyMCE integration detects Experience Builder:
   - `craftercms.services.plugin.importPlugin(site, 'aiassistant', 'components', 'index.js', 'org.craftercms.aiassistant.studio')`
   - then mounts the `AiAssistantPopover` widget inside the Studio React bridge (`CrafterCMSNextBridge`)
 
-### Assistant popover (hosted chat shell)
+### Assistant Popover (Hosted Chat Shell)
 
 - **Component**: `sources/src/AiAssistantPopover.tsx`
 - **What it renders today**:
@@ -214,19 +214,19 @@ Defined in `sources/src/consts.ts`:
   - `openCrafterQMessageId`
   - `CrafterQClosedMessageId`
 
-### Plugin ID and Studio file URL
+### Plugin ID and Studio File URL
 
 - **Plugin ID**: `org.craftercms.aiassistant.studio` — must be used in `ui.xml` for both the Tools Panel Helper and the Preview Toolbar icon so Studio serves the correct path.
 - **Installed path**: Plugin assets are under `config/studio/static-assets/plugins/org/craftercms/aiassistant/studio/aiassistant/` (e.g. `components/index.js`, `tinymce/craftercms_aiassistant.js`).
 - **Plugin file requests**: Studio serves plugin JS from `/studio/1/plugin/file?siteId=...&pluginId=org.craftercms.aiassistant.studio&type=aiassistant&name=components&file=index.js`. These requests require **authenticated session** (same as preview): send the same cookies (e.g. `JSESSIONID`, `XSRF-TOKEN`, `crafterPreview`, `crafterSite`) or JWT/bearer auth that you use for Studio and preview. Unauthenticated requests will redirect to login and can cause 404-like behavior in the UI.
 - **Bundle `PluginDescriptor.id`** (`sources/index.tsx`): Must match `plugin.id` in `craftercms-plugin.yaml` (`org.craftercms.aiassistant.studio`). Studio deduplicates `registerPlugin` on that id; a different id can let an earlier registration win and leave **`craftercms.components.aiassistant.Helper`** or **`craftercms.components.aiassistant.AutonomousAssistants`** unregistered (“Component … not found”).
 
-### UI placement (toolbar vs sidebar)
+### UI Placement (Toolbar vs Sidebar)
 
 - **Tools Panel**: Optional — the Helper (and **AutonomousAssistants**) can appear in the left rail only if the site merges those widgets under **`ToolsPanel` → `configuration` → `widgets`** in **`ui.xml`**. The plugin descriptor does **not** install them there.
 - **Preview Toolbar**: Marketplace install merges the Helper under **`PreviewToolbar` → `configuration` → `rightSection` → `widgets`** (avoids Studio **`performConfigurationWiring`** singleton-descent failures on **`middleSection/widgets`**). For an icon **next to the address bar**, move the merged **`<widget id="craftercms.components.aiassistant.Helper">…</widget>`** to **`middleSection` → `widgets`** in `config/studio/ui.xml` (same **`<configuration ui="IconButton"/>`** shape). The **`element`** root in **`craftercms-plugin.yaml`** is the **`<widget>`**; existing sites can paste from **`docs/examples/studio-ui-aiassistant-fragments.xml`** instead.
 
-#### Common gotchas
+#### Common Gotchas
 
 - **Two widget entries**: If you configure the Helper in **both** Tools Panel and Preview Toolbar, update both widget entries when changing agent labels/prompts or you’ll still see old values depending on where you click.
 - **Form assistant accordion vs Redux**: Studio’s Redux snapshot of `ui.xml` can expose fewer `<agent>` entries than the site repo file. The form control merges agents from **both** that snapshot and `get_configuration` for `/ui.xml` so each configured agent can appear as its own row (deduped by **crafterQAgentId** + **label**, i.e. the same composite key as stream **`agentId`** + label), **unless** `config/studio/ai-assistant/agents.json` exists with at least one **`mode: chat`** (or omitted mode) row — then chat agents are taken **only** from that JSON file (sync XHR), not from `ui.xml`.
@@ -235,7 +235,7 @@ Defined in `sources/src/consts.ts`:
 
 <a id="studio-ui-flags-studio-uijson"></a>
 
-### Studio UI flags (`studio-ui.json`)
+### Studio UI Flags (`studio-ui.json`)
 
 **Path:** `config/studio/scripts/aiassistant/config/studio-ui.json` (Studio module **`studio`**).
 
@@ -254,11 +254,11 @@ Defined in `sources/src/consts.ts`:
 
 **Chat composer placeholders:** Example prompt text uses native **`placeholder`** on the main **`TextField`** (grey hint until the author types); central **`agents.json`** editor uses placeholders on quick-prompt and autonomous system-prompt fields.
 
-### Agent configuration (ui.xml)
+### Agent Configuration (Ui.xml)
 
 You can configure one or more agents so that the toolbar shows a **dropdown** when multiple agents are defined, or opens chat **directly** when only one agent is configured. By default, chat opens in the **Experience Builder right (ICE) tools panel** and **edit mode** is turned on if it was off. Set **`<openAsPopup>true</openAsPopup>`** on an agent to use the legacy **floating dialog** instead. Each agent has a **label**, optional **icon**, **crafterQAgentId** (CrafterQ SaaS UUID), optional **llmModel** when `llm` is **openAI**, and a **prompts** list (quick message buttons above the chat). Multiple popup dialogs can be open at once when using popup mode.
 
-#### Supported configuration structure
+#### Supported Configuration Structure
 
 The plugin expects this XML shape in `config/studio/ui.xml`. The `<configuration>` block is passed by Studio the same way as in other plugins (e.g. [plugin-studio-uigoodies CopyCurrentPageUrl](https://github.com/russdanner/plugin-studio-uigoodies/blob/master/src/packages/uigoodies-components/src/components/CopyCurrentPageUrl.tsx)); repeated elements (e.g. multiple `<agent>`) may be deserialized as arrays or as objects with numeric keys—both are supported.
 
@@ -316,7 +316,7 @@ The plugin expects this XML shape in `config/studio/ui.xml`. The `<configuration
 - **agent.openAsPopup** — Optional boolean (default **false** when omitted). **`true`** opens chat in the floating MUI dialog; **`false`** or omitted opens chat in the **ICE / Experience Builder** right sidebar panel (and enables preview edit mode).
 - **agent.translateBatchConcurrency** — Optional integer **1–64** for parallel **`translate_content_batch`** work on the server. ui.xml **`<translateBatchConcurrency>`** (aliases **`translate_batch_concurrency`**). Omitted on the stream request → server default **25** (attribute unset).
 
-### Server-side chat (AiOrchestration; Spring AI is multi-vendor)
+### Server-side Chat (AiOrchestration; Spring AI Is Multi-vendor)
 
 When the plugin’s **REST** chat or stream endpoints are used (`ai/agent/chat` or `ai/stream`), the server uses **`AiOrchestration`**, which selects the backend from **`llm`** in the JSON body (mirrors widget `<llm>`). **Spring AI** supplies several **`ChatModel`** integrations (including **`OpenAiChatModel`** for hosts that speak a common chat-completions JSON API, and **`AnthropicChatModel`** for Anthropic); the **`OpenAi*`** type names describe that **wire**, not “Spring AI only supports OpenAI’s product.”
 
@@ -421,11 +421,11 @@ Defined in `sources/package.json`:
 
 **CrafterQ HTTP 500**: When logs show a small merged prompt (e.g. `utf8Bytes` ≪ `maxPromptChars`) but `POST …/v1/chats` still returns 5xx, the problem is **upstream** (agent, service), not local compaction. The plugin forwards almost all inbound Studio headers to CrafterQ—see **[stream-endpoint-design.md](stream-endpoint-design.md)**.
 
-### AI streaming endpoint (server-side)
+### AI Streaming Endpoint (Server-side)
 
 A single **streaming** endpoint accepts `agentId`, `prompt`, optional `llm` / `llmModel` / `imageModel` / `openAiApiKey` (testing), and streams the response (SSE). See **[stream-endpoint-design.md](stream-endpoint-design.md)** and **[llm-configuration.md](../using-and-extending/llm-configuration.md)**.
 
-### Related docs
+### Related Docs
 
 - **[llm-configuration.md](../using-and-extending/llm-configuration.md)** — Supported `<llm>` ids, required configuration, env + XML; autonomous widget allowed `llm` values.
 - **[chat-and-tools-runtime.md](chat-and-tools-runtime.md)** — CrafterQ bearer/auth, API tools, SSE, REST body fields, key precedence, troubleshooting.

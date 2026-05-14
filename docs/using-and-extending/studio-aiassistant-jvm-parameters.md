@@ -1,4 +1,4 @@
-# Studio AI assistant — JVM system properties (`-D`)
+# Studio AI Assistant — JVM System Properties (`-D`)
 
 This page lists **JVM-only** knobs the plugin reads via **`System.getProperty`** (typically set on the Studio process as **`-Dname=value`** or in **`JAVA_TOOL_OPTIONS`**). They are **not** `ui.xml` fields and **not** environment variables.
 
@@ -8,7 +8,7 @@ Use this file when you need to tune timeouts, logging, or defaults that are not 
 
 ---
 
-## LLM providers (`crafter.*`)
+## LLM Providers (`crafter.*`)
 
 | Property | Typical use |
 |----------|-------------|
@@ -32,7 +32,7 @@ Use this file when you need to tune timeouts, logging, or defaults that are not 
 
 ---
 
-## Chat orchestration & CrafterQ (`crafterq.*`)
+## Chat Orchestration & CrafterQ (`crafterq.*`)
 
 | Property | Default / notes |
 |----------|-----------------|
@@ -46,7 +46,7 @@ Use this file when you need to tune timeouts, logging, or defaults that are not 
 
 ---
 
-## Outbound HTTP, preview fetch, MCP (`crafterq.*`)
+## Outbound HTTP, Preview Fetch, MCP (`crafterq.*`)
 
 | Property | Default / notes |
 |----------|-----------------|
@@ -61,7 +61,7 @@ Use this file when you need to tune timeouts, logging, or defaults that are not 
 
 ---
 
-## Expert skills (`crafterq.expertSkill.*`)
+## Expert Skills (`crafterq.expertSkill.*`)
 
 | Property | Role |
 |----------|------|
@@ -86,7 +86,7 @@ Use this file when you need to tune timeouts, logging, or defaults that are not 
 
 ---
 
-## Tools-loop host caps (`studio.scriptLlm.*`)
+## Tools-loop Host Caps (`studio.scriptLlm.*`)
 
 | Property | Default / notes |
 |----------|-----------------|
@@ -102,6 +102,6 @@ Use this file when you need to tune timeouts, logging, or defaults that are not 
 
 ---
 
-## Implementation source
+## Implementation Source
 
 Property names and defaults are defined in plugin Groovy under **`authoring/scripts/classes/plugins/org/craftercms/aiassistant/`** (search for **`System.getProperty`**). This document is descriptive; behavior is authoritative in code.

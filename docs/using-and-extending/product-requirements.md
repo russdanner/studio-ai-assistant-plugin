@@ -1,14 +1,14 @@
-# Product requirements (plain English)
+# Product Requirements (Plain English)
 
 This document states **what the AI Assistant Studio plugin is required to deliver**—obligations and acceptance criteria in everyday language.
 
-It is **not** a feature brochure (“what it does” as marketing). It is **not** the technical specification: no wire formats, REST field lists, `ui.xml` grammar, file paths, or build steps. Those live in **[`spec.md`](../internals/spec.md)** and the linked guides; implementation **must** satisfy this document **and** the technical spec together.
+It is **not** a feature brochure (“what it does” as marketing). It is **not** the technical specification: no wire formats, REST field lists, `ui.xml` grammar, file paths, or build steps. For that material, see **[`spec.md`](../internals/spec.md)** and the linked guides. Implementation **must** satisfy this document **and** the technical spec together.
 
 **How to use it:** Product owners and reviewers judge releases against these statements. Engineers trace each requirement to **`spec.md`** and code.
 
 ---
 
-## Author-facing requirements
+## Author-facing Requirements
 
 1. **Chat access** — Authors who have Studio access to a site where the plugin is configured **must** be able to open an AI chat from each surface the site enables: at minimum, the plugin **must** support opening chat from the form-engine control, from the Helper (preview toolbar and/or Tools Panel, per site configuration), and from **TinyMCE** only when that optional RTE integration is configured.
 
@@ -22,7 +22,7 @@ It is **not** a feature brochure (“what it does” as marketing). It is **not*
 
 ---
 
-## Administrator requirements
+## Administrator Requirements
 
 6. **Per-site configuration** — Administrators **must** be able to enable, disable, or tune assistant behavior per site using Studio-supported configuration (for example `ui.xml` widget definitions and documented sandbox files)—without changing plugin source in the repository. **Examples** include **`ui.xml`**, **`config/studio/ai-assistant/agents.json`**, **`config/studio/scripts/aiassistant/config/studio-ui.json`** (runtime toolbar/sidebar visibility, scoped Experience Builder image-picker augmentation, bulk form-control edits — see the configuration guide and **`spec.md`**), **`scripts/aiassistant/…`** script trees, and other paths named in **`spec.md`**.
 
@@ -34,7 +34,7 @@ It is **not** a feature brochure (“what it does” as marketing). It is **not*
 
 ---
 
-## Integrator requirements
+## Integrator Requirements
 
 10. **Scripted extensions** — Integrators **must** be able to add sandbox Groovy tools, script-backed LLM identifiers, and script-backed image generators in the repository paths and registration shapes documented in the [Studio plugins guide](studio-plugins-guide.md) and [Scripted tools & imagegen](scripted-tools-and-imagegen.md), and have Studio load them without rebuilding the core TypeScript bundle for those scripts alone.
 
@@ -42,11 +42,11 @@ It is **not** a feature brochure (“what it does” as marketing). It is **not*
 
 ---
 
-## Optional / experimental requirements (autonomous widget)
+## Optional / Experimental Requirements (Autonomous Widget)
 
 12. **Autonomous mode** — If the Autonomous assistants widget is installed and configured, the plugin **must** enforce the documented scheduling, scope, and in-memory semantics so administrators can predict lifecycle (including loss of state on JVM restart) as described in **[`spec.md`](../internals/spec.md#autonomous-assistants-widget-tools-panel)** and the [Autonomous assistants widget](autonomous-assistants-widget.md) guide. This area remains **experimental**; it **must not** be documented as a production-grade job scheduler.
 
-#### Each autonomous agent (minimum behaviors)
+#### Each Autonomous Agent (Minimum Behaviors)
 
 For **each** autonomous agent the site defines, the product **must** make the following available and consistent with **`spec.md`** (field names and REST actions are in the spec and widget guide):
 
@@ -60,7 +60,7 @@ For **each** autonomous agent the site defines, the product **must** make the fo
 
 ---
 
-## Technical and release requirements
+## Technical and Release Requirements
 
 13. **Spec alignment** — Any change that adds, removes, or materially alters author-visible behavior, configuration contracts, or security boundaries **must** update **[`spec.md`](../internals/spec.md)** (and companions where applicable) in the same release train, per **[`CONTRIBUTING.md`](../../CONTRIBUTING.md)**.
 
@@ -68,7 +68,7 @@ For **each** autonomous agent the site defines, the product **must** make the fo
 
 ---
 
-## Related documents
+## Related Documents
 
 | Need | Document |
 |------|----------|

@@ -1,4 +1,4 @@
-# Script LLM: bring your own backend (full `StudioAiLlmRuntime`)
+# Script LLM: Bring Your Own Backend (Full `StudioAiLlmRuntime`)
 
 Site script LLMs (**`<llm>script:{id}</llm>`**) are **not** required to call built-in **`OpenAiSpringAiLlmRuntime`**, **`AnthropicSpringAiLlmRuntime`**, or **`ExpertApiLlmRuntime`**. They are **complete replacements**: your Groovy constructs the same **session bundle** those classes return — **`chatClient`**, **`chatModel`**, **`tools`**, **`useTools`**, **`studioOps`**, plus transport hints the orchestration reads.
 
@@ -8,7 +8,7 @@ Site script LLMs (**`<llm>script:{id}</llm>`**) are **not** required to call bui
 
 **Tools-compatible LLM:** A chat host whose HTTP API matches what Studio’s **native CMS tools** path expects (the same request/response shape the built-in **`openAI`** row uses through Spring **`OpenAiApi`**). Groq, xAI, and others can be **different vendors**; configuration keys such as **`SCRIPT_LLM_OPENAI_COMPAT_BASE_URL`** are **legacy names** in code, not a statement that your backend is OpenAI’s product.
 
-## What you must return
+## What You Must Return
 
 Implement **`StudioAiLlmRuntime`** (or a **Map** with **`buildSessionBundle`** — see **`StudioAiScriptLlmLoader`**) so **`buildSessionBundle(StudioAiRuntimeBuildRequest req)`** returns a **non-null** `Map` aligned with **`StudioAiLlmRuntime`** Javadoc and the built-in runtimes:
 
@@ -25,7 +25,7 @@ Implement **`StudioAiLlmRuntime`** (or a **Map** with **`buildSessionBundle`** �
 
 **Note:** **`StudioAiScriptLlmContainerRuntime`** overwrites **`bundle.llm`** with **`scriptLlm:{id}`** after your script returns — do not rely on **`llm`** inside the map for transport detection; use **`nativeToolTransport`** / wire fields as needed.
 
-## Example: BYO tools-compatible chat host
+## Example: BYO Tools-compatible Chat Host
 
 **Source:** [`docs/examples/aiassistant-llm/byo-openai-compat/runtime.groovy`](../examples/aiassistant-llm/byo-openai-compat/runtime.groovy)
 
@@ -41,7 +41,7 @@ Secrets and base URL are **yours** (any **tools-loop** chat vendor), not necessa
 
 **GenerateImage** and expert embeddings still use the Studio **`OPENAI_API_KEY`** path where the built-in tool stack expects it — configure that separately if authors need images or expert-vector tools.
 
-## Example: Groq (alternative vendor)
+## Example: Groq (Alternative Vendor)
 
 **Source:** [`docs/examples/aiassistant-llm/groq/runtime.groovy`](../examples/aiassistant-llm/groq/runtime.groovy)
 
@@ -60,10 +60,10 @@ Same **`OpenAiApi` + `OpenAiChatModel`** types from Spring AI’s **`spring-ai-o
 
 When **`script:groq`** (or any tools-loop base URL on **`api.groq.com`**) runs **native CMS tools**, the server caps **`max_tokens`** on each tools-loop round (default **8192**) so Groq does not return HTTP **400** for models with a lower completion ceiling than the plugin’s generic tools-loop budget. Tune with JVM **`studio.scriptLlm.groqToolsLoopMaxOutTokens`** (see [studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md)).
 
-## Anthropic-style session
+## Anthropic-style Session
 
 To replace **`<llm>claude</llm>`** entirely in a script, build **`AnthropicApi`** + **`AnthropicChatModel`** + **`DefaultChatClientBuilder`** the same way **`AnthropicSpringAiLlmRuntime`** does, return **`nativeToolTransport: 'anthropic'`**, and omit **`toolsLoopChatBaseUrl`** (or leave it null). Do not call **`AnthropicSpringAiLlmRuntime.INSTANCE`** unless you intentionally want that coupling.
 
-## Other vendors (same tools-loop)
+## Other Vendors (Same Tools-loop)
 
 Any host that exposes the same **`/v1/chat/completions`** (and related streaming) surface Studio expects for the **tools loop** can follow the **`byo-openai-compat`** sample (fully custom base URL + key; **script id** only) or adapt the **`groq`** sample as a template.

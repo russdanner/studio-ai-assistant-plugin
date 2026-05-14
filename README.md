@@ -4,7 +4,7 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 
 **Plain-language product requirements** (mandatory “must” outcomes—no technical contracts): [Product requirements](docs/using-and-extending/product-requirements.md).
 
-## Where it shows up
+## Where It Shows Up
 
 | Surface | Role |
 |---------|------|
@@ -15,7 +15,7 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 | **Project Tools** (optional) | One **AI Assistant** entry (tabs: **UI** / **Agents** / **Tools and MCP** / **Scripts** / **Prompts and Context**) — `studio-ui.json` + bulk, `agents.json`, tool-prompt markdown overrides, `tools.json` (built-ins + MCP), `user-tools/registry.json` + Groovy tools, script imagegen + script LLMs under `scripts/aiassistant/…` · [Screenshots](docs/using-and-extending/configuration-guide.md#cg-screenshots) |
 | **TinyMCE** (optional RTE wiring) | Toolbar actions + RTE config → chat / shortcuts |
 
-## Capabilities (at a glance)
+## Capabilities (at a Glance)
 
 | Area | Highlights | Notes |
 |------|------------|-------|
