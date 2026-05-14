@@ -17,6 +17,11 @@
 // If unset, this sample uses Groq’s documented public base for that wire (path ends with `/openai` on **api.groq.com** —
 // Groq’s routing, not OpenAI’s servers). Pin the URL yourself if policy requires it.
 //
+// **Where HTTP goes:** `OpenAiApi` / `OpenAiChatModel` here only call **`base`** (Groq by default). They never fall back to
+// **api.openai.com**. If you set `GROQ_OPENAI_COMPAT_BASE_URL` / `SCRIPT_LLM_OPENAI_COMPAT_BASE_URL` to OpenAI’s host, this
+// script refuses that (Groq-only sample). **Separate:** built-in image / expert-embedding tools still use Studio’s global
+// provider (`resolveOpenAiApiKey` below) — that may be OpenAI or another vendor depending on Studio config, not Groq chat.
+//
 // Chat model id (required — Groq deprecates model ids over time; this sample does not bake a default):
 //   <llmModel>…</llmModel> or POST llmModel → `req.openAiModelParam` (**Studio’s legacy request field name** — value is still your Groq model id).
 // Example (slash form is normal on Groq): meta-llama/llama-4-scout-17b-16e-instruct
@@ -102,6 +107,25 @@ class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
     return ''
   }
 
+  /**
+   * Groq-only sample: chat + tools-loop wire must not target OpenAI Inc.’s chat API host by mis-set env.
+   * (Spring type names say {@code OpenAi*}; the HTTP host is still whatever {@code base} is — we enforce “not api.openai.com”.)
+   */
+  private static void refuseIfChatBaseIsOpenAiApiHost(String base) {
+    try {
+      String host = new java.net.URI((base ?: '').trim()).host
+      if (host && host.equalsIgnoreCase('api.openai.com')) {
+        throw new IllegalStateException(
+          'Script LLM groq: chat base URL is api.openai.com — this sample is Groq-only. Use default or set GROQ_OPENAI_COMPAT_BASE_URL to Groq (e.g. https://api.groq.com/openai).'
+        )
+      }
+    } catch (IllegalStateException e) {
+      throw e
+    } catch (Throwable ignored) {
+      // malformed URL: other checks below surface a useful error
+    }
+  }
+
   @Override
   Map buildSessionBundle(StudioAiRuntimeBuildRequest req) {
     String base = compatBaseUrl()
@@ -111,6 +135,7 @@ class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
         'Script LLM groq: tools-loop chat base URL ended up empty after normalization — check GROQ_OPENAI_COMPAT_BASE_URL / SCRIPT_LLM_OPENAI_COMPAT_BASE_URL (host only, no trailing /v1).'
       )
     }
+    refuseIfChatBaseIsOpenAiApiHost(base)
     if (!apiKey) {
       throw new IllegalStateException(
         'Script LLM groq: set GROQ_API_KEY (or SCRIPT_LLM_API_KEY), or testing-only per-agent <openAiApiKey> (legacy XML name). Use a **gsk_** Groq key — a non-Groq vendor key in that slot returns HTTP 401 from Groq.'
@@ -129,6 +154,7 @@ class GroqScriptLlmRuntime implements StudioAiLlmRuntime {
     }
     def orch = req.orchestration
     def imageModel = AiOrchestration.imageModelFromRequestOrNull(req.imageModelParam)
+    // Not Groq chat: Studio’s configured key/host for built-in image + embedding tools (often OpenAI — see plugin image docs).
     String builtInImageAndEmbeddingKey = AiOrchestration.resolveOpenAiApiKey(null)
     def tools
     if (req.enableTools) {
