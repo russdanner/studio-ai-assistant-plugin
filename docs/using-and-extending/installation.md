@@ -4,6 +4,14 @@
 
 Install via **Project Tools → Plugin Management → Search & install**.
 
+![Project Tools sidebar: Plugin Management selected; AI Assistant at the bottom of the list](../images/ai-assistant-studio/project-tools-sidebar.png)
+
+After install, open **Project Tools → AI Assistant** for the tabbed **AI Assistant Configuration** dialog (UI flags, agents, tools/MCP, scripts, prompts). A quick view of the **UI** tab:
+
+![AI Assistant Configuration modal with the UI tab active](../images/ai-assistant-studio/ai-assistant-configuration-ui-tab.png)
+
+More tabs and captions: [Configuration guide — Screenshots](configuration-guide.md#cg-screenshots).
+
 ## Local / from-repo install
 
 From repo root (with `CRAFTER_DATA` and `CRAFTER_STUDIO_TOKEN` set when using the CLI or HTTP API), after **`yarn package`** in **`sources/`**:

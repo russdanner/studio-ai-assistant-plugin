@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, type SyntheticEvent } from 'react';
+import CloseRounded from '@mui/icons-material/CloseRounded';
 import FullscreenExitRounded from '@mui/icons-material/FullscreenExitRounded';
 import FullscreenRounded from '@mui/icons-material/FullscreenRounded';
 import Box from '@mui/material/Box';
@@ -18,6 +19,7 @@ import AiAssistantCentralAgentsConfiguration, {
 } from './AiAssistantCentralAgentsConfiguration';
 import AiAssistantScriptsSandboxConfiguration from './AiAssistantScriptsSandboxConfiguration';
 import AiAssistantStudioUiSettings from './AiAssistantStudioUiSettings';
+import { aiAssistantProjectToolsPanelContentSx } from './aiAssistantProjectToolsFormSx';
 import { useDomFullscreen } from './aiAssistantDomFullscreen';
 
 export type AiAssistantProjectToolsTab = 'ui' | 'agents' | 'prompts' | 'tools' | 'scripts';
@@ -29,7 +31,7 @@ function projectToolsTabLabel(t: AiAssistantProjectToolsTab): string {
     case 'agents':
       return 'Agents';
     case 'prompts':
-      return 'Prompts';
+      return 'Prompts and Context';
     case 'tools':
       return 'Tools and MCP';
     case 'scripts':
@@ -45,11 +47,9 @@ export interface AiAssistantProjectToolsConfigurationProps {
 }
 
 /**
- * Single Project Tools surface: **UI** (`studio-ui.json` + bulk), **Agents** (`agents.json`),
- * **Prompts** (tool markdown overrides), **Tools and MCP** (`tools.json` + registry + user Groovy), **Scripts** (imagegen + script LLMs).
- * Primary widget id: {@link projectToolsAiAssistantConfigWidgetId}. Legacy ids still mount this component with a fixed default tab.
+ * Tabbed configuration body (tabs + panels + unsaved guard). Used inside {@link AiAssistantProjectToolsConfiguration}.
  */
-export default function AiAssistantProjectToolsConfiguration(props: AiAssistantProjectToolsConfigurationProps) {
+function AiAssistantProjectToolsConfigurationPanel(props: AiAssistantProjectToolsConfigurationProps) {
   const { defaultTab = 'ui' } = props;
   const [tab, setTab] = useState<AiAssistantProjectToolsTab>(defaultTab);
   const [agentsCatalogDirty, setAgentsCatalogDirty] = useState(false);
@@ -125,9 +125,9 @@ export default function AiAssistantProjectToolsConfiguration(props: AiAssistantP
         >
           <Tab label="UI" value="ui" />
           <Tab label="Agents" value="agents" />
-          <Tab label="Prompts" value="prompts" />
           <Tab label="Tools and MCP" value="tools" />
           <Tab label="Scripts" value="scripts" />
+          <Tab label="Prompts and Context" value="prompts" />
         </Tabs>
         <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, borderLeft: 1, borderColor: 'divider', px: 0.5 }}>
           <Tooltip title={toolFullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
@@ -141,7 +141,14 @@ export default function AiAssistantProjectToolsConfiguration(props: AiAssistantP
           </Tooltip>
         </Box>
       </Stack>
-      <Box sx={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}>
+      <Box
+        sx={{
+          flex: '1 1 auto',
+          minHeight: 0,
+          overflow: 'auto',
+          ...aiAssistantProjectToolsPanelContentSx
+        }}
+      >
         {tab === 'ui' ? <AiAssistantStudioUiSettings /> : null}
         {tab === 'agents' ? (
           <AiAssistantCentralAgentsConfiguration
@@ -149,9 +156,9 @@ export default function AiAssistantProjectToolsConfiguration(props: AiAssistantP
             onDirtyChange={setAgentsCatalogDirty}
           />
         ) : null}
-        {tab === 'prompts' ? <AiAssistantScriptsSandboxConfiguration panel="prompts" /> : null}
         {tab === 'tools' ? <AiAssistantScriptsSandboxConfiguration panel="tools" /> : null}
         {tab === 'scripts' ? <AiAssistantScriptsSandboxConfiguration panel="scripts" /> : null}
+        {tab === 'prompts' ? <AiAssistantScriptsSandboxConfiguration panel="prompts" /> : null}
       </Box>
 
       <Dialog open={pendingTabSwitch != null} onClose={cancelPendingTabSwitch} maxWidth="sm" fullWidth>
@@ -175,6 +182,82 @@ export default function AiAssistantProjectToolsConfiguration(props: AiAssistantP
         </DialogActions>
       </Dialog>
     </Box>
+  );
+}
+
+/**
+ * Single Project Tools surface: **UI** (`studio-ui.json` + bulk), **Agents** (`agents.json`),
+ * **Tools and MCP** (`tools.json` + registry + user Groovy), **Scripts** (imagegen + script LLMs), **Prompts and Context** (tool markdown overrides).
+ * Opens in a **large dialog** when the Project Tools entry mounts so authors stay focused and get more space than the default tool pane.
+ * Primary widget id: {@link projectToolsAiAssistantConfigWidgetId}. Legacy ids still mount this component with a fixed default tab.
+ */
+export default function AiAssistantProjectToolsConfiguration(props: AiAssistantProjectToolsConfigurationProps) {
+  const [shellOpen, setShellOpen] = useState(true);
+
+  return (
+    <>
+      <Dialog
+        open={shellOpen}
+        onClose={() => setShellOpen(false)}
+        maxWidth={false}
+        fullWidth
+        scroll="paper"
+        PaperProps={{
+          sx: {
+            width: { xs: '100%', sm: 'min(96vw, 1680px)' },
+            height: { xs: '100%', sm: 'calc(100vh - 32px)' },
+            maxHeight: { xs: '100%', sm: 'calc(100vh - 16px)' },
+            m: { xs: 0, sm: 2 },
+            display: 'flex',
+            flexDirection: 'column'
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1,
+            pr: 1,
+            py: 1.5
+          }}
+        >
+          <Typography component="div" variant="h6">
+            AI Assistant Configuration
+          </Typography>
+          <Tooltip title="Close">
+            <IconButton aria-label="Close" size="small" onClick={() => setShellOpen(false)}>
+              <CloseRounded fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            flex: '1 1 auto',
+            minHeight: 0,
+            p: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}
+        >
+          <AiAssistantProjectToolsConfigurationPanel {...props} />
+        </DialogContent>
+      </Dialog>
+
+      {!shellOpen ? (
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+          <Typography variant="body2" color="text.secondary">
+            AI Assistant configuration is closed.
+          </Typography>
+          <Button variant="contained" onClick={() => setShellOpen(true)}>
+            Open AI Assistant configuration
+          </Button>
+        </Box>
+      ) : null}
+    </>
   );
 }
 

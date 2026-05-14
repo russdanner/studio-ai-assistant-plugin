@@ -177,18 +177,14 @@ export default function AiAssistantStudioUiSettings() {
   return (
     <Box sx={{ p: 2, maxWidth: 960 }}>
       <Typography variant="h6" gutterBottom>
-        {'UI & bulk tools'}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Stored at <code>config/studio/{STUDIO_UI_CONFIG_REL_PATH}</code>. Top navigation and sidebar visibility apply after
-        save; reload Studio if a surface does not refresh immediately.
+        UI Configuration:
       </Typography>
 
       {loadError ? <Alert severity="warning">{loadError}</Alert> : null}
       {!loaded ? <Alert severity="info">Loading…</Alert> : null}
       {saveError ? <Alert severity="error">{saveError}</Alert> : null}
 
-      <Stack spacing={2} sx={{ mt: 2, opacity: loaded ? 1 : 0.5, pointerEvents: loaded ? 'auto' : 'none' }}>
+      <Stack spacing={3} sx={{ mt: 2, opacity: loaded ? 1 : 0.5, pointerEvents: loaded ? 'auto' : 'none' }}>
         <FormControlLabel
           control={
             <Switch
@@ -214,9 +210,9 @@ export default function AiAssistantStudioUiSettings() {
           label="Show Autonomous AI Assistants (experimental) in sidebar"
         />
 
-        <Divider />
+        <Divider sx={{ my: 3 }} />
 
-        <FormControl component="fieldset" variant="standard">
+        <FormControl component="fieldset" variant="standard" sx={{ mt: 1 }}>
           <FormLabel component="legend">AI Assistant Form Engine Integration:</FormLabel>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
             Update content types so AI Chat is present and image pickers support AI generated images.
@@ -251,9 +247,11 @@ export default function AiAssistantStudioUiSettings() {
           )}
         />
 
-        <Divider />
+        <Divider sx={{ my: 3 }} />
 
-        <Typography variant="subtitle1">AI Assistant form control on content types</Typography>
+        <Typography variant="subtitle1" sx={{ mt: 1 }}>
+          AI Assistant Form Control on Content Types:
+        </Typography>
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
           Inserts or removes a marked field block in the first fields section of form-definition.xml for each chosen content
           type. Review in Git before publishing. Backup recommended.

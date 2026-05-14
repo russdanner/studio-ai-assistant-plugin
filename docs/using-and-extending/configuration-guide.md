@@ -2,7 +2,7 @@
 
 **Audience:** **Crafter Studio administrators** responsible for installing and configuring the assistant and its **tools** for authors—`ui.xml` widgets, agents, credentials, form wiring, optional TinyMCE, and optional site-script overrides—without reading the full implementation spec first.
 
-**Related docs:** **Official product specification:** [spec.md](../internals/spec.md) — requirements & mechanics for surfaces, `ui.xml`, form vs preview, macros, autonomous REST (update **`spec.md`** when those contracts change). [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. **[scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md)** — **Integrators:** Groovy **`InvokeSiteUserTool`** / **`script:{id}`** image backends (bindings, examples, return shapes); this guide **§9.3** is the short overview. Optional hosted SaaS HTTP (bearer, chat audit tools): [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md). **Site overrides** for prompts, built‑in tool policy, scripted tools, image backends, and MCP: [Advanced configuration](#cg-adv).
+**Related docs:** **Official product specification:** [spec.md](../internals/spec.md) — requirements & mechanics for surfaces, `ui.xml`, form vs preview, macros, autonomous REST (update **`spec.md`** when those contracts change). [llm-configuration.md](llm-configuration.md) for **`<llm>`** wire ids, env + XML, and tool availability by provider. [studio-plugins-guide.md](studio-plugins-guide.md) for install, build output paths, **`user-tools/`**, and script LLM layout. **[scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md)** — **Integrators:** Groovy **`InvokeSiteUserTool`** / **`script:{id}`** image backends (bindings, examples, return shapes); this guide **§9.3** is the short overview. Optional hosted SaaS HTTP (bearer, chat audit tools): [chat-and-tools-runtime.md](../internals/chat-and-tools-runtime.md). **Site overrides** for prompts, built‑in tool policy, scripted tools, image backends, and MCP: [Advanced configuration](#cg-adv). **Visual overview (Studio UI):** [Screenshots — Project Tools and AI Assistant Configuration](#cg-screenshots).
 
 ## Table of contents
 
@@ -29,6 +29,52 @@
 | [9.4](#cg-9-4) | MCP servers (optional remote tools) |
 
 **[Where to go next](#cg-10)** — Links to [llm-configuration.md](llm-configuration.md), [spec.md](../internals/spec.md), and the rest of this doc set.
+
+**[Screenshots](#cg-screenshots)** — Project Tools entry and **AI Assistant Configuration** dialog (all tabs).
+
+---
+
+<a id="cg-screenshots"></a>
+
+## Screenshots — Project Tools and AI Assistant Configuration
+
+These screenshots show **Project Tools** (where you install the plugin and open **AI Assistant**) and the tabbed **AI Assistant Configuration** dialog. Paths below are relative to this file (`docs/using-and-extending/`).
+
+### Project Tools (sidebar)
+
+![Project Tools sidebar: Plugin Management selected; AI Assistant entry at the bottom of the list](../images/ai-assistant-studio/project-tools-sidebar.png)
+
+*Use **Plugin Management → Search & install** for the marketplace flow; open **AI Assistant** for configuration after install.*
+
+### AI Assistant Configuration — UI tab
+
+![AI Assistant Configuration modal with the UI tab active](../images/ai-assistant-studio/ai-assistant-configuration-ui-tab.png)
+
+*Toolbar/sidebar toggles, Experience Builder image augmentation scope, and bulk add/remove of the form-engine AI Assistant field.*
+
+### Agents tab
+
+![AI Assistant Configuration modal with the Agents tab active](../images/ai-assistant-studio/ai-assistant-configuration-agents-tab.png)
+
+*Chat assistants vs autonomous agents; reload, example catalog, and save to site.*
+
+### Edit agent
+
+![Edit agent dialog for a single catalog entry](../images/ai-assistant-studio/ai-assistant-edit-agent-dialog.png)
+
+*Provider, model, image generator, CMS tools checklist, and optional quick-prompt chips.*
+
+### Tools and MCP tab
+
+![AI Assistant Configuration modal with the Tools and MCP tab active](../images/ai-assistant-studio/ai-assistant-configuration-tools-tab.png)
+
+*Built-in tool visibility, MCP client toggle, and user-tools registry (table + **Open in editor**).*
+
+### Scripts tab
+
+![AI Assistant Configuration modal with the Scripts tab active](../images/ai-assistant-studio/ai-assistant-configuration-scripts-tab.png)
+
+*Script image generators and script LLM backends under `scripts/aiassistant/…`.*
 
 ---
 
@@ -184,7 +230,7 @@ Full sample (including optional SVG icon): [examples/studio-ui-aiassistant-fragm
 
 **REST (integrators):** Plugin script **`GET …/aiassistant/content-types/list?siteId=`** returns the Studio content-type catalog (via `StudioToolOperations.listStudioContentTypes`) for the multi-select UI.
 
-**See also:** [spec.md — Studio UI flags](../internals/spec.md#studio-ui-flags-studio-uijson) · [helper-widget.md](helper-widget.md) · [autonomous-assistants-widget.md](autonomous-assistants-widget.md).
+**See also:** [Screenshots — Project Tools and AI Assistant Configuration](#cg-screenshots) · [spec.md — Studio UI flags](../internals/spec.md#studio-ui-flags-studio-uijson) · [helper-widget.md](helper-widget.md) · [autonomous-assistants-widget.md](autonomous-assistants-widget.md).
 
 **Upgrades:** If your site still shows **three** separate AI Assistant rows under Project Tools (from an older plugin descriptor), remove the legacy **`<tool>`** entries in **`config/studio/administration/site-config-tools.xml`** (or via Studio’s project tools UI) so only **AI Assistant** (`ai-assistant-config`) remains—each legacy widget id still loads the same tabbed panel with the correct default tab until you do.
 
@@ -547,6 +593,8 @@ Each MCP tool becomes a function named roughly **`mcp_<serverId>_<toolName>`** (
   "disabledMcpTools": ["mcp_docs_search"]
 }
 ```
+
+For a hosted **Streamable HTTP** reference (base URL, `/readonly` paths, optional `X-MCP-*` headers, and JSON snippets), see GitHub’s **[Remote GitHub MCP Server](https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md)** — map each recipe’s URL and headers into an `mcpServers[]` row (`id`, `url`, `headers`, optional `readTimeoutMs`) in Project Tools or in Git.
 
 Full behavior, lifecycle, and limits: [chat-and-tools-runtime.md § MCP client tools](../internals/chat-and-tools-runtime.md#mcp-client-tools-streamable-http). JVM caps / host allowlists: [studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md).
 

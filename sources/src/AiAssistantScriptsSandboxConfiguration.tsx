@@ -85,6 +85,8 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
   const showPrompts = panel === 'all' || panel === 'prompts';
   const showTools = panel === 'all' || panel === 'tools';
   const showScripts = panel === 'all' || panel === 'scripts';
+  /** Tools-only tab: hide the raw registry JSON editor; the table + Add tool + Open in editor are enough for most authors. */
+  const showRegistryJsonEditor = panel !== 'tools';
 
   const siteId = useActiveSiteId() ?? '';
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -424,27 +426,7 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
         Markdown under <code>scripts/aiassistant/prompts/&lt;KEY&gt;.md</code> overrides built-in tool prompt text (see
         ToolPromptsLoader). Empty files open with a working stub.
       </Typography>
-    ) : panel === 'tools' ? (
-      <Typography variant="body2" color="text.secondary" paragraph>
-        Configure built-in tool visibility, optional MCP servers, and hidden MCP tools using the form below (saved to{' '}
-        <code>scripts/aiassistant/config/tools.json</code>). Edit <code>user-tools/registry.json</code> and Groovy tools under{' '}
-        <code>scripts/aiassistant/user-tools/</code>. Empty registry files open with a working stub.
-      </Typography>
-    ) : panel === 'scripts' ? (
-      <Typography variant="body2" color="text.secondary" paragraph>
-        Script image generators under <code>scripts/aiassistant/imagegen/&lt;id&gt;/generate.groovy</code> and script LLMs
-        under <code>scripts/aiassistant/llm/&lt;id&gt;/runtime.groovy</code>. Empty files open with a working stub.
-      </Typography>
-    ) : (
-      <Typography variant="body2" color="text.secondary" paragraph>
-        Edit <code>scripts/aiassistant/config/tools.json</code> (built-in tool policy + MCP), <code>user-tools/registry.json</code>, site
-        Groovy tools under <code>scripts/aiassistant/user-tools/</code>, script image generators under{' '}
-        <code>scripts/aiassistant/imagegen/&lt;id&gt;/generate.groovy</code>, script LLMs under{' '}
-        <code>scripts/aiassistant/llm/&lt;id&gt;/runtime.groovy</code>, and optional markdown overrides for built-in tool
-        prompts under <code>scripts/aiassistant/prompts/&lt;KEY&gt;.md</code>. Empty files open with a working stub you can
-        replace.
-      </Typography>
-    );
+    ) : null;
 
   return (
     <Box sx={{ p: 2, maxWidth: 1100, mx: 'auto' }}>
@@ -481,7 +463,7 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
           {showTools ? (
             <>
           <Typography variant="subtitle1" gutterBottom>
-            Built-in tools and MCP (<code>{TOOLS_JSON_REL}</code>)
+            Built-In Tools and MCP (<code>{TOOLS_JSON_REL}</code>):
           </Typography>
           <Typography variant="body2" color="text.secondary" paragraph>
             Use the form below to map built-in tools and optional MCP servers. The site file remains{' '}
@@ -506,42 +488,56 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
             Save tools &amp; MCP
           </Button>
 
-          <Divider sx={{ my: 3 }} />
+          <Divider sx={{ my: 4 }} />
 
           <Typography variant="subtitle1" gutterBottom>
-            Registry (<code>{REGISTRY_REL}</code>)
+            Registry (<code>{REGISTRY_REL}</code>):
           </Typography>
-          <AiAssistantStudioCodeEditor
-            language="json"
-            value={registryDraft}
-            onChange={(v) => {
-              setRegistryDraft(v);
-              setRegistryDirty(true);
-            }}
-            minHeightPx={260}
-          />
+          {showRegistryJsonEditor ? null : (
+            <Typography variant="body2" color="text.secondary" paragraph>
+              Use <strong>Add tool</strong> and the table below to change the registry. For a raw JSON view or hand edits,
+              use <strong>Open in editor</strong>.
+            </Typography>
+          )}
+          {showRegistryJsonEditor ? (
+            <AiAssistantStudioCodeEditor
+              language="json"
+              value={registryDraft}
+              onChange={(v) => {
+                setRegistryDraft(v);
+                setRegistryDirty(true);
+              }}
+              minHeightPx={260}
+            />
+          ) : null}
+          {showRegistryJsonEditor ? (
+            <Button
+              sx={{ mt: 1 }}
+              size="small"
+              variant="contained"
+              startIcon={<SaveRounded />}
+              disabled={savingRegistry || !registryDirty}
+              onClick={() => void saveRegistry()}
+            >
+              Save registry
+            </Button>
+          ) : null}
           <Button
-            sx={{ mt: 1 }}
+            sx={{ mt: 1, ...(showRegistryJsonEditor ? { ml: 1 } : {}) }}
             size="small"
-            variant="contained"
-            startIcon={<SaveRounded />}
-            disabled={savingRegistry || !registryDirty}
-            onClick={() => void saveRegistry()}
+            onClick={() => loadFileForEditor('Registry', `/${REGISTRY_REL}`, AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB)}
           >
-            Save registry
-          </Button>
-          <Button sx={{ mt: 1, ml: 1 }} size="small" onClick={() => loadFileForEditor('Registry', `/${REGISTRY_REL}`, AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB)}>
             Open in editor
           </Button>
             </>
           ) : null}
 
-          {showTools && showPrompts ? <Divider sx={{ my: 3 }} /> : null}
+          {showTools && showPrompts ? <Divider sx={{ my: 4 }} /> : null}
 
           {showPrompts ? (
             <>
           <Typography variant="subtitle1" gutterBottom>
-            Tool prompt overrides (<code>scripts/aiassistant/prompts/</code>)
+            Tool Prompt Overrides (<code>scripts/aiassistant/prompts/</code>):
           </Typography>
           <Typography variant="body2" color="text.secondary" paragraph>
             Non-empty markdown for a key replaces the plugin default (see ToolPromptsLoader). Remove the file to use the
@@ -613,12 +609,12 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
             </>
           ) : null}
 
-          {showPrompts && showTools ? <Divider sx={{ my: 3 }} /> : null}
+          {showPrompts && showTools ? <Divider sx={{ my: 4 }} /> : null}
 
           {showTools ? (
             <>
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-            <Typography variant="subtitle1">User tools (registry + Groovy)</Typography>
+            <Typography variant="subtitle1">User Tools (Registry + Groovy):</Typography>
             <Button size="small" startIcon={<AddRounded />} onClick={() => { setAddDialogFullscreen(false); setAddOpen('tool'); }}>
               Add tool
             </Button>
@@ -665,12 +661,12 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
             </>
           ) : null}
 
-          {showTools && showScripts ? <Divider sx={{ my: 3 }} /> : null}
+          {showTools && showScripts ? <Divider sx={{ my: 4 }} /> : null}
 
           {showScripts ? (
             <>
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-            <Typography variant="subtitle1">Script image generators</Typography>
+            <Typography variant="subtitle1">Script Image Generators:</Typography>
             <Button size="small" startIcon={<AddRounded />} onClick={() => { setAddDialogFullscreen(false); setAddOpen('imagegen'); }}>
               Add generator
             </Button>
@@ -729,10 +725,10 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
             </TableBody>
           </Table>
 
-          <Divider sx={{ my: 3 }} />
+          <Divider sx={{ my: 4 }} />
 
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-            <Typography variant="subtitle1">Script LLMs</Typography>
+            <Typography variant="subtitle1">Script LLMs:</Typography>
             <Button size="small" startIcon={<AddRounded />} onClick={() => { setAddDialogFullscreen(false); setAddOpen('llm'); }}>
               Add script LLM
             </Button>
@@ -806,22 +802,28 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
               setEditorOpen(false);
             }}
             fullScreen={editorFullscreen}
-            maxWidth="md"
+            maxWidth={false}
             fullWidth
             scroll="paper"
-            PaperProps={
-              editorFullscreen
+            PaperProps={{
+              sx: editorFullscreen
                 ? {
-                    sx: {
-                      m: 0,
-                      maxHeight: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      flexDirection: 'column'
-                    }
+                    m: 0,
+                    maxHeight: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column'
                   }
-                : undefined
-            }
+                : {
+                    m: { xs: 1, sm: 2 },
+                    width: { xs: 'calc(100vw - 16px)', sm: 'calc(100vw - 32px)' },
+                    maxWidth: '100%',
+                    height: { xs: 'calc(100vh - 16px)', sm: 'calc(100vh - 32px)' },
+                    maxHeight: { xs: 'calc(100vh - 16px)', sm: 'calc(100vh - 32px)' },
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }
+            }}
           >
             <DialogTitle
               sx={{
@@ -847,38 +849,29 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
             </DialogTitle>
             <DialogContent
               dividers
-              sx={
-                editorFullscreen
-                  ? {
-                      flex: '1 1 auto',
-                      minHeight: 0,
-                      overflow: 'hidden',
-                      display: 'flex',
-                      flexDirection: 'column'
-                    }
-                  : undefined
-              }
+              sx={{
+                flex: '1 1 auto',
+                minHeight: 0,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                pt: 1
+              }}
             >
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1, flexShrink: 0 }}>
                 <code>{editorStudioPath}</code>
               </Typography>
-              <Box
-                sx={
-                  editorFullscreen
-                    ? { flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }
-                    : undefined
-                }
-              >
+              <Box sx={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', mb: 1 }}>
                 <AiAssistantStudioCodeEditor
                   key={editorStudioPath}
                   language={inferStudioSandboxEditorLanguage(editorStudioPath)}
                   value={editorBody}
                   onChange={(v) => setEditorBody(v)}
-                  flexFill={editorFullscreen}
-                  minHeightPx={editorFullscreen ? 320 : 440}
+                  flexFill
+                  minHeightPx={400}
                 />
               </Box>
-              <Button size="small" sx={{ mt: 1, flexShrink: 0 }} onClick={() => setEditorBody(editorStub)}>
+              <Button size="small" sx={{ mt: 0, flexShrink: 0, alignSelf: 'flex-start' }} onClick={() => setEditorBody(editorStub)}>
                 Reset to stub
               </Button>
             </DialogContent>

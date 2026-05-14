@@ -6,6 +6,7 @@ import {
   Chip,
   FormControlLabel,
   IconButton,
+  Link,
   Paper,
   Stack,
   Switch,
@@ -50,10 +51,10 @@ export default function AiAssistantToolsMcpForm(props: AiAssistantToolsMcpFormPr
   };
 
   return (
-    <Stack spacing={3}>
-      <Paper variant="outlined" sx={{ p: 2 }}>
+    <Stack spacing={4}>
+      <Paper variant="outlined" sx={{ p: 2.5 }}>
         <Typography variant="subtitle2" gutterBottom>
-          Built-in CMS tools
+          Built-In CMS Tools:
         </Typography>
         <Typography variant="body2" color="text.secondary" paragraph>
           Optional lists use exact wire names (see product docs). If <strong>Whitelist</strong> is non-empty, only those
@@ -99,9 +100,9 @@ export default function AiAssistantToolsMcpForm(props: AiAssistantToolsMcpFormPr
         </Stack>
       </Paper>
 
-      <Paper variant="outlined" sx={{ p: 2 }}>
+      <Paper variant="outlined" sx={{ p: 2.5 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-          <Typography variant="subtitle2">MCP (Streamable HTTP)</Typography>
+          <Typography variant="subtitle2">MCP (Streamable HTTP):</Typography>
           <FormControlLabel
             control={<Switch checked={value.mcpEnabled} onChange={(_, c) => setMcpEnabled(c)} size="small" />}
             label="Enable MCP client"
@@ -110,6 +111,17 @@ export default function AiAssistantToolsMcpForm(props: AiAssistantToolsMcpFormPr
         <Typography variant="body2" color="text.secondary" paragraph>
           When enabled, each server below is contacted on chat requests to list and call remote tools. URLs must pass the
           same outbound rules as FetchHttpUrl.
+        </Typography>
+        <Typography variant="body2" color="text.secondary" paragraph>
+          Example (streamable HTTP, optional headers, read-only URL patterns):{' '}
+          <Link
+            href="https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub MCP Server — remote-server.md
+          </Link>
+          .
         </Typography>
         {value.mcpEnabled ? (
           <>

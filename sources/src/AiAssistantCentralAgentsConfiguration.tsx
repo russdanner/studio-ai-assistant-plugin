@@ -149,7 +149,9 @@ function CmsToolCheckboxes(props: {
   const { draft, onToggle } = props;
   return (
     <Box sx={{ maxHeight: 220, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
-      <FormLabel component="legend">CMS tools for this agent</FormLabel>
+      <FormLabel component="legend" sx={{ fontSize: '1.05rem', fontWeight: 600, color: 'text.primary', mb: 0.5 }}>
+        CMS Tools for This Agent:
+      </FormLabel>
       <FormGroup>
         {STUDIO_AI_BUILTIN_TOOL_IDS.map((id) => (
           <FormControlLabel
@@ -252,6 +254,10 @@ function summarizeEntry(e: CentralAgentFileEntry): string {
     return `${String(e.name ?? e.label ?? 'Unnamed')} — ${e.schedule ?? '(no schedule)'}`;
   }
   return `${String(e.label ?? e.name ?? 'Unnamed')} (${String(e.llm ?? 'openAI')})`;
+}
+
+function isAutonomousEntry(e: CentralAgentFileEntry): boolean {
+  return String(e.mode ?? 'chat').toLowerCase() === 'autonomous';
 }
 
 /** Parent can call {@link save} before switching tabs (e.g. Project Tools shell). */
@@ -358,7 +364,17 @@ const AiAssistantCentralAgentsConfiguration = forwardRef<
   const chatCount = useMemo(() => catalogChatAgents(catalog).length, [catalog]);
   const autonomousCount = useMemo(() => catalogAutonomousAgents(catalog).length, [catalog]);
 
-  const openAdd = () => {
+  const { chatIndices, autonomousIndices } = useMemo(() => {
+    const chat: number[] = [];
+    const autonomous: number[] = [];
+    catalog.agents.forEach((e, i) => {
+      if (isAutonomousEntry(e)) autonomous.push(i);
+      else chat.push(i);
+    });
+    return { chatIndices: chat, autonomousIndices: autonomous };
+  }, [catalog]);
+
+  const openAddChat = () => {
     setFormError(null);
     setAgentDialogFullscreen(false);
     setChatPromptRows([]);
@@ -371,6 +387,24 @@ const AiAssistantCentralAgentsConfiguration = forwardRef<
       imageModel: STUDIO_AI_DEFAULT_IMAGE_MODEL,
       enableTools: true,
       prompts: []
+    });
+    setEditIndex(-1);
+  };
+
+  const openAddAutonomous = () => {
+    setFormError(null);
+    setAgentDialogFullscreen(false);
+    setChatPromptRows([]);
+    setDraft({
+      mode: 'autonomous',
+      name: 'New autonomous agent',
+      schedule: '0 0 * * * ?',
+      prompt: '',
+      scope: 'project',
+      llm: 'openAI',
+      llmModel: 'gpt-4o-mini',
+      imageModel: STUDIO_AI_DEFAULT_IMAGE_MODEL,
+      manageOtherAgentsHumanTasks: false
     });
     setEditIndex(-1);
   };
@@ -495,9 +529,6 @@ const AiAssistantCentralAgentsConfiguration = forwardRef<
             >
               Reload
             </Button>
-            <Button startIcon={<AddRounded />} onClick={openAdd} disabled={!loaded || saving} variant="outlined" size="small">
-              Add agent
-            </Button>
             <Button
               size="small"
               variant="outlined"
@@ -535,31 +566,140 @@ const AiAssistantCentralAgentsConfiguration = forwardRef<
           {!loaded ? (
             <Typography variant="body2">Loading…</Typography>
           ) : catalog.agents.length === 0 ? (
-            <Alert severity="warning">
-              No agents yet. Add one, or use Replace with example catalog, then save.
-            </Alert>
+            <Stack spacing={2}>
+              <Alert severity="warning">
+                No agents yet. Add a chat assistant or an autonomous agent, or use Replace with example catalog, then
+                save.
+              </Alert>
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Button
+                  startIcon={<AddRounded />}
+                  onClick={openAddChat}
+                  disabled={!loaded || saving}
+                  variant="outlined"
+                  size="small"
+                >
+                  Add chat assistant
+                </Button>
+                <Button
+                  startIcon={<AddRounded />}
+                  onClick={openAddAutonomous}
+                  disabled={!loaded || saving}
+                  variant="outlined"
+                  size="small"
+                >
+                  Add autonomous agent
+                </Button>
+              </Stack>
+            </Stack>
           ) : (
-            <List dense disablePadding sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
-              {catalog.agents.map((e, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 ? <Divider component="li" /> : null}
-                  <ListItem>
-                    <ListItemText
-                      primary={summarizeEntry(e)}
-                      secondary={String(e.mode ?? 'chat').toLowerCase() === 'autonomous' ? 'Autonomous' : 'Chat'}
-                    />
-                    <ListItemSecondaryAction>
-                      <Button size="small" startIcon={<EditRounded />} onClick={() => openEdit(i)}>
-                        Edit
-                      </Button>
-                      <Button size="small" color="error" startIcon={<DeleteOutlineRounded />} onClick={() => removeAt(i)}>
-                        Remove
-                      </Button>
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                </React.Fragment>
-              ))}
-            </List>
+            <Stack spacing={4}>
+              <Box>
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  flexWrap="wrap"
+                  gap={1}
+                  sx={{ mb: 2 }}
+                >
+                  <Typography variant="subtitle1" component="h2">
+                    Chat Assistants:
+                  </Typography>
+                  <Button
+                    startIcon={<AddRounded />}
+                    onClick={openAddChat}
+                    disabled={!loaded || saving}
+                    variant="outlined"
+                    size="small"
+                  >
+                    Add chat assistant
+                  </Button>
+                </Stack>
+                {chatIndices.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No chat assistants in this catalog.
+                  </Typography>
+                ) : (
+                  <List dense disablePadding sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                    {chatIndices.map((i, ord) => (
+                      <React.Fragment key={`chat-agent-${i}`}>
+                        {ord > 0 ? <Divider component="li" /> : null}
+                        <ListItem>
+                          <ListItemText primary={summarizeEntry(catalog.agents[i])} />
+                          <ListItemSecondaryAction>
+                            <Button size="small" startIcon={<EditRounded />} onClick={() => openEdit(i)}>
+                              Edit
+                            </Button>
+                            <Button
+                              size="small"
+                              color="error"
+                              startIcon={<DeleteOutlineRounded />}
+                              onClick={() => removeAt(i)}
+                            >
+                              Remove
+                            </Button>
+                          </ListItemSecondaryAction>
+                        </ListItem>
+                      </React.Fragment>
+                    ))}
+                  </List>
+                )}
+              </Box>
+
+              <Box>
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  flexWrap="wrap"
+                  gap={1}
+                  sx={{ mb: 2 }}
+                >
+                  <Typography variant="subtitle1" component="h2">
+                    Autonomous Agents:
+                  </Typography>
+                  <Button
+                    startIcon={<AddRounded />}
+                    onClick={openAddAutonomous}
+                    disabled={!loaded || saving}
+                    variant="outlined"
+                    size="small"
+                  >
+                    Add autonomous agent
+                  </Button>
+                </Stack>
+                {autonomousIndices.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No autonomous agents in this catalog.
+                  </Typography>
+                ) : (
+                  <List dense disablePadding sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                    {autonomousIndices.map((i, ord) => (
+                      <React.Fragment key={`auto-agent-${i}`}>
+                        {ord > 0 ? <Divider component="li" /> : null}
+                        <ListItem>
+                          <ListItemText primary={summarizeEntry(catalog.agents[i])} />
+                          <ListItemSecondaryAction>
+                            <Button size="small" startIcon={<EditRounded />} onClick={() => openEdit(i)}>
+                              Edit
+                            </Button>
+                            <Button
+                              size="small"
+                              color="error"
+                              startIcon={<DeleteOutlineRounded />}
+                              onClick={() => removeAt(i)}
+                            >
+                              Remove
+                            </Button>
+                          </ListItemSecondaryAction>
+                        </ListItem>
+                      </React.Fragment>
+                    ))}
+                  </List>
+                )}
+              </Box>
+            </Stack>
           )}
         </>
       )}
@@ -965,7 +1105,12 @@ const AiAssistantCentralAgentsConfiguration = forwardRef<
                         />
                       ) : null}
                       <Box>
-                        <FormLabel component="legend">Quick prompts (chat chips)</FormLabel>
+                        <FormLabel
+                          component="legend"
+                          sx={{ fontSize: '1.05rem', fontWeight: 600, color: 'text.primary', mt: 1 }}
+                        >
+                          Quick Prompts (Chat Chips):
+                        </FormLabel>
                         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, mb: 1 }}>
                           Optional shortcuts above the composer (max 10).
                         </Typography>

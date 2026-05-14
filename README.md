@@ -12,7 +12,7 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 | **Form engine control** | Per–content-type AI panel on forms |
 | **Helper widget** | `ui.xml` registration for the Experience Builder toolbar and, if you add it, the Studio **Tools Panel** list |
 | **Autonomous assistants** (optional and experimental) | Scheduled server-side runs + human tasks |
-| **Project Tools** (optional) | One **AI Assistant** entry (tabs: **UI** / **Agents** / **Prompts** / **Tools and MCP** / **Scripts**) — `studio-ui.json` + bulk, `agents.json`, tool-prompt markdown overrides, `tools.json` (built-ins + MCP), `user-tools/registry.json` + Groovy tools, script imagegen + script LLMs under `scripts/aiassistant/…` |
+| **Project Tools** (optional) | One **AI Assistant** entry (tabs: **UI** / **Agents** / **Tools and MCP** / **Scripts** / **Prompts and Context**) — `studio-ui.json` + bulk, `agents.json`, tool-prompt markdown overrides, `tools.json` (built-ins + MCP), `user-tools/registry.json` + Groovy tools, script imagegen + script LLMs under `scripts/aiassistant/…` · [Screenshots](docs/using-and-extending/configuration-guide.md#cg-screenshots) |
 | **TinyMCE** (optional RTE wiring) | Toolbar actions + RTE config → chat / shortcuts |
 
 ## Capabilities (at a glance)
@@ -31,6 +31,7 @@ Crafter Studio plugin that adds **AI-assisted authoring**: configurable **agents
 |--------------|--------|
 | **Product requirements (plain English)** | [Product requirements](docs/using-and-extending/product-requirements.md) |
 | **Configure agents, keys, `ui.xml`** | [Configuration guide](docs/using-and-extending/configuration-guide.md) |
+| **Project Tools UI (screenshots)** | [Configuration guide — Screenshots](docs/using-and-extending/configuration-guide.md#cg-screenshots) |
 | **Install or deploy the plugin** | [Installation](docs/using-and-extending/installation.md) |
 | **LLM ids, secrets, env + `ui.xml`** | [LLM configuration](docs/using-and-extending/llm-configuration.md) |
 | **JVM-only tuning (`-D` properties)** | [Studio AI assistant JVM parameters](docs/using-and-extending/studio-aiassistant-jvm-parameters.md) |

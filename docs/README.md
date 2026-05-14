@@ -21,7 +21,7 @@ High-level map; deep dives live in linked files.
 | Topic | Document |
 |-------|----------|
 | Product requirements in plain English (not technical) | [product-requirements.md](using-and-extending/product-requirements.md) |
-| Agents, keys, `ui.xml`, surfaces, **`studio-ui.json`** (toolbar/sidebar, XB augmentation, bulk form field) | [configuration-guide.md](using-and-extending/configuration-guide.md) |
+| Agents, keys, `ui.xml`, surfaces, **`studio-ui.json`** (toolbar/sidebar, XB augmentation, bulk form field) | [configuration-guide.md](using-and-extending/configuration-guide.md) · [Screenshots](using-and-extending/configuration-guide.md#cg-screenshots) |
 | Product requirements, surfaces, `ui.xml` / stream / form contracts | [internals/spec.md](internals/spec.md) |
 | Install / copy-plugin / `install-plugin.sh` | [installation.md](using-and-extending/installation.md) |
 | Helper `ui.xml` & “component not found” | [helper-widget.md](using-and-extending/helper-widget.md) |

@@ -208,7 +208,7 @@ Defined in `sources/src/consts.ts`:
   - `popoverWidgetId`
   - `helperWidgetId`
   - `autonomousAssistantsWidgetId` (`craftercms.components.aiassistant.AutonomousAssistants`)
-  - `projectToolsAiAssistantConfigWidgetId` (`craftercms.components.aiassistant.ProjectToolsConfiguration`) — **Project Tools** single entry (**UI** / **Agents** / **Prompts** / **Tools and MCP** / **Scripts** tabs)
+  - `projectToolsAiAssistantConfigWidgetId` (`craftercms.components.aiassistant.ProjectToolsConfiguration`) — **Project Tools** single entry (**UI** / **Agents** / **Tools and MCP** / **Scripts** / **Prompts and Context** tabs); the bundle opens this shell in a **large modal dialog** for space and focus (legacy widget ids use the same dialog shell with a different default tab).
   - `projectToolsCentralAgentsWidgetId`, `projectToolsScriptsSandboxWidgetId`, `projectToolsStudioUiSettingsWidgetId` — **legacy** widget ids; bundle still registers them and maps each to the same tabbed shell with the matching default tab (**ScriptsSandboxConfiguration** opens the **Tools and MCP** tab — `tools.json`, registry, and user Groovy — for sites that still have three merged tools until admins remove duplicates)
 - **XB message topics**
   - `openCrafterQMessageId`

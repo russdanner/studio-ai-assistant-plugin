@@ -60,7 +60,10 @@ export default function AiAssistantStudioCodeEditor(props: Readonly<AiAssistantS
           '.cm-editor.cm-focused': { outline: 'none' },
           '.cm-scroller': {
             fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-            fontSize: 13
+            fontSize: 13,
+            /** Required when the editor lives in a flex dialog — otherwise the document grows and never scrolls. */
+            overflow: 'auto !important',
+            overscrollBehavior: 'contain'
           },
           '.cm-gutters': {
             backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
@@ -103,10 +106,20 @@ export default function AiAssistantStudioCodeEditor(props: Readonly<AiAssistantS
           ? {
               flex: '1 1 auto',
               minHeight: 0,
+              alignSelf: 'stretch',
               display: 'flex',
               flexDirection: 'column',
-              '& .cm-editor': { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 },
-              '& .cm-scroller': { flex: 1, minHeight: 0 }
+              /**
+               * @uiw/react-codemirror mounts a single root div (cm-theme-*). Give it a bounded flex height so
+               * CodeMirror’s internal `height: 100%` / `.cm-scroller` can scroll instead of growing the dialog.
+               */
+              '& > div': {
+                flex: '1 1 auto',
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
+              }
             }
           : undefined
       }
