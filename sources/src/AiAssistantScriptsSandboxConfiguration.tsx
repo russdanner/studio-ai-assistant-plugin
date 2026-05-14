@@ -48,8 +48,10 @@ import {
 import {
   fetchAiAssistantPromptDetail,
   fetchAiAssistantScriptsIndex,
+  fetchOptionalStudioSandboxUtf8,
   postAiAssistantScriptsMutate,
   studioConfigRelativePath,
+  TOOLS_JSON_SANDBOX_PATH,
   type AiAssistantScriptsIndexResponse,
   type AiAssistantScriptsIndexItem,
   type AiAssistantScriptsIndexTool,
@@ -145,10 +147,9 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
         const t = (data.registryText ?? '').trim();
         setRegistryDraft(t || AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB);
       }
-      if (!toolsPolicyDirtyRef.current) {
+      if (!toolsPolicyDirtyRef.current && showTools) {
         try {
-          const raw = await firstValueFrom(fetchConfigurationJSON(siteId, TOOLS_JSON_REL, 'studio'));
-          const text = typeof raw === 'string' ? raw : '';
+          const text = await fetchOptionalStudioSandboxUtf8(siteId, TOOLS_JSON_SANDBOX_PATH);
           const parsed = parseToolsPolicyFromJsonText(text.trim() ? text : '');
           if (!parsed.ok) {
             setLoadError(parsed.message);
@@ -166,7 +167,7 @@ export default function AiAssistantScriptsSandboxConfiguration(props: AiAssistan
     } finally {
       setLoading(false);
     }
-  }, [siteId]);
+  }, [siteId, showTools]);
 
   useEffect(() => {
     void reload();

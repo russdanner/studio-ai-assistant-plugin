@@ -86,12 +86,14 @@ final class StudioAiScriptImageGenLoader {
   }
 
   private static Closure compileClosure(StudioToolOperations ops, String siteId, String imageGenId, String scriptPath, String src) {
-    ClassLoader parent = null
-    try {
-      Object ctx = ops?.crafterqStudioApplicationContext()
-      parent = ctx?.getClassLoader()
-    } catch (Throwable ignored) {
-      parent = Thread.currentThread().getContextClassLoader()
+    ClassLoader parent = Thread.currentThread().getContextClassLoader()
+    if (parent == null) {
+      try {
+        Object ctx = ops?.crafterqStudioApplicationContext()
+        parent = ctx?.getClassLoader()
+      } catch (Throwable ignored) {
+        parent = null
+      }
     }
     if (parent == null) {
       parent = StudioAiScriptImageGenLoader.class.getClassLoader()

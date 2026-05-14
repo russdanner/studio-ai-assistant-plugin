@@ -41,7 +41,7 @@ Secrets and base URL are **yours**, not **`OPENAI_API_KEY`** / OpenAI’s defaul
 
 **Source:** [`docs/examples/aiassistant-llm/cursor-cloud-agent/runtime.groovy`](../examples/aiassistant-llm/cursor-cloud-agent/runtime.groovy)
 
-Copy to **`config/studio/scripts/aiassistant/llm/cursor-cloud-agent/runtime.groovy`** and set **`<llm>script:cursor-cloud-agent</llm>`**.
+Copy to **`config/studio/scripts/aiassistant/llm/cursor-cloud-agent/runtime.groovy`** and set **`<llm>script:cursor-cloud-agent</llm>`** (the directory name after **`llm/`** must match the script id; do **not** put the Cloud Agents sample under **`llm/cursor/`** unless your agent uses **`script:cursor`** — use the minimal delegate instead: [`docs/examples/aiassistant-llm/cursor/runtime.groovy`](../examples/aiassistant-llm/cursor/runtime.groovy)).
 
 | Variable / JVM | Required | Purpose |
 |------------------|----------|---------|

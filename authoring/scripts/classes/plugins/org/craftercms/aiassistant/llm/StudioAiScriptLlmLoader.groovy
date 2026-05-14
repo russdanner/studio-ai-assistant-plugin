@@ -105,12 +105,16 @@ final class StudioAiScriptLlmLoader {
   }
 
   private static StudioAiLlmRuntime compileDelegate(StudioToolOperations ops, String siteId, String llmId, String scriptPath, String src) {
-    ClassLoader parent = null
-    try {
-      Object ctx = ops?.crafterqStudioApplicationContext()
-      parent = ctx?.getClassLoader()
-    } catch (Throwable ignored) {
-      parent = Thread.currentThread().getContextClassLoader()
+    // Prefer the servlet/request TCCL: Spring Boot often loads plugin + Spring AI from the same webapp ClassLoader there,
+    // while {@code ApplicationContext#getClassLoader()} can be a narrower loader that fails Groovy import resolution.
+    ClassLoader parent = Thread.currentThread().getContextClassLoader()
+    if (parent == null) {
+      try {
+        Object ctx = ops?.crafterqStudioApplicationContext()
+        parent = ctx?.getClassLoader()
+      } catch (Throwable ignored) {
+        parent = null
+      }
     }
     if (parent == null) {
       parent = StudioAiScriptLlmLoader.class.getClassLoader()

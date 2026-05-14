@@ -34550,6 +34550,48 @@ function studioConfigRelativePath(studioModulePath) {
     const p = (studioModulePath ?? '').trim();
     return p.startsWith('/') ? p.slice(1) : p;
 }
+/** Sandbox repo path for {@code tools.json} (same file as Studio module {@code scripts/aiassistant/config/tools.json}). */
+const TOOLS_JSON_SANDBOX_PATH = '/config/studio/scripts/aiassistant/config/tools.json';
+function utf8TextFromContentPayload(raw) {
+    if (raw == null)
+        return '';
+    if (typeof raw === 'string')
+        return raw;
+    if (typeof raw === 'object' && !Array.isArray(raw)) {
+        const o = raw;
+        const content = o.content;
+        if (typeof content === 'string')
+            return content;
+        const configuration = o.configuration;
+        if (typeof configuration === 'string')
+            return configuration;
+    }
+    return '';
+}
+/**
+ * Reads UTF-8 text for a file under {@code /config/studio/...} via content APIs when present.
+ * Does not call {@code get_configuration}, so a missing optional file does not produce Studio {@code ContentNotFoundException} logs.
+ */
+async function fetchOptionalStudioSandboxUtf8(siteId, sandboxPath) {
+    const sid = (siteId || '').trim();
+    const path = (sandboxPath).trim().startsWith('/') ? (sandboxPath).trim() : `/${(sandboxPath).trim()}`;
+    if (!sid || !path)
+        return '';
+    try {
+        const listings = (await firstValueFrom(fetchItemsByPath(sid, [path], { preferContent: true })));
+        if (Array.isArray(listings?.missingItems) && listings.missingItems.includes(path)) {
+            return '';
+        }
+        if (!listings?.[0]) {
+            return '';
+        }
+        const raw = await firstValueFrom(fetchContentXML(sid, path, { lock: false }).pipe(catchError(() => of(null))));
+        return utf8TextFromContentPayload(raw).trim();
+    }
+    catch {
+        return '';
+    }
+}
 
 /**
  * Built-in Studio AI orchestration tool names (Spring AI wire). Keep aligned with
@@ -35462,10 +35504,9 @@ function AiAssistantScriptsSandboxConfiguration(props) {
                 const t = (data.registryText ?? '').trim();
                 setRegistryDraft(t || AI_ASSISTANT_USER_TOOLS_REGISTRY_STUB);
             }
-            if (!toolsPolicyDirtyRef.current) {
+            if (!toolsPolicyDirtyRef.current && showTools) {
                 try {
-                    const raw = await firstValueFrom(fetchConfigurationJSON(siteId, TOOLS_JSON_REL, 'studio'));
-                    const text = typeof raw === 'string' ? raw : '';
+                    const text = await fetchOptionalStudioSandboxUtf8(siteId, TOOLS_JSON_SANDBOX_PATH);
                     const parsed = parseToolsPolicyFromJsonText(text.trim() ? text : '');
                     if (!parsed.ok) {
                         setLoadError(parsed.message);
@@ -35487,7 +35528,7 @@ function AiAssistantScriptsSandboxConfiguration(props) {
         finally {
             setLoading(false);
         }
-    }, [siteId]);
+    }, [siteId, showTools]);
     useEffect(() => {
         void reload();
     }, [reload]);
