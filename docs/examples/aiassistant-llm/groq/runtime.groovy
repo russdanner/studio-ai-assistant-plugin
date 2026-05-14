@@ -26,6 +26,8 @@
 // Model list: https://console.groq.com/docs/models
 //
 // Built-in GenerateImage / expert embeddings use Studio’s separate image-and-embedding configuration (not GROQ_API_KEY); see plugin docs for env/JVM names.
+// Native CMS tools use the server tools-loop POST to Groq: orchestration clamps completion max_tokens when the host is
+// groq.com (default cap 8192; JVM studio.scriptLlm.groqToolsLoopMaxOutTokens — see studio-aiassistant-jvm-parameters.md).
 
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.DefaultChatClientBuilder

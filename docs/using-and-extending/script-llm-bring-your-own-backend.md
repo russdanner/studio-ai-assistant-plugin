@@ -58,6 +58,8 @@ Same **`OpenAiApi` + `OpenAiChatModel`** types from Spring AI’s **`spring-ai-o
 
 **Example `llmModel`:** `meta-llama/llama-4-scout-17b-16e-instruct` — set on the agent, or export **`GROQ_LLM_MODEL`** / **`SCRIPT_LLM_MODEL`** with the same value for a site-wide default. Confirm the id is still listed under [Groq models](https://console.groq.com/docs/models) before relying on it in production.
 
+When **`script:groq`** (or any tools-loop base URL on **`api.groq.com`**) runs **native CMS tools**, the server caps **`max_tokens`** on each tools-loop round (default **8192**) so Groq does not return HTTP **400** for models with a lower completion ceiling than the plugin’s generic tools-loop budget. Tune with JVM **`studio.scriptLlm.groqToolsLoopMaxOutTokens`** (see [studio-aiassistant-jvm-parameters.md](studio-aiassistant-jvm-parameters.md)).
+
 ## Anthropic-style session
 
 To replace **`<llm>claude</llm>`** entirely in a script, build **`AnthropicApi`** + **`AnthropicChatModel`** + **`DefaultChatClientBuilder`** the same way **`AnthropicSpringAiLlmRuntime`** does, return **`nativeToolTransport: 'anthropic'`**, and omit **`toolsLoopChatBaseUrl`** (or leave it null). Do not call **`AnthropicSpringAiLlmRuntime.INSTANCE`** unless you intentionally want that coupling.

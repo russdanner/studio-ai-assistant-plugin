@@ -224,7 +224,21 @@ See **`StudioAiImageGenerator`** in the plugin sources (`imagegen/StudioAiImageG
 
 Replace the placeholder **`url`** with your pipeline’s real URL or data URL.
 
-### 3.9 Caching
+### 3.9 Example: Nano Banana 2 (Gemini 3.1 Flash Image)
+
+**Nano Banana 2** is the nickname used in the press for **Google Gemini 3.1 Flash Image** (typical preview model id **`gemini-3.1-flash-image-preview`** — confirm in Google AI Studio).
+
+| Item | Value |
+|------|--------|
+| **Source** | [`docs/examples/aiassistant-imagegen/nano-banana-2/generate.groovy`](../examples/aiassistant-imagegen/nano-banana-2/generate.groovy) |
+| **Copy to** | **`config/studio/scripts/aiassistant/imagegen/nano-banana-2/generate.groovy`** |
+| **Agent / POST** | **`<imageGenerator>script:nano-banana-2</imageGenerator>`** |
+| **Keys** | **`GEMINI_API_KEY`** or **`GOOGLE_API_KEY`** (or JVM **`crafter.gemini.apiKey`** / **`crafter.google.apiKey`**) — same as Studio’s **`llm=gemini`** path |
+| **Default model** | Tool **`model`** → **`<imageModel>`** → env **`GEMINI_NANO_BANANA_MODEL`** → **`gemini-3.1-flash-image-preview`** |
+
+The script POSTs **`generateContent`** with **`responseModalities`** including **IMAGE** and returns a **`data:`** **`url`** for preview. Details and env overrides are in the script header comments.
+
+### 3.10 Caching
 
 Compiled closures are cached **per site + id** with a SHA-256 of the script text. Editing **`generate.groovy`** on disk invalidates the cache when the file content hash changes.
 

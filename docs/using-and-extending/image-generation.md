@@ -14,6 +14,8 @@ The **GenerateImage** tool is not hard-wired to a single vendor. The server pick
 
 Configure per agent in **`/config/studio/ui.xml`**: **`<imageModel>`** (default model on the wire path), **`<imageGenerator>`** (backend selector). The stream/chat POST body may send **`imageModel`** and **`imageGenerator`**; when **`siteId`** + **`agentId`** are present, missing values can be merged from the matching **`<agent>`** row (see server merge behavior in [llm-configuration.md](llm-configuration.md)).
 
+**Reference script (Nano Banana 2 / Gemini 3.1 Flash Image):** copy [`docs/examples/aiassistant-imagegen/nano-banana-2/generate.groovy`](../examples/aiassistant-imagegen/nano-banana-2/generate.groovy) to **`/scripts/aiassistant/imagegen/nano-banana-2/generate.groovy`** and set **`script:nano-banana-2`** — see [scripted-tools-and-imagegen.md](scripted-tools-and-imagegen.md) (**§3.9**).
+
 ## Related site configuration
 
 | Path / file | Purpose |

@@ -1593,6 +1593,40 @@ For **content XML** (pages/components): do not invent a new element tree — pre
   }
 
   /**
+   * Native tools-loop sync POSTs default a high completion budget ({@code 16000}); some tools-loop hosts reject
+   * {@code max_tokens} above a per-model ceiling. Groq returns HTTP 400 when it exceeds the model limit (e.g.
+   * {@code meta-llama/llama-4-scout-17b-16e-instruct}: 8192). Clamp from {@code wireBaseUrl} when conservative caps apply.
+   * Override Groq cap: JVM {@code -Dstudio.scriptLlm.groqToolsLoopMaxOutTokens=8192} (integer, min 1).
+   */
+  private static int openAiClampMaxOutTokensForToolsLoopWire(String model, String wireBaseUrl, int requested) {
+    int r = requested > 0 ? requested : 8192
+    String base = (wireBaseUrl ?: '').toString().trim().toLowerCase(Locale.ROOT)
+    if (base.contains('groq.com')) {
+      int groqCap = 8192
+      try {
+        String sys = System.getProperty('studio.scriptLlm.groqToolsLoopMaxOutTokens')?.toString()?.trim()
+        if (sys) {
+          groqCap = Math.max(1, Integer.parseInt(sys))
+        }
+      } catch (Throwable ignored) {
+      }
+      int out = Math.min(r, groqCap)
+      if (out < r) {
+        log.debug(
+          'Tools-loop: Groq max completion tokens clamped requested={} -> {} (model={} wireBaseUrl={}; JVM studio.scriptLlm.groqToolsLoopMaxOutTokens overrides default cap {})',
+          r,
+          out,
+          model,
+          wireBaseUrl,
+          groqCap
+        )
+      }
+      return out
+    }
+    return openAiClampMaxOutTokensForChatCompletionsModel(model, r)
+  }
+
+  /**
    * o1 / o3 / o4 / gpt-5* reject non-default {@code temperature} (400 {@code unsupported_value}); omit the field so the API default applies.
    */
   private static Map openAiChatCompletionTemperatureParams(String model, double valueWhenSupported) {
@@ -2753,7 +2787,8 @@ Use CMS tools if repository work is still missing. **Do not** stream a new **## 
         tool_choice: 'auto',
         stream: false
       ]
-      reqMap.putAll(openAiChatCompletionOutputLimitParams(model, 16000))
+      int effMaxOut = openAiClampMaxOutTokensForToolsLoopWire(model, wireBaseUrl, 16000)
+      reqMap.putAll(openAiChatCompletionOutputLimitParams(model, effMaxOut))
       def jsonBody = openAiChatCompletionsWireBodyApplyNeoTemperaturePolicy(JsonOutput.toJson(reqMap))
       if (logFirstPostChars && round == 0) {
         log.debug(

@@ -86,6 +86,14 @@ Use this file when you need to tune timeouts, logging, or defaults that are not 
 
 ---
 
+## Tools-loop host caps (`studio.scriptLlm.*`)
+
+| Property | Default / notes |
+|----------|-----------------|
+| **`studio.scriptLlm.groqToolsLoopMaxOutTokens`** | When the tools-loop **`/v1/chat/completions`** POST targets **Groq** (`wireBaseUrl` contains **`groq.com`**), completion **`max_tokens`** is clamped to this value (default **8192** if unset). Prevents HTTP **400** from Groq for models whose max completion is below the plugin’s generic tools-loop budget. |
+
+---
+
 ## Misc
 
 | Property | Role |
